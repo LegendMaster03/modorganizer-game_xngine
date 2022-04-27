@@ -6,6 +6,7 @@
 
 #include "RtxDatabase.cpp"
 #include "MenuFile.cpp"
+#include "MapChanges.cpp"
 
  // Standard mod changes file names
  public static final String RTX_CHANGES = "RTX Changes.txt";
@@ -18,13 +19,6 @@ using namespace MOBase;
      * Collects all of the changes from enabled mods in their load order, and patches the game files.
      */
     private static void applyChanges() {
-        // Check if the user really wants to apply changes
-        int shouldApply = JOptionPane.showConfirmDialog(window, "Are you sure you want to apply changes from the enabled mods?",
-                "Confirm apply changes", JOptionPane.YES_NO_OPTION);
-        if (shouldApply != JOptionPane.YES_OPTION) {
-            return;
-        }
-
         RtxDatabase modifiedDatabase = null;
         MenuFile modifiedMenu = null;
         MapChanges mapChanges = new MapChanges();
