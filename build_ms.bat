@@ -57,7 +57,8 @@ echo ==========================================
 echo Deploying DLL...
 echo ==========================================
 set "BIN_DLL=%SCRIPT_DIR%\bin\game_redguard.dll"
-set "TARGET_DIR=%SCRIPT_DIR%\..\..\.."
+set "TARGET_DIR=%SCRIPT_DIR%\..\.."
+if "%TARGET_DIR%"=="" goto error_copy
 if not exist "%BIN_DLL%" goto error_dll_not_found
 copy /Y "%BIN_DLL%" "%TARGET_DIR%\"
 if errorlevel 1 goto error_copy
