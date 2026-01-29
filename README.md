@@ -106,11 +106,6 @@ See project license file for details.
 
 ## 🙏 Acknowledgments
 
-- Original Java implementation reference code
+- Dillonn241 for starting the Redguard modding scene
 - ModOrganizer 2 team for the plugin system
 - Bethesda for the XnGine engine and Redguard
-
----
-
-**Last Updated:** January 28, 2026  
-**Status:** Type 1 mod loading complete and ready for testing
