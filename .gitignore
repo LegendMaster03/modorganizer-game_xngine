@@ -1,0 +1,52 @@
+# Build directories
+build/
+bin/
+.qtvenv/
+
+# Build artifacts
+*.o
+*.obj
+*.dll
+*.exp
+*.lib
+*.ilk
+*.pdb
+
+# CMake artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.ninja
+*.ninja_deps
+*.ninja_log
+
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.sln
+
+# Qt
+*_autogen/
+*.qrc.depends
+moc_*.cpp
+ui_*.h
+
+# Logs
+*.log
+*.txt.user
+
+# Backup files
+*.backup
+*~
+
+# Test artifacts
+test_mods/
+test_*.cpp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug logs
+redguard_*.log
+redguard_*.txt

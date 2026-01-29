@@ -1,87 +1,119 @@
+#include "MapChanges.h"
 
-public class MapChanges {
-    /**
-     * Stores a list of script line changes under their map name and position. Deletions are represented by a null first
-     * element. Insertions are all the other elements, guaranteed to not be null.
-     */
-    private Map<String, Map<Integer, List<String>>> lineChanges;
+#include <QFile>
+#include <QTextStream>
 
-    public MapChanges() {
-        lineChanges = new HashMap<>();
+MapChanges::MapChanges() = default;
+
+QList<QString>* MapChanges::lineChangesAt(const QString& mapName, int pos)
+{
+  if (mLineChanges.contains(mapName) && mLineChanges[mapName].contains(pos)) {
+    return &mLineChanges[mapName][pos];
+  }
+  return nullptr;
+}
+
+bool MapChanges::hasModifiedMap(const QString& mapName) const
+{
+  return mLineChanges.contains(mapName);
+}
+
+void MapChanges::addChanges(const QString& mapName, const QMap<int, QList<QString>>& mapChanges)
+{
+  for (auto it = mapChanges.begin(); it != mapChanges.end(); ++it) {
+    int pos = it.key();
+    const QList<QString>& lines = it.value();
+    for (const QString& line : lines) {
+      addChange(mapName, pos, line);
     }
+  }
+}
 
-    public List<String> lineChangesAt(String mapName, int pos) {
-        if (lineChanges.containsKey(mapName) && lineChanges.get(mapName).containsKey(pos)) {
-            return lineChanges.get(mapName).get(pos);
-        }
-        return null;
-    }
+void MapChanges::addChange(const QString& mapName, int pos, const QString& line)
+{
+  if (!mLineChanges.contains(mapName)) {
+    mLineChanges[mapName] = QMap<int, QList<QString>>();
+  }
+  if (!mLineChanges[mapName].contains(pos)) {
+    mLineChanges[mapName][pos] = QList<QString>();
+  }
 
-    public boolean hasModifiedMap(String mapName) {
-        return lineChanges.containsKey(mapName);
-    }
+  QList<QString>& list = mLineChanges[mapName][pos];
 
-    public void addChanges(String mapName, Map<Integer, List<String>> mapChanges) {
-        for (int pos : mapChanges.keySet()) {
-            for (String line : mapChanges.get(pos)) {
-                addChange(mapName, pos, line);
-            }
-        }
+  // Handle deletions (represented as empty strings)
+  if (line.isEmpty()) {
+    if (list.isEmpty() || !list.first().isEmpty()) {
+      list.prepend("");  // Add deletion marker at front
     }
+  } else {
+    list.append(line);  // Add insertion
+  }
+}
 
-    public void addChange(String mapName, int pos, String line) {
-        if (!lineChanges.containsKey(mapName)) {
-            lineChanges.put(mapName, new TreeMap<>());
-        }
-        if (!lineChanges.get(mapName).containsKey(pos)) {
-            lineChanges.get(mapName).put(pos, new LinkedList<>());
-        }
-        List<String> list = lineChanges.get(mapName).get(pos);
-        if (line == null) {
-            if (list.isEmpty() || list.get(0) != null) {
-                list.add(0, null);
-            }
-        } else {
-            list.add(line);
-        }
-    }
+bool MapChanges::readChanges(const QString& changesFilePath)
+{
+  QFile file(changesFilePath);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    return false;
+  }
 
-    public void readChanges(File changesFile) throws IOException {
-        BufferedReader reader = new BufferedReader(new FileReader(changesFile));
-        String currentMap = null;
-        for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-            String trim = line.trim();
-            if (!trim.isEmpty()) {
-                if (line.charAt(0) != ' ') {
-                    currentMap = trim;
-                    lineChanges.put(currentMap, new TreeMap<>());
-                } else {
-                    String[] split = line.split("\t");
-                    int pos = Integer.parseInt(split[0].trim());
-                    if (!lineChanges.get(currentMap).containsKey(pos)) {
-                        lineChanges.get(currentMap).put(pos, new LinkedList<>());
-                    }
-                    String change = split.length > 1 ? split[1] : "";
-                    addChange(currentMap, pos, change);
-                }
-            }
-        }
-        reader.close();
-    }
+  QString currentMap;
+  QTextStream in(&file);
 
-    public void writeChanges(File fileToWrite) throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(fileToWrite));
-        for (String mapName : lineChanges.keySet()) {
-            writer.write(mapName);
-            writer.newLine();
-            for (int pos : lineChanges.get(mapName).keySet()) {
-                List<String> list = lineChanges.get(mapName).get(pos);
-                for (String line : list) {
-                    writer.write("  " + pos + "\t" + line);
-                    writer.newLine();
-                }
-            }
+  while (!in.atEnd()) {
+    QString line = in.readLine();
+    QString trimmed = line.trimmed();
+
+    if (!trimmed.isEmpty()) {
+      // Check if line starts with whitespace (it's a position/change line)
+      if (line.at(0) != ' ' && line.at(0) != '\t') {
+        // This is a map name
+        currentMap = trimmed;
+        if (!mLineChanges.contains(currentMap)) {
+          mLineChanges[currentMap] = QMap<int, QList<QString>>();
         }
-        writer.close();
+      } else if (!currentMap.isEmpty()) {
+        // This is a position and change
+        QStringList parts = line.split('\t');
+        if (parts.size() >= 1) {
+          bool ok = false;
+          int pos = parts[0].trimmed().toInt(&ok);
+          if (ok) {
+            QString change = parts.size() > 1 ? parts[1] : "";
+            addChange(currentMap, pos, change);
+          }
+        }
+      }
     }
+  }
+
+  file.close();
+  return true;
+}
+
+bool MapChanges::writeChanges(const QString& filePath) const
+{
+  QFile file(filePath);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    return false;
+  }
+
+  QTextStream out(&file);
+
+  for (auto mapIt = mLineChanges.begin(); mapIt != mLineChanges.end(); ++mapIt) {
+    out << mapIt.key() << "\n";
+
+    const QMap<int, QList<QString>>& posMap = mapIt.value();
+    for (auto posIt = posMap.begin(); posIt != posMap.end(); ++posIt) {
+      int pos = posIt.key();
+      const QList<QString>& changes = posIt.value();
+
+      for (const QString& change : changes) {
+        out << "  " << pos << "\t" << change << "\n";
+      }
+    }
+  }
+
+  file.close();
+  return true;
 }
