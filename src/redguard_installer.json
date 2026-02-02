@@ -1,7 +1,0 @@
-{
-  "IID": "com.tannin.ModOrganizer.PluginInstaller",
-  "version": "1.0.0",
-  "name": "Redguard Mod Installer",
-  "author": "Redguard MO2 Plugin Team",
-  "description": "Handles installation of Redguard mods with proper directory structure"
-}
