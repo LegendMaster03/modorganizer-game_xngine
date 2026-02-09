@@ -49,15 +49,6 @@ XngineModDataChecker::CheckReturn XngineModDataChecker::dataLooksValid(
     return CheckReturn::INVALID;
   }
 
-  // Patch-instruction indicators (engine-level, game-agnostic)
-  if (fileTree->find("About.txt", MOBase::IFileTree::FILE) ||
-      fileTree->find("INI Changes.txt", MOBase::IFileTree::FILE) ||
-      fileTree->find("Map Changes.txt", MOBase::IFileTree::FILE) ||
-      fileTree->find("RTX Changes.txt", MOBase::IFileTree::FILE)) {
-    qDebug() << "[XnGine] ModDataChecker: detected patch-instruction indicators";
-    return CheckReturn::VALID;
-  }
-
   auto& folders  = possibleFolderNames();
   auto& suffixes = possibleFileExtensions();
   for (auto entry : *fileTree) {

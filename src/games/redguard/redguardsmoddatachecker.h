@@ -6,14 +6,32 @@
 /**
  * Redguard-specific mod data checker.
  * Redguard mod detection follows these indicators:
+ * - Format 0 (File replacement): .RGM (Redguard module), .RTX (texture), .SAV (save) files
  * - Format 1 (Patch-based): About.txt + at least one *Changes.txt file (INI/Map/RTX changes)
- * - Format 2 (File replacement): .RGM (Redguard module), .RTX (texture), .SAV (save) files
  *   or mod contains Redguard game data folders (data, maps, textures, etc.)
  */
 class RedguardsModDataChecker : public XngineModDataChecker
 {
 public:
   using XngineModDataChecker::XngineModDataChecker;
+
+  virtual CheckReturn
+  dataLooksValid(std::shared_ptr<const MOBase::IFileTree> fileTree) const override
+  {
+    if (!fileTree) {
+      return CheckReturn::INVALID;
+    }
+
+    // Redguard-only patch-instruction indicators
+    if (fileTree->find("About.txt", MOBase::IFileTree::FILE) ||
+        fileTree->find("INI Changes.txt", MOBase::IFileTree::FILE) ||
+        fileTree->find("Map Changes.txt", MOBase::IFileTree::FILE) ||
+        fileTree->find("RTX Changes.txt", MOBase::IFileTree::FILE)) {
+      return CheckReturn::VALID;
+    }
+
+    return XngineModDataChecker::dataLooksValid(fileTree);
+  }
 
 protected:
   virtual const FileNameSet& possibleFolderNames() const override

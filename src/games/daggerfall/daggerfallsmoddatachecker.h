@@ -5,8 +5,7 @@
 
 /**
  * Daggerfall-specific mod data checker.
- * Daggerfall mod detection based on Format 2 (file replacement) only.
- * Format 1 (patch-based) support to be added when patch format is documented.
+ * Daggerfall mod detection based on Format 0 (file replacement) only.
  */
 class DaggerfallsModDataChecker : public XngineModDataChecker
 {
@@ -26,7 +25,7 @@ protected:
 
   virtual const FileNameSet& possibleFileExtensions() const override
   {
-    // Daggerfall-specific extensions (Format 2 only at this time)
+    // Daggerfall-specific extensions (Format 0 only at this time)
     static FileNameSet result{
         "dat",     // Daggerfall data files
         "mif",     // Map interchange format

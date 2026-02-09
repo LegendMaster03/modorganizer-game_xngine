@@ -20,8 +20,6 @@ XngineModDataContent::getAllContents() const
 {
   qInfo().noquote() << "[XngineModDataContent] getAllContents() ENTRY";
   static std::vector<Content> XNGINE_CONTENTS{
-    {CONTENT_PATCH_INSTRUCTIONS, QT_TR_NOOP("Patch Instructions"),
-     ":/MO/gui/content/script"},
     {CONTENT_FILE_OVERRIDES, QT_TR_NOOP("File Overrides"),
      ":/MO/gui/content/mesh"},
     {CONTENT_AUDIO, QT_TR_NOOP("Audio"), ":/MO/gui/content/sound"},

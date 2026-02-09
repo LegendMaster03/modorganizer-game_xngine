@@ -141,7 +141,7 @@ registerFeature(std::make_shared<XngineUnmanagedMods>(this));
 - Detection: Look for DOSBox-0.73/ (Steam) or DOSBOX/ (GOG)
 - Saves: SAVEGAME.XXX folders containing SAVEGAME.SAV
 - Executables: DOSBox wrapper + Redguard.exe
-- Mod formats: Type 1 (About.txt + Changes.txt) and Type 2 (.RGM/.RTX files)
+- Mod formats: Format 0 (.RGM/.RTX files) and Format 1 (About.txt + Changes.txt)
 
 ### Daggerfall (WIP)
 - Detection: DAGGER.EXE or ARENA2/ directory
