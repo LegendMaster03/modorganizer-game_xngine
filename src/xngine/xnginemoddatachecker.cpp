@@ -32,11 +32,18 @@ auto XngineModDataChecker::possibleFileExtensions() const -> const FileNameSet&
 }
 
 XngineModDataChecker::XngineModDataChecker(const GameXngine* game) : m_Game(game)
-{}
+{
+  OutputDebugStringA("[XngineModDataChecker] Constructor ENTRY\n");
+  if (!game) {
+    OutputDebugStringA("[XngineModDataChecker] WARNING: game pointer is NULL\n");
+  }
+  OutputDebugStringA("[XngineModDataChecker] Constructor EXIT\n");
+}
 
 XngineModDataChecker::CheckReturn XngineModDataChecker::dataLooksValid(
     std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {
+  qInfo().noquote() << "[XngineModDataChecker] dataLooksValid() ENTRY";
   if (!fileTree) {
     qDebug() << "[XnGine] ModDataChecker: fileTree is null";
     return CheckReturn::INVALID;

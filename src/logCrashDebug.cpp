@@ -11,7 +11,7 @@
 #include <QDateTime>
 
 void RGMODFrameworkWrapper::logCrashDebug(const QString& message) const {
-  QString logPath = QDir::toNativeSeparators("F:/Modding/MO2/redguard_crash_debug.log");
+  QString logPath = QDir::toNativeSeparators("D:/Projects/modorganizer-game_xngine/redguard_crash_debug.log");
   QFileInfo logInfo(logPath);
   QDir logDir = logInfo.dir();
   if (!logDir.exists()) {

@@ -63,6 +63,9 @@ list(APPEND CMAKE_AUTOMOC_MOC_OPTIONS "-I${MO2_UIBASE_PATH}/game_features")
 find_package(zlib QUIET)
 find_package(lz4 QUIET)
 
+# Add vcpkg include paths for compression libraries
+include_directories(C:/vcpkg/installed/x64-windows/include)
+
 target_link_libraries(xngine PUBLIC
 	Qt6::Core
 	Qt6::Gui
@@ -70,6 +73,7 @@ target_link_libraries(xngine PUBLIC
 	${MO2_UIBASE_LIB}
 	imagehlp.lib
 	C:/vcpkg/installed/x64-windows/lib/zlib.lib
+	C:/vcpkg/installed/x64-windows/lib/lz4.lib
 )
 
 # Link against compression libraries if found

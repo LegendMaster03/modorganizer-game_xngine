@@ -25,40 +25,86 @@
 #include <winver.h>
 
 #include <optional>
+#include <cstring>
 #include <string>
 #include <vector>
 
-GameXngine::GameXngine() {}
+static bool isPeExecutable(const QString& path)
+{
+  QFile file(path);
+  if (!file.open(QIODevice::ReadOnly)) {
+    return false;
+  }
+
+  QByteArray header = file.read(64);
+  if (header.size() < 64 || header[0] != 'M' || header[1] != 'Z') {
+    return false;
+  }
+
+  quint32 peOffset = 0;
+  memcpy(&peOffset, header.constData() + 0x3C, sizeof(peOffset));
+  file.seek(peOffset);
+  QByteArray peSig = file.read(4);
+  return peSig.size() >= 4 && peSig[0] == 'P' && peSig[1] == 'E' && peSig[2] == '\0' &&
+         peSig[3] == '\0';
+}
+
+GameXngine::GameXngine() {
+  qInfo().noquote() << "[GameXngine] Constructor ENTRY";
+  OutputDebugStringA("[GameXngine] Constructor ENTRY\n");
+  OutputDebugStringA("[GameXngine] Constructor EXIT\n");
+  qInfo().noquote() << "[GameXngine] Constructor EXIT";
+}
 
 void GameXngine::detectGame()
 {
+  qInfo().noquote() << "[GameXngine] detectGame() ENTRY";
+  OutputDebugStringA(("[GameXngine] detectGame() ENTRY - gameName='" + gameName().toStdString() + "'\n").c_str());
   m_GamePath    = identifyGamePath();
+  qInfo().noquote() << "[GameXngine] detectGame() m_GamePath=" << m_GamePath;
+  OutputDebugStringA(("[GameXngine] detectGame() m_GamePath = '" + m_GamePath.toStdString() + "'\n").c_str());
   m_MyGamesPath = determineMyGamesPath(gameName());
+  qInfo().noquote() << "[GameXngine] detectGame() EXIT";
+  OutputDebugStringA("[GameXngine] detectGame() EXIT\n");
 }
 
 bool GameXngine::init(MOBase::IOrganizer* moInfo)
 {
+  qInfo().noquote() << "[GameXngine] init() ENTRY";
+  OutputDebugStringA(("[GameXngine] init() ENTRY - gameName='" + gameName().toStdString() + "'\n").c_str());
   m_Organizer = moInfo;
+  if (!m_Organizer) {
+    qWarning().noquote() << "[GameXngine] WARNING: m_Organizer is NULL in init()";
+    OutputDebugStringA("[GameXngine] WARNING: m_Organizer is NULL in init()\n");
+    return false;
+  }
   m_Organizer->onAboutToRun([this](const auto& binary) {
     return prepareIni(binary);
   });
+  qInfo().noquote() << "[GameXngine] init() EXIT";
+  OutputDebugStringA("[GameXngine] init() EXIT\n");
   return true;
 }
 
 bool GameXngine::isInstalled() const
 {
+  qInfo().noquote() << "[GameXngine] isInstalled() called";
+  OutputDebugStringA(("[GameXngine] isInstalled() called - gameName='" + gameName().toStdString() + "'\n").c_str());
+  OutputDebugStringA(("[GameXngine] m_GamePath = '" + m_GamePath.toStdString() + "'\n").c_str());
   return !m_GamePath.isEmpty();
 }
 
 void GameXngine::initializeProfile(const QDir& profile,
                                    MOBase::IPluginGame::ProfileSettings settings) const
 {
+  qInfo().noquote() << "[GameXngine] initializeProfile() ENTRY";
   // Stub implementation - XnGine games typically don't need special profile initialization
   // Override in derived classes if needed
 }
 
 QList<MOBase::ExecutableForcedLoadSetting> GameXngine::executableForcedLoads() const
 {
+  qInfo().noquote() << "[GameXngine] executableForcedLoads() ENTRY";
   // Stub implementation - XnGine games typically don't use forced loads
   // Override in derived classes if needed
   return QList<MOBase::ExecutableForcedLoadSetting>();
@@ -66,48 +112,105 @@ QList<MOBase::ExecutableForcedLoadSetting> GameXngine::executableForcedLoads() c
 
 QIcon GameXngine::gameIcon() const
 {
-  return MOBase::iconForExecutable(gameDirectory().absoluteFilePath(binaryName()));
+  qInfo().noquote() << "[GameXngine] gameIcon() ENTRY";
+  OutputDebugStringA("[GameXngine] gameIcon() ENTRY\n");
+  if (m_GamePath.isEmpty()) {
+    qWarning().noquote() << "[GameXngine] gameIcon() - m_GamePath is EMPTY, returning default icon";
+    OutputDebugStringA("[GameXngine] gameIcon() - m_GamePath is EMPTY, returning default icon\n");
+    return QIcon();
+  }
+  QString binPath = gameDirectory().absoluteFilePath(binaryName());
+  if (!isPeExecutable(binPath)) {
+    qWarning().noquote() << "[GameXngine] gameIcon() - non-PE binary, returning default icon";
+    OutputDebugStringA("[GameXngine] gameIcon() - non-PE binary, returning default icon\n");
+    return QIcon();
+  }
+  qInfo().noquote() << "[GameXngine] gameIcon() - calling iconForExecutable:" << binPath;
+  OutputDebugStringA("[GameXngine] gameIcon() - calling iconForExecutable\n");
+  QIcon icon = MOBase::iconForExecutable(binPath);
+  qInfo().noquote() << "[GameXngine] gameIcon() EXIT";
+  OutputDebugStringA("[GameXngine] gameIcon() EXIT\n");
+  return icon;
 }
 
 QDir GameXngine::gameDirectory() const
 {
+  qInfo().noquote() << "[GameXngine] gameDirectory() called m_GamePath=" << m_GamePath;
+  OutputDebugStringA(("[GameXngine] gameDirectory() called - gameName='" + gameName().toStdString() + "'\n").c_str());
+  OutputDebugStringA(("[GameXngine] m_GamePath = '" + m_GamePath.toStdString() + "'\n").c_str());
   return QDir(m_GamePath);
 }
 
 QDir GameXngine::dataDirectory() const
 {
-  return gameDirectory().absoluteFilePath("data");
+  qInfo().noquote() << "[GameXngine] dataDirectory() called";
+  OutputDebugStringA("[GameXngine] dataDirectory() called\n");
+  QDir dir = gameDirectory();
+  QDir dataDir = dir.absoluteFilePath("data");
+  qInfo().noquote() << "[GameXngine] dataDirectory() path=" << dataDir.absolutePath();
+  OutputDebugStringA("[GameXngine] dataDirectory() computed\n");
+  return dataDir;
 }
 
 void GameXngine::setGamePath(const QString& path)
 {
+  qInfo().noquote() << "[GameXngine] setGamePath() ENTRY";
   m_GamePath = path;
 }
 
 QDir GameXngine::documentsDirectory() const
 {
+  qInfo().noquote() << "[GameXngine] documentsDirectory() called path=" << m_MyGamesPath;
+  OutputDebugStringA("[GameXngine] documentsDirectory() called\n");
   return m_MyGamesPath;
 }
 
 QDir GameXngine::savesDirectory() const
 {
+  qInfo().noquote() << "[GameXngine] savesDirectory() called";
+  OutputDebugStringA("[GameXngine] savesDirectory() called\n");
   return QDir(myGamesPath() + "/Saves");
 }
 
 std::vector<std::shared_ptr<const MOBase::ISaveGame>>
 GameXngine::listSaves(QDir folder) const
 {
+  qInfo().noquote() << "[GameXngine] listSaves() ENTRY folder=" << folder.absolutePath();
+  OutputDebugStringA(("[GameXngine] listSaves() ENTRY - gameName='" + gameName().toStdString() + "'\n").c_str());
+  OutputDebugStringA(("[GameXngine] listSaves() folder='" + folder.absolutePath().toStdString() + "'\n").c_str());
+  if (!folder.exists()) {
+    qInfo().noquote() << "[GameXngine] listSaves() - folder does not exist, returning empty";
+    OutputDebugStringA("[GameXngine] listSaves() - folder does not exist, returning empty\n");
+    return {};
+  }
+  if (gameShortName().compare("Battlespire", Qt::CaseInsensitive) == 0) {
+    qInfo().noquote() << "[GameXngine] listSaves() - Battlespire disabled for stability";
+    OutputDebugStringA("[GameXngine] listSaves() - Battlespire disabled for stability\n");
+    return {};
+  }
+
   QStringList filters;
   filters << QString("*.") + savegameExtension();
 
   std::vector<std::shared_ptr<const MOBase::ISaveGame>> saves;
-  for (auto info : folder.entryInfoList(filters, QDir::Files)) {
-    try {
-      saves.push_back(makeSaveGame(info.filePath()));
-    } catch (std::exception& e) {
-      // MOBase::log::error("{}", e.what());
-      continue;
+  try {
+    for (auto info : folder.entryInfoList(filters, QDir::Files)) {
+      try {
+        saves.push_back(makeSaveGame(info.filePath()));
+      } catch (std::exception&) {
+        qWarning().noquote() << "[GameXngine] listSaves() - exception parsing save, skipping";
+        OutputDebugStringA("[GameXngine] listSaves() - exception parsing save, skipping\n");
+        continue;
+      }
     }
+  } catch (std::exception&) {
+    qWarning().noquote() << "[GameXngine] listSaves() - exception listing saves, returning empty";
+    OutputDebugStringA("[GameXngine] listSaves() - exception listing saves, returning empty\n");
+    return {};
+  } catch (...) {
+    qWarning().noquote() << "[GameXngine] listSaves() - unknown exception, returning empty";
+    OutputDebugStringA("[GameXngine] listSaves() - unknown exception, returning empty\n");
+    return {};
   }
 
   return saves;
@@ -115,28 +218,38 @@ GameXngine::listSaves(QDir folder) const
 
 void GameXngine::setGameVariant(const QString& variant)
 {
+  qInfo().noquote() << "[GameXngine] setGameVariant() ENTRY";
   m_GameVariant = variant;
 }
 
 QString GameXngine::binaryName() const
 {
+  qInfo().noquote() << "[GameXngine] binaryName() ENTRY";
   return gameShortName() + ".exe";
 }
 
 MOBase::IPluginGame::LoadOrderMechanism GameXngine::loadOrderMechanism() const
 {
+  qInfo().noquote() << "[GameXngine] loadOrderMechanism() ENTRY";
   return LoadOrderMechanism::FileTime;
 }
 
 MOBase::IPluginGame::SortMechanism GameXngine::sortMechanism() const
 {
+  qInfo().noquote() << "[GameXngine] sortMechanism() ENTRY";
   return SortMechanism::LOOT;
 }
 
 bool GameXngine::looksValid(QDir const& path) const
 {
+  qInfo().noquote() << "[GameXngine] looksValid() ENTRY path=" << path.absolutePath();
   // Check for <prog>.exe for now.
-  return path.exists(binaryName());
+  OutputDebugStringA(("[GameXngine] looksValid() ENTRY - gameName='" + gameName().toStdString() + "'\n").c_str());
+  OutputDebugStringA(("[GameXngine] looksValid() path='" + path.absolutePath().toStdString() + "'\n").c_str());
+  const auto exists = path.exists(binaryName());
+  qInfo().noquote() << "[GameXngine] looksValid() binary=" << binaryName() << " exists=" << (exists ? "true" : "false");
+  OutputDebugStringA(("[GameXngine] looksValid() binary='" + binaryName().toStdString() + "' exists=" + (exists ? "true" : "false") + "\n").c_str());
+  return exists;
 }
 
 QString GameXngine::gameVersion() const
@@ -145,6 +258,20 @@ QString GameXngine::gameVersion() const
   // version), we look the product version instead. If the product version is
   // not empty, we use it.
   QString binaryAbsPath = gameDirectory().absoluteFilePath(binaryName());
+  qInfo().noquote() << "[GameXngine] gameVersion() ENTRY binary=" << binaryAbsPath;
+  OutputDebugStringA("[GameXngine] gameVersion() ENTRY\n");
+  QFileInfo binaryInfo(binaryAbsPath);
+  if (!binaryInfo.exists()) {
+    qWarning().noquote() << "[GameXngine] gameVersion() - binary not found, using fallback";
+    OutputDebugStringA("[GameXngine] gameVersion() - binary not found, using fallback\n");
+    return FALLBACK_GAME_VERSION;
+  }
+  if (!isPeExecutable(binaryAbsPath)) {
+    qWarning().noquote() << "[GameXngine] gameVersion() - non-PE binary, using fallback";
+    OutputDebugStringA("[GameXngine] gameVersion() - non-PE binary, using fallback\n");
+    return FALLBACK_GAME_VERSION;
+  }
+
   QString version       = MOBase::getFileVersion(binaryAbsPath);
   if (version.startsWith(FALLBACK_GAME_VERSION)) {
     QString pversion = MOBase::getProductVersion(binaryAbsPath);
@@ -157,17 +284,30 @@ QString GameXngine::gameVersion() const
 
 QString GameXngine::getLauncherName() const
 {
+  qInfo().noquote() << "[GameXngine] getLauncherName() ENTRY";
   return gameShortName() + "Launcher.exe";
 }
 
 WORD GameXngine::getArch(QString const& program) const
 {
+  qInfo().noquote() << "[GameXngine] getArch() ENTRY program=" << program;
+  OutputDebugStringA(("[GameXngine] getArch() ENTRY - program='" + program.toStdString() + "'\n").c_str());
   WORD arch = 0;
   // This *really* needs to be factored out
-  std::wstring app_name =
-      L"\\\\?\\" +
-      QDir::toNativeSeparators(this->gameDirectory().absoluteFilePath(program))
-          .toStdWString();
+  QString absPath = this->gameDirectory().absoluteFilePath(program);
+  qInfo().noquote() << "[GameXngine] getArch() absPath=" << absPath;
+  OutputDebugStringA(("[GameXngine] getArch() absPath='" + absPath.toStdString() + "'\n").c_str());
+  if (program.isEmpty()) {
+    qWarning().noquote() << "[GameXngine] getArch() - empty program, returning 0";
+    OutputDebugStringA("[GameXngine] getArch() - empty program, returning 0\n");
+    return arch;
+  }
+  if (!isPeExecutable(absPath)) {
+    qWarning().noquote() << "[GameXngine] getArch() - non-PE binary, returning 0";
+    OutputDebugStringA("[GameXngine] getArch() - non-PE binary, returning 0\n");
+    return arch;
+  }
+  std::wstring app_name = L"\\?\\" + QDir::toNativeSeparators(absPath).toStdWString();
 
   WIN32_FIND_DATAW FindFileData;
   HANDLE hFind = ::FindFirstFileW(app_name.c_str(), &FindFileData);
@@ -212,37 +352,44 @@ cleanup:  // release all of our handles
 
 QFileInfo GameXngine::findInGameFolder(const QString& relativePath) const
 {
+  qInfo().noquote() << "[GameXngine] findInGameFolder() ENTRY";
   return QFileInfo(m_GamePath + "/" + relativePath);
 }
 
 QString GameXngine::identifyGamePath() const
 {
+  qInfo().noquote() << "[GameXngine] identifyGamePath() ENTRY";
   return QString();
 }
 
 bool GameXngine::prepareIni(const QString&)
 {
+  qInfo().noquote() << "[GameXngine] prepareIni() ENTRY";
   return true;
 }
 
 QString GameXngine::selectedVariant() const
 {
+  qInfo().noquote() << "[GameXngine] selectedVariant() ENTRY";
   return m_GameVariant;
 }
 
 QString GameXngine::myGamesPath() const
 {
+  qInfo().noquote() << "[GameXngine] myGamesPath() ENTRY";
   return m_MyGamesPath;
 }
 
 /*static*/ QString GameXngine::getLootPath()
 {
+  qInfo().noquote() << "[GameXngine] getLootPath() ENTRY";
   return findInRegistry(HKEY_LOCAL_MACHINE, L"Software\\LOOT", L"Installed Path") +
          "/Loot.exe";
 }
 
 QString GameXngine::localAppFolder()
 {
+  qInfo().noquote() << "[GameXngine] localAppFolder() ENTRY";
   QString result = getKnownFolderPath(FOLDERID_LocalAppData, false);
   if (result.isEmpty()) {
     // fallback: try the registry
@@ -255,6 +402,7 @@ void GameXngine::copyToProfile(QString const& sourcePath,
                                  QDir const& destinationDirectory,
                                  QString const& sourceFileName)
 {
+  qInfo().noquote() << "[GameXngine] copyToProfile() ENTRY (3 args)";
   copyToProfile(sourcePath, destinationDirectory, sourceFileName, sourceFileName);
 }
 
@@ -263,6 +411,7 @@ void GameXngine::copyToProfile(QString const& sourcePath,
                                  QString const& sourceFileName,
                                  QString const& destinationFileName)
 {
+  qInfo().noquote() << "[GameXngine] copyToProfile() ENTRY (4 args)";
   QString filePath = destinationDirectory.absoluteFilePath(destinationFileName);
   if (!QFileInfo(filePath).exists()) {
     if (!MOBase::shellCopy(sourcePath + "/" + sourceFileName, filePath)) {
@@ -274,6 +423,7 @@ void GameXngine::copyToProfile(QString const& sourcePath,
 
 MappingType GameXngine::mappings() const
 {
+  qInfo().noquote() << "[GameXngine] mappings() ENTRY";
   return {};
 }
 
@@ -310,10 +460,26 @@ std::unique_ptr<BYTE[]> GameXngine::getRegValue(HKEY key, LPCWSTR path, LPCWSTR 
 
 QString GameXngine::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value)
 {
-  std::unique_ptr<BYTE[]> buffer =
-      getRegValue(baseKey, path, value, RRF_RT_REG_SZ | RRF_NOEXPAND);
-
-  return QString::fromUtf16(reinterpret_cast<const char16_t*>(buffer.get()));
+  try {
+    std::unique_ptr<BYTE[]> buffer =
+        getRegValue(baseKey, path, value, RRF_RT_REG_SZ | RRF_NOEXPAND);
+    if (!buffer) {
+      return {};
+    }
+    const auto* raw = reinterpret_cast<const char16_t*>(buffer.get());
+    if (!raw) {
+      return {};
+    }
+    return QString::fromUtf16(raw);
+  } catch (const std::exception&) {
+    qWarning().noquote() << "[GameXngine] findInRegistry() exception";
+    OutputDebugStringA("[GameXngine] findInRegistry() exception\n");
+    return {};
+  } catch (...) {
+    qWarning().noquote() << "[GameXngine] findInRegistry() unknown exception";
+    OutputDebugStringA("[GameXngine] findInRegistry() unknown exception\n");
+    return {};
+  }
 }
 
 QString GameXngine::getKnownFolderPath(REFKNOWNFOLDERID folderId, bool useDefault)
@@ -452,5 +618,12 @@ QString GameXngine::parseSteamLocation(const QString& appid,
 void GameXngine::registerFeature(std::shared_ptr<MOBase::GameFeature> feature)
 {
   // priority does not matter, this is a game plugin so will get lowest priority in MO2
+  if (!m_Organizer) {
+    qWarning().noquote() << "[GameXngine] registerFeature() called with null organizer";
+    OutputDebugStringA("[GameXngine] registerFeature() called with null organizer\n");
+    return;
+  }
+  qInfo().noquote() << "[GameXngine] registerFeature() ENTRY";
   m_Organizer->gameFeatures()->registerFeature(this, feature, 0, true);
+  qInfo().noquote() << "[GameXngine] registerFeature() EXIT";
 }

@@ -17,6 +17,7 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFileInfo>
+#include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QFile>
 
@@ -28,11 +29,64 @@
 
 using namespace MOBase;
 
-GameBattlespire::GameBattlespire() {}
+GameBattlespire::GameBattlespire()
+{
+  qInfo().noquote() << "[GameBattlespire] Constructor ENTRY";
+  OutputDebugStringA("[GameBattlespire] Constructor ENTRY\n");
+  OutputDebugStringA("[GameBattlespire] Constructor EXIT\n");
+  qInfo().noquote() << "[GameBattlespire] Constructor EXIT";
+}
+
+void GameBattlespire::detectGame()
+{
+  GameXngine::detectGame();
+
+  if (!m_MyGamesPath.isEmpty()) {
+    return;
+  }
+
+  const QString docsPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+  QString fallbackPath;
+  const QString localBase = GameXngine::localAppFolder();
+  if (!localBase.isEmpty()) {
+    fallbackPath = QDir::cleanPath(localBase + "/Battlespire");
+  } else if (!docsPath.isEmpty()) {
+    fallbackPath = QDir::cleanPath(docsPath + "/My Games/Battlespire");
+  }
+
+  if (!fallbackPath.isEmpty()) {
+    QDir().mkpath(fallbackPath);
+    m_MyGamesPath = fallbackPath;
+    qInfo().noquote() << "[GameBattlespire] detectGame() fallback myGamesPath:" << m_MyGamesPath;
+  }
+}
 
 bool GameBattlespire::init(IOrganizer* moInfo)
 {
-  if (!GameXngine::init(moInfo)) {
+  qInfo().noquote() << "[GameBattlespire] init() ENTRY";
+  OutputDebugStringA("[GameBattlespire] init() ENTRY\n");
+
+  try {
+    OutputDebugStringA("[GameBattlespire] About to call GameXngine::init()\n");
+    if (!GameXngine::init(moInfo)) {
+      qWarning().noquote() << "[GameBattlespire] GameXngine::init() FAILED";
+      OutputDebugStringA("[GameBattlespire] GameXngine::init() FAILED\n");
+      return false;
+    }
+    qInfo().noquote() << "[GameBattlespire] GameXngine::init() SUCCESS";
+    OutputDebugStringA("[GameBattlespire] GameXngine::init() SUCCESS\n");
+
+    // Features disabled for now
+    qInfo().noquote() << "[GameBattlespire] init() EXIT SUCCESS";
+    OutputDebugStringA("[GameBattlespire] init() EXIT SUCCESS\n");
+    return true;
+  } catch (const std::exception&) {
+    qWarning().noquote() << "[GameBattlespire] EXCEPTION in init()";
+    OutputDebugStringA("[GameBattlespire] EXCEPTION in init()\n");
+    return false;
+  } catch (...) {
+    qWarning().noquote() << "[GameBattlespire] UNKNOWN EXCEPTION in init()";
+    OutputDebugStringA("[GameBattlespire] UNKNOWN EXCEPTION in init()\n");
     return false;
   }
 
@@ -41,54 +95,82 @@ bool GameBattlespire::init(IOrganizer* moInfo)
   // registerFeature(std::make_shared<XngineSaveGameInfo>(this));
   // registerFeature(std::make_shared<XngineLocalSavegames>(this));
   // registerFeature(std::make_shared<XngineUnmanagedMods>(this));
+}
 
-  return true;
+std::vector<std::shared_ptr<const MOBase::ISaveGame>>
+GameBattlespire::listSaves(QDir folder) const
+{
+  Q_UNUSED(folder);
+  qInfo().noquote() << "[GameBattlespire] listSaves() - disabled for stability";
+  OutputDebugStringA("[GameBattlespire] listSaves() - disabled for stability\n");
+  return {};
 }
 
 QString GameBattlespire::gameName() const
 {
+  qInfo().noquote() << "[GameBattlespire] gameName() called";
+  OutputDebugStringA("[GameBattlespire] gameName() called\n");
+  return "Battlespire";
+}
+
+QString GameBattlespire::displayGameName() const
+{
+  qInfo().noquote() << "[GameBattlespire] displayGameName() called";
+  OutputDebugStringA("[GameBattlespire] displayGameName() called\n");
   return "An Elder Scrolls Legend: Battlespire";
 }
 
-QList<ExecutableInfo> GameBattlespire::executables() const
+QList<MOBase::ExecutableInfo> GameBattlespire::executables() const
 {
+  qInfo().noquote() << "[GameBattlespire] executables() ENTRY";
+  OutputDebugStringA("[GameBattlespire] executables() ENTRY\n");
+
   QList<ExecutableInfo> executables;
   QDir gameDir = gameDirectory();
-
-  // Steam DOSBox 0.73 launcher
-  QFileInfo steamDosbox(gameDir.filePath("DOSBox-0.73/dosbox.exe"));
-  if (steamDosbox.exists()) {
-    executables << ExecutableInfo("Battlespire (Steam DOSBox)", steamDosbox)
-                   .withArgument("-conf bs_single.conf");
+  if (gameDir.path().isEmpty() || !gameDir.exists()) {
+    qWarning().noquote() << "[GameBattlespire] executables() EXIT - invalid game directory";
+    OutputDebugStringA("[GameBattlespire] executables() EXIT - invalid game directory\n");
+    return executables;
   }
 
-  // GOG DOSBox launcher (if different version)
-  QFileInfo gogDosbox(gameDir.filePath("DOSBox/dosbox.exe"));
-  if (gogDosbox.exists() && !steamDosbox.exists()) {
-    executables << ExecutableInfo("Battlespire (GOG DOSBox)", gogDosbox)
-                   .withArgument("-conf bs_single.conf");
-  }
-
-  // Standalone SPIRE.BAT if available
   QFileInfo spireBat(gameDir.filePath("SPIRE.BAT"));
   if (spireBat.exists()) {
+    qInfo().noquote() << "[GameBattlespire] Found SPIRE.BAT executable";
+    OutputDebugStringA("[GameBattlespire] Found SPIRE.BAT executable\n");
     executables << ExecutableInfo("Battlespire", spireBat);
   }
 
-  // Fallback: look for any dosbox.exe in root
+  QFileInfo gameExe(gameDir.filePath("GAME.EXE"));
+  if (gameExe.exists()) {
+    qInfo().noquote() << "[GameBattlespire] Found GAME.EXE executable";
+    OutputDebugStringA("[GameBattlespire] Found GAME.EXE executable\n");
+    executables << ExecutableInfo("Battlespire (GAME.EXE)", gameExe);
+  }
+
   if (executables.empty()) {
     QFileInfo fallbackDosbox(gameDir.filePath("dosbox.exe"));
     if (fallbackDosbox.exists()) {
+      qInfo().noquote() << "[GameBattlespire] Found fallback dosbox.exe";
+      OutputDebugStringA("[GameBattlespire] Found fallback dosbox.exe\n");
       executables << ExecutableInfo("Battlespire (DOSBox)", fallbackDosbox)
                      .withArgument("-conf bs_single.conf");
     }
   }
 
+  if (executables.empty()) {
+    qWarning().noquote() << "[GameBattlespire] executables() EXIT - no executables found";
+    OutputDebugStringA("[GameBattlespire] executables() EXIT - no executables found\n");
+  } else {
+    qInfo().noquote() << "[GameBattlespire] executables() EXIT - executables found";
+    OutputDebugStringA("[GameBattlespire] executables() EXIT - executables found\n");
+  }
   return executables;
 }
 
 QString GameBattlespire::steamAPPId() const
 {
+  qInfo().noquote() << "[GameBattlespire] steamAPPId() called";
+  OutputDebugStringA("[GameBattlespire] steamAPPId() called\n");
   return "1812420";
 }
 
@@ -99,32 +181,71 @@ QString GameBattlespire::gogAPPId() const
 
 QString GameBattlespire::binaryName() const
 {
-  return "BATTLESP.EXE";
+  qInfo().noquote() << "[GameBattlespire] binaryName() called";
+  OutputDebugStringA("[GameBattlespire] binaryName() called\n");
+  return "GAME.EXE";
 }
 
 QString GameBattlespire::gameShortName() const
 {
+  qInfo().noquote() << "[GameBattlespire] gameShortName() called";
+  OutputDebugStringA("[GameBattlespire] gameShortName() called\n");
   return "Battlespire";
 }
 
 QString GameBattlespire::gameNexusName() const
 {
+  /*
+  qInfo().noquote() << "[GameBattlespire] gameNexusName() called";
+  OutputDebugStringA("[GameBattlespire] gameNexusName() called\n");
   return "anelderscrollslegendbattlespire";
+  */
+  return {};
 }
 
 QStringList GameBattlespire::validShortNames() const
 {
+  qInfo().noquote() << "[GameBattlespire] validShortNames() called";
+  OutputDebugStringA("[GameBattlespire] validShortNames() called\n");
+  /*
   return {"battlespire", "an elder scrolls legend", "tesbattlespire"};
+  */
+  return {"battlespire"};
 }
 
 int GameBattlespire::nexusModOrganizerID() const
 {
+  qInfo().noquote() << "[GameBattlespire] nexusModOrganizerID() called";
+  OutputDebugStringA("[GameBattlespire] nexusModOrganizerID() called\n");
   return 0;  // To be determined
 }
 
 int GameBattlespire::nexusGameID() const
 {
+  qInfo().noquote() << "[GameBattlespire] nexusGameID() called";
+  OutputDebugStringA("[GameBattlespire] nexusGameID() called\n");
   return 1788;  // Nexus Game ID for Battlespire/An Elder Scrolls Legend: Battlespire
+}
+
+bool GameBattlespire::looksValid(QDir const& path) const
+{
+  qInfo().noquote() << "[GameBattlespire] looksValid() called";
+  OutputDebugStringA("[GameBattlespire] looksValid() called\n");
+  return path.exists("GAME.EXE") || path.exists("SPIRE.BAT");
+}
+
+QString GameBattlespire::gameVersion() const
+{
+  qInfo().noquote() << "[GameBattlespire] gameVersion() called - returning fallback";
+  OutputDebugStringA("[GameBattlespire] gameVersion() called - returning fallback\n");
+  return "1.0.0";
+}
+
+QIcon GameBattlespire::gameIcon() const
+{
+  qInfo().noquote() << "[GameBattlespire] gameIcon() called - returning default icon";
+  OutputDebugStringA("[GameBattlespire] gameIcon() called - returning default icon\n");
+  return QIcon();
 }
 
 QString GameBattlespire::name() const
@@ -134,83 +255,205 @@ QString GameBattlespire::name() const
 
 QString GameBattlespire::localizedName() const
 {
+  qInfo().noquote() << "[GameBattlespire] localizedName() called";
+  OutputDebugStringA("[GameBattlespire] localizedName() called\n");
   return tr("An Elder Scrolls Legend: Battlespire Support Plugin");
 }
 
 QString GameBattlespire::author() const
 {
+  qInfo().noquote() << "[GameBattlespire] author() called";
+  OutputDebugStringA("[GameBattlespire] author() called\n");
   return "Legend_Master";
 }
 
 QString GameBattlespire::description() const
 {
+  qInfo().noquote() << "[GameBattlespire] description() called";
+  OutputDebugStringA("[GameBattlespire] description() called\n");
   return tr("Adds support for the game An Elder Scrolls Legend: Battlespire");
 }
 
 MOBase::VersionInfo GameBattlespire::version() const
 {
+  qInfo().noquote() << "[GameBattlespire] version() called";
+  OutputDebugStringA("[GameBattlespire] version() called\n");
   return VersionInfo(1, 0, 0, VersionInfo::RELEASE_FINAL);
 }
 
 QList<PluginSetting> GameBattlespire::settings() const
 {
+  qInfo().noquote() << "[GameBattlespire] settings() called";
+  OutputDebugStringA("[GameBattlespire] settings() called\n");
   return QList<PluginSetting>();
 }
 
 QString GameBattlespire::identifyGamePath() const
 {
+  qInfo().noquote() << "[GameBattlespire] identifyGamePath() ENTRY";
+  OutputDebugStringA("[GameBattlespire] identifyGamePath() ENTRY\n");
+  try {
   // Try Steam first (using Steam App ID 1812420)
   QString steamPath = findInRegistry(HKEY_LOCAL_MACHINE,
                                      L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1812420",
                                      L"InstallLocation");
   if (!steamPath.isEmpty()) {
     if (QDir(steamPath).exists() && QDir(steamPath + "/GAMEDATA").exists()) {
-      qDebug() << "[GameBattlespire] Found via Steam registry:" << steamPath;
+      qInfo().noquote() << "[GameBattlespire] Steam path verified";
+      OutputDebugStringA("[GameBattlespire] Steam path verified\n");
       return steamPath;
     }
   }
 
   // Try GOG (common GOG install paths)
   QStringList gogPaths = {
+      "C:/Program Files (x86)/GOG Galaxy/Games/Battlespire",
+      "C:/Program Files/GOG Galaxy/Games/Battlespire",
       "C:/Program Files (x86)/GOG Galaxy/Games/An Elder Scrolls Legend Battlespire",
       "C:/Program Files/GOG Galaxy/Games/An Elder Scrolls Legend Battlespire",
       "D:/SteamLibrary/steamapps/common/An Elder Scrolls Legend Battlespire"};
 
+    // Prefer a non-Program Files Steam library when available
+    QStringList steamPaths = {
+      "D:/SteamLibrary/steamapps/common/An Elder Scrolls Legend Battlespire",
+      "F:/SteamLibrary/steamapps/common/An Elder Scrolls Legend Battlespire"};
+
   for (const QString& gogPath : gogPaths) {
     if (QDir(gogPath).exists() && QDir(gogPath + "/GAMEDATA").exists()) {
-      qDebug() << "[GameBattlespire] Found via GOG path:" << gogPath;
+      for (const QString& steamPath : steamPaths) {
+        if (QDir(steamPath).exists() && QDir(steamPath + "/GAMEDATA").exists()) {
+          qInfo().noquote() << "[GameBattlespire] Prefer Steam path over Program Files:" << steamPath;
+          return steamPath;
+        }
+      }
+      qInfo().noquote() << "[GameBattlespire] GOG path verified";
+      OutputDebugStringA("[GameBattlespire] GOG path verified\n");
       return gogPath;
     }
   }
 
-  qDebug() << "[GameBattlespire] Could not identify game path";
+  qWarning().noquote() << "[GameBattlespire] identifyGamePath() EXIT (not found)";
+  OutputDebugStringA("[GameBattlespire] identifyGamePath() EXIT (not found)\n");
   return {};
+  } catch (const std::exception&) {
+    qWarning().noquote() << "[GameBattlespire] EXCEPTION in identifyGamePath()";
+    OutputDebugStringA("[GameBattlespire] EXCEPTION in identifyGamePath()\n");
+    return {};
+  } catch (...) {
+    qWarning().noquote() << "[GameBattlespire] UNKNOWN EXCEPTION in identifyGamePath()";
+    OutputDebugStringA("[GameBattlespire] UNKNOWN EXCEPTION in identifyGamePath()\n");
+    return {};
+  }
+}
+
+QDir GameBattlespire::dataDirectory() const
+{
+  qInfo().noquote() << "[GameBattlespire] dataDirectory() ENTRY";
+  QDir gameDir = gameDirectory();
+  if (gameDir.path().isEmpty() || !gameDir.exists()) {
+    qWarning().noquote() << "[GameBattlespire] dataDirectory() - game directory invalid:" << gameDir.absolutePath();
+    return QDir();
+  }
+  qInfo().noquote() << "[GameBattlespire] dataDirectory() using game root:" << gameDir.absolutePath();
+  return gameDir;
+}
+
+QDir GameBattlespire::documentsDirectory() const
+{
+  qInfo().noquote() << "[GameBattlespire] documentsDirectory() ENTRY";
+  const QString localBase = GameXngine::localAppFolder();
+  QDir docsDir;
+  if (!localBase.isEmpty()) {
+    docsDir = QDir(QDir::cleanPath(localBase + "/Battlespire"));
+  } else {
+    docsDir = GameXngine::documentsDirectory();
+  }
+  if (!docsDir.path().isEmpty()) {
+    QDir().mkpath(docsDir.absolutePath());
+  }
+  qInfo().noquote() << "[GameBattlespire] documentsDirectory() using path:" << docsDir.absolutePath();
+  return docsDir;
 }
 
 QDir GameBattlespire::savesDirectory() const
 {
-  QDir gameDir = gameDirectory();
+  qInfo().noquote() << "[GameBattlespire] savesDirectory() ENTRY";
+  OutputDebugStringA("[GameBattlespire] savesDirectory() ENTRY\n");
+  qWarning().noquote() << "[GameBattlespire] savesDirectory() build tag: 2026-02-09T0515";
 
-  // Battlespire saves are at root level (SAVE0-SAVE9)
-  if (QDir(gameDir.filePath("SAVE0")).exists()) {
-    return gameDir;
+  /*
+  const QString disableEnv = QProcessEnvironment::systemEnvironment().value("MO2_BATTLESPIRE_DISABLE_SAVESDIR");
+  if (!disableEnv.isEmpty() && disableEnv.compare("0", Qt::CaseInsensitive) != 0 &&
+      disableEnv.compare("false", Qt::CaseInsensitive) != 0) {
+    qWarning().noquote() << "[GameBattlespire] savesDirectory() disabled by MO2_BATTLESPIRE_DISABLE_SAVESDIR";
+    return QDir();
   }
 
+  QDir gameDir = gameDirectory();
+  if (gameDir.path().isEmpty() || !gameDir.exists()) {
+    qWarning().noquote() << "[GameBattlespire] savesDirectory() - game directory invalid:"
+                         << gameDir.absolutePath();
+    return gameDir;
+  }
+  if (gameDir.exists("GAMEDATA")) {
+    const QString rawPath = gameDir.filePath("GAMEDATA");
+    const QString cleanPath = QDir::cleanPath(rawPath);
+    if (cleanPath.indexOf(QChar(0)) >= 0) {
+      qWarning().noquote() << "[GameBattlespire] savesDirectory() - GAMEDATA path contains NUL";
+      return QDir();
+    }
+    QDir saves(cleanPath);
+    qInfo().noquote() << "[GameBattlespire] savesDirectory() using GAMEDATA:" << saves.absolutePath();
+    return saves;
+  }
+  qInfo().noquote() << "[GameBattlespire] savesDirectory() using game directory:" << gameDir.absolutePath();
   return gameDir;
+  */
+
+  /*
+  QDir fallbackDir = gameDirectory();
+  if (fallbackDir.path().isEmpty() || !fallbackDir.exists()) {
+    qWarning().noquote() << "[GameBattlespire] savesDirectory() fallback to root";
+    return QDir(QDir::rootPath());
+  }
+  qWarning().noquote() << "[GameBattlespire] savesDirectory() using fallback game directory:"
+                       << fallbackDir.absolutePath();
+  return fallbackDir;
+  */
+
+  /*
+  QDir gameDir = gameDirectory();
+  if (gameDir.path().isEmpty() || !gameDir.exists()) {
+    qWarning().noquote() << "[GameBattlespire] savesDirectory() - game directory invalid:" << gameDir.absolutePath();
+    return QDir();
+  }
+  qWarning().noquote() << "[GameBattlespire] savesDirectory() using game root:" << gameDir.absolutePath();
+  return gameDir;
+  */
+
+  QDir docsDir = documentsDirectory();
+  qWarning().noquote() << "[GameBattlespire] savesDirectory() using documents directory (isolation):" << docsDir.absolutePath();
+  return docsDir;
 }
 
 QString GameBattlespire::savegameExtension() const
 {
-  return "sav";
+  qInfo().noquote() << "[GameBattlespire] savegameExtension() called (disabled for isolation)";
+  OutputDebugStringA("[GameBattlespire] savegameExtension() called\n");
+  return {};
 }
 
 QString GameBattlespire::savegameSEExtension() const
 {
-  return "sav";
+  qInfo().noquote() << "[GameBattlespire] savegameSEExtension() called (disabled for isolation)";
+  OutputDebugStringA("[GameBattlespire] savegameSEExtension() called\n");
+  return {};
 }
 
 std::shared_ptr<const XngineSaveGame> GameBattlespire::makeSaveGame(QString filepath) const
 {
+  qInfo().noquote() << "[GameBattlespire] makeSaveGame() called";
+  OutputDebugStringA("[GameBattlespire] makeSaveGame() called\n");
   return std::make_shared<XngineSaveGame>(filepath, this);
 }
 

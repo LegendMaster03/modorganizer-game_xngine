@@ -48,7 +48,7 @@ Write-Host "Setting up build environment..." -ForegroundColor Cyan
 # Import the Visual Studio environment
 cmd /c """$vcVarsPath"" && powershell -NoExit -Command {
     Write-Host 'Visual Studio environment loaded!' -ForegroundColor Green
-    cd 'F:\Modding\MO2\plugins\modorganizer-game_redguard'
+    cd 'D:\Projects\modorganizer-game_xngine'
     
     if (Test-Path 'build') {
         Remove-Item 'build' -Recurse -Force
@@ -67,7 +67,7 @@ cmd /c """$vcVarsPath"" && powershell -NoExit -Command {
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host 'Build successful!' -ForegroundColor Green
-            Write-Host 'DLL location: F:\Modding\MO2\plugins\modorganizer-game_redguard\build\Release\' -ForegroundColor Green
+            Write-Host 'DLL location: D:\Projects\modorganizer-game_xngine\build\bin\Release\plugins\' -ForegroundColor Green
         } else {
             Write-Host 'Build failed!' -ForegroundColor Red
         }

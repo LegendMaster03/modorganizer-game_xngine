@@ -69,7 +69,7 @@ cd modorganizer-game_redguard
 .\build_ms.bat
 ```
 
-Output: `F:\Modding\MO2\plugins\game_redguard.dll`
+Output: `C:\Modding\MO2\plugins\game_redguard.dll`
 
 ## Project Structure
 

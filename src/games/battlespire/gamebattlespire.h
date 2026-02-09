@@ -10,7 +10,7 @@ class GameBattlespire : public GameXngine
 {
   Q_OBJECT
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-  Q_PLUGIN_METADATA(IID "com.modorganizer.plugins.IPluginGame" FILE "gamebattlespire.json")
+  Q_PLUGIN_METADATA(IID "org.tannin.GameBattlespire" FILE "gamebattlespire.json")
 #endif
 
 public:
@@ -18,7 +18,11 @@ public:
 
   virtual bool init(MOBase::IOrganizer* moInfo) override;
 
+  virtual std::vector<std::shared_ptr<const MOBase::ISaveGame>>
+  listSaves(QDir folder) const override;
+
   virtual QString gameName() const override;
+    virtual QString displayGameName() const override;
   virtual QList<MOBase::ExecutableInfo> executables() const override;
   virtual QString steamAPPId() const override;
   virtual QString gogAPPId() const;
@@ -28,6 +32,11 @@ public:
   virtual QStringList validShortNames() const override;
   virtual int nexusModOrganizerID() const override;
   virtual int nexusGameID() const override;
+  virtual bool looksValid(QDir const& path) const override;
+  virtual QString gameVersion() const override;
+  virtual QIcon gameIcon() const override;
+  virtual QDir dataDirectory() const override;
+  virtual QDir documentsDirectory() const override;
 
   virtual QString name() const override;
   virtual QString localizedName() const override;
@@ -37,6 +46,7 @@ public:
   virtual QList<MOBase::PluginSetting> settings() const override;
 
 protected:
+  virtual void detectGame() override;
   virtual QString identifyGamePath() const override;
   virtual QDir savesDirectory() const override;
   virtual QString savegameExtension() const override;

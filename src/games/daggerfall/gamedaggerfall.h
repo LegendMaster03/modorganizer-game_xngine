@@ -13,7 +13,7 @@ class GameDaggerfall : public GameXngine
 {
   Q_OBJECT
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-  Q_PLUGIN_METADATA(IID "com.modorganizer.plugins.IPluginGame" FILE "gamedaggerfall.json")
+  Q_PLUGIN_METADATA(IID "org.tannin.GameDaggerfall" FILE "gamedaggerfall.json")
 #endif
 
 public:
@@ -23,6 +23,7 @@ public:
 
 public:  // IPluginGame interface
   virtual QString gameName() const override;
+  virtual QString displayGameName() const override;
   virtual QList<MOBase::ExecutableInfo> executables() const override;
   virtual QString steamAPPId() const override;
   virtual QString gogAPPId() const;

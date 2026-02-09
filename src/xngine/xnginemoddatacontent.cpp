@@ -2,14 +2,23 @@
 
 #include <igamefeatures.h>
 
+#include <QDebug>
+
 XngineModDataContent::XngineModDataContent(
   MOBase::IGameFeatures const* gameFeatures)
   : m_GameFeatures(gameFeatures), m_Enabled(CONTENT_TEXT + 1, true)
-{}
+{
+  OutputDebugStringA("[XngineModDataContent] Constructor ENTRY\n");
+  if (!gameFeatures) {
+    OutputDebugStringA("[XngineModDataContent] WARNING: gameFeatures pointer is NULL\n");
+  }
+  OutputDebugStringA("[XngineModDataContent] Constructor EXIT\n");
+}
 
 std::vector<XngineModDataContent::Content>
 XngineModDataContent::getAllContents() const
 {
+  qInfo().noquote() << "[XngineModDataContent] getAllContents() ENTRY";
   static std::vector<Content> XNGINE_CONTENTS{
     {CONTENT_PATCH_INSTRUCTIONS, QT_TR_NOOP("Patch Instructions"),
      ":/MO/gui/content/script"},
@@ -33,6 +42,7 @@ XngineModDataContent::getAllContents() const
 std::vector<int> XngineModDataContent::getContentsFor(
     std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {
+  qInfo().noquote() << "[XngineModDataContent] getContentsFor() ENTRY";
   std::vector<int> contents;
 
   for (auto e : *fileTree) {

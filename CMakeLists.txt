@@ -8,6 +8,12 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+# Qt SDK path (override via -DQT_ROOT or -DCMAKE_PREFIX_PATH)
+set(QT_ROOT "C:/Qt/6.7.1/msvc2019_64" CACHE PATH "Path to Qt SDK root")
+if(QT_ROOT AND EXISTS "${QT_ROOT}")
+  list(PREPEND CMAKE_PREFIX_PATH "${QT_ROOT}")
+endif()
+
 find_package(Qt6 COMPONENTS Core Gui Widgets REQUIRED)
 
 # MO2 SDK paths - Configure these paths to point to your MO2 development directories
