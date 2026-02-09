@@ -1,89 +1,70 @@
-# Redguard MO2 Plugin
+# XnGine Game Plugins for Mod Organizer 2
 
-MO2 (Mod Organizer 2) game plugin for **The Elder Scrolls Adventures: Redguard**.
+This repository provides Mod Organizer 2 (MO2) game plugins for Bethesda XnGine titles. The plugins share a common XnGine base and expose per-game modules.
 
-Enables mod management for both modern file-replacement mods (Type 2) and legacy patch-based mods (Type 1) from the original Redguard Mod Manager.
+## Status
 
-## Features
+Work in progress. Builds succeed, but MO2 crashes during plugin metadata parsing (Qt6 `qt_plugin_query_metadata_v2`), so the plugins do not currently load in MO2.
 
-✅ **Type 1 Mods** (Redguard Mod Manager format)
-- INI Changes (menu/config modifications)
-- Map Changes (script/map modifications)
-- RTX Changes (dialogue/text edits)
-- Audio file replacements
-- Texture file replacements
+## Supported Games
 
-✅ **Type 2 Mods** (Modern VFS format)
-- Direct file replacement via MO2's virtual file system
-- Full compatibility with standard MO2 mod archives
+- An Elder Scrolls Legend: Battlespire
+- The Elder Scrolls II: Daggerfall
+- The Elder Scrolls Adventures: Redguard
 
-✅ **Auto-Fix** for nested mod archives
+## Build Requirements
 
-## Quick Start
-
-### Building
-```bash
-.\build_ms.bat
-```
-
-### Installation
-Plugin DLL automatically deploys to MO2 plugins folder. Restart MO2 to load.
-
-### Usage
-1. Launch MO2 with Redguard selected as the game
-2. Enable mods in the left panel
-3. Click "Run" to launch the game
-4. Mods are automatically applied via VFS overlay
-
-## Documentation
-
-- **[MODFORMAT.md](MODFORMAT.md)** - Mod format specifications
-- **[docs/archive/](docs/archive/)** - Development notes and guides
-
-## ✅ Feature Status
-
-| Feature | Status |
-|---------|--------|
-| Type 1 Mods (Patch-based) | ✅ **COMPLETE** |
-| Type 2 Mods (File Replacement) | ✅ Complete |
-| INI Changes | ✅ Complete |
-## Requirements
-
-- Windows (64-bit)
-- Mod Organizer 2 (2.5.0+)
-- The Elder Scrolls Adventures: Redguard (GOG or CD)
-- Visual Studio 2019/2022 with C++ (for building)
+- Windows 10/11 (x64)
+- Visual Studio 2022 Build Tools (C++ Desktop workload)
 - CMake 3.16+
-- Qt 6.7.1
+- Ninja
+- Qt 6.7.1 (MSVC 2019 64-bit)
+- vcpkg (zlib, lz4)
+- Mod Organizer 2 SDK (uibase)
 
-## Building from Source
+## Build and Deploy
 
-### Prerequisites
-1. Install Visual Studio 2019/2022 with C++ Desktop Development
-2. Install CMake 3.16 or later
-3. Install Qt 6.7.1 (MSVC 2019 64-bit)
+Build and deploy to your MO2 plugins folder:
 
-### Build Steps
-```bash
-cd modorganizer-game_redguard
-.\build_ms.bat
+```bat
+build_and_deploy.bat
 ```
 
-Output: `C:\Modding\MO2\plugins\game_redguard.dll`
+Deploy only (if already built):
 
-## Project Structure
+```powershell
+.\deploy_only.ps1
+```
+
+Default target path is `C:\Modding\MO2\plugins` (adjust in scripts as needed).
+
+## Current Crash (Known Blocker)
+
+MO2 crashes while loading `game_battlespire.dll` during Qt plugin metadata parsing.
+
+- Call stack: `Qt6Core!QtPrivate::QStringList_join` in `qt_plugin_query_metadata_v2`
+- Occurs before plugin instantiation
+- Repro: launch MO2 with any of the XnGine plugins present in `plugins/`
+
+### What Has Been Tried
+
+- `Q_PLUGIN_METADATA` with and without JSON
+- Standard MO2 IID: `com.tannin.ModOrganizer.PluginGame/2.0`
+- `Q_INTERFACES` moved to concrete plugin classes
+- Removed duplicate `QObject` base
+- Simplified MOC inputs and metadata
+
+## Repo Layout
 
 ```
-modorganizer-game_redguard/
-├── src/                       # C++ source files
-│   ├── gameredguard.cpp      # Main plugin entry point
-│   ├── RGMODFrameworkWrapper.* # Type 1/2 mod loading
-│   ├── RtxDatabase.*         # Dialogue/text database
-│   ├── MapFile.*             # Map binary parser
-│   └── ...                   # Supporting classes
-├── docs/archive/             # Development documentation
-├── CMakeLists.txt            # Build configuration
-└── build_ms.bat              # Build script
+src/
+  xngine/        Shared engine implementation
+  games/
+    battlespire/ Game module
+    daggerfall/  Game module
+    redguard/    Game module
+build_and_deploy.bat
+CMakeLists.txt
 ```
 
 ## License

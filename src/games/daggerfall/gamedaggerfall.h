@@ -4,6 +4,7 @@
 #include "gamexngine.h"
 
 #include <QObject>
+#include <QtPlugin>
 #include <QtGlobal>
 #include <QStandardPaths>
 #include <windows.h>
@@ -12,8 +13,9 @@
 class GameDaggerfall : public GameXngine
 {
   Q_OBJECT
+  Q_INTERFACES(MOBase::IPlugin MOBase::IPluginGame)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-  Q_PLUGIN_METADATA(IID "org.tannin.GameDaggerfall" FILE "gamedaggerfall.json")
+  Q_PLUGIN_METADATA(IID "com.tannin.ModOrganizer.PluginGame/2.0" FILE "gamedaggerfall.json")
 #endif
 
 public:
@@ -48,6 +50,9 @@ protected:
   virtual QString savegameExtension() const override;
   virtual QString savegameSEExtension() const override;
   virtual std::shared_ptr<const XngineSaveGame> makeSaveGame(QString filepath) const override;
+
+  virtual SaveLayout saveLayout() const override;
+  virtual QString saveGameId() const override;
 
 private:
   QString findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const;

@@ -25,9 +25,12 @@
 #include <winver.h>
 
 #include <optional>
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <vector>
+#include <QRegularExpression>
+#include <QDateTime>
 
 static bool isPeExecutable(const QString& path)
 {
@@ -79,6 +82,12 @@ bool GameXngine::init(MOBase::IOrganizer* moInfo)
     return false;
   }
   m_Organizer->onAboutToRun([this](const auto& binary) {
+    const auto profile = profilePath();
+    if (!profile.isEmpty()) {
+      const auto layout = saveLayout();
+      const auto paths = resolveSaveStorage(profile, saveGameId());
+      ensureSaveDirsExist(paths, layout);
+    }
     return prepareIni(binary);
   });
   qInfo().noquote() << "[GameXngine] init() EXIT";
@@ -167,9 +176,30 @@ QDir GameXngine::documentsDirectory() const
 
 QDir GameXngine::savesDirectory() const
 {
-  qInfo().noquote() << "[GameXngine] savesDirectory() called";
-  OutputDebugStringA("[GameXngine] savesDirectory() called\n");
-  return QDir(myGamesPath() + "/Saves");
+  bool hasProfile = false;
+  try {
+    if (m_Organizer && m_Organizer->profile()) {
+      hasProfile = true;
+    }
+  } catch (...) {
+    hasProfile = false;
+  }
+
+  if (!hasProfile) {
+    return gameDirectory();
+  }
+
+  const auto profile = profilePath();
+  if (profile.isEmpty()) {
+    return gameDirectory();
+  }
+
+  const auto layout = saveLayout();
+  const auto paths = resolveSaveStorage(profile, saveGameId());
+  if (!layout.baseRelativePaths.empty()) {
+    return QDir(QDir(paths.gameSavesRoot).filePath(layout.baseRelativePaths.front()));
+  }
+  return QDir(paths.gameSavesRoot);
 }
 
 std::vector<std::shared_ptr<const MOBase::ISaveGame>>
@@ -178,29 +208,36 @@ GameXngine::listSaves(QDir folder) const
   qInfo().noquote() << "[GameXngine] listSaves() ENTRY folder=" << folder.absolutePath();
   OutputDebugStringA(("[GameXngine] listSaves() ENTRY - gameName='" + gameName().toStdString() + "'\n").c_str());
   OutputDebugStringA(("[GameXngine] listSaves() folder='" + folder.absolutePath().toStdString() + "'\n").c_str());
-  if (!folder.exists()) {
-    qInfo().noquote() << "[GameXngine] listSaves() - folder does not exist, returning empty";
-    OutputDebugStringA("[GameXngine] listSaves() - folder does not exist, returning empty\n");
+  const auto profile = profilePath();
+  if (profile.isEmpty()) {
+    qInfo().noquote() << "[GameXngine] listSaves() - profile path not available";
     return {};
   }
-  if (gameShortName().compare("Battlespire", Qt::CaseInsensitive) == 0) {
-    qInfo().noquote() << "[GameXngine] listSaves() - Battlespire disabled for stability";
-    OutputDebugStringA("[GameXngine] listSaves() - Battlespire disabled for stability\n");
-    return {};
-  }
+  const auto layout = saveLayout();
+  const auto paths = resolveSaveStorage(profile, saveGameId());
+  ensureSaveDirsExist(paths, layout);
 
   QStringList filters;
-  filters << QString("*.") + savegameExtension();
+  const auto ext = savegameExtension();
+  if (!ext.isEmpty()) {
+    filters << QString("*.") + ext;
+  }
 
   std::vector<std::shared_ptr<const MOBase::ISaveGame>> saves;
   try {
-    for (auto info : folder.entryInfoList(filters, QDir::Files)) {
-      try {
-        saves.push_back(makeSaveGame(info.filePath()));
-      } catch (std::exception&) {
-        qWarning().noquote() << "[GameXngine] listSaves() - exception parsing save, skipping";
-        OutputDebugStringA("[GameXngine] listSaves() - exception parsing save, skipping\n");
-        continue;
+    const auto saveSlots = enumerateSaveSlots(paths, layout);
+    for (const auto& slot : saveSlots) {
+      QDir slotDir(slot.absolutePath);
+      const auto entries = ext.isEmpty() ? slotDir.entryInfoList(QDir::Files)
+                  : slotDir.entryInfoList(filters, QDir::Files);
+      for (auto info : entries) {
+        try {
+          saves.push_back(makeSaveGame(info.filePath()));
+        } catch (std::exception&) {
+          qWarning().noquote() << "[GameXngine] listSaves() - exception parsing save, skipping";
+          OutputDebugStringA("[GameXngine] listSaves() - exception parsing save, skipping\n");
+          continue;
+        }
       }
     }
   } catch (std::exception&) {
@@ -380,6 +417,28 @@ QString GameXngine::myGamesPath() const
   return m_MyGamesPath;
 }
 
+QString GameXngine::profilePath() const
+{
+  if (!m_Organizer) {
+    return {};
+  }
+  try {
+    auto profile = m_Organizer->profile();
+    if (!profile) {
+      return {};
+    }
+    return QDir::toNativeSeparators(profile->absolutePath());
+  } catch (...) {
+    // MO2 can throw when no profile is set; return empty and let caller handle fallback.
+    return {};
+  }
+}
+
+QString GameXngine::saveSlotPrefix() const
+{
+  return "SAVE";
+}
+
 /*static*/ QString GameXngine::getLootPath()
 {
   qInfo().noquote() << "[GameXngine] getLootPath() ENTRY";
@@ -423,8 +482,135 @@ void GameXngine::copyToProfile(QString const& sourcePath,
 
 MappingType GameXngine::mappings() const
 {
-  qInfo().noquote() << "[GameXngine] mappings() ENTRY";
-  return {};
+  try {
+    qInfo().noquote() << "[GameXngine] mappings() ENTRY";
+    const auto profile = profilePath();
+    if (profile.isEmpty()) {
+      return {};
+    }
+
+    const auto layout = saveLayout();
+    const auto paths = resolveSaveStorage(profile, saveGameId());
+    ensureSaveDirsExist(paths, layout);
+
+    MappingType out;
+    const QDir gameDir = gameDirectory();
+
+    if (layout.maxSlotHint) {
+      for (int i = 0; i <= *layout.maxSlotHint; ++i) {
+        QString slotName;
+        if (layout.slotWidthHint > 1) {
+          slotName = QString("%1%2").arg(saveSlotPrefix()).arg(i, layout.slotWidthHint, 10, QChar('0'));
+        } else {
+          slotName = QString("%1%2").arg(saveSlotPrefix()).arg(i);
+        }
+        QString source = QDir(paths.gameSavesRoot).filePath(slotName);
+        QString target = gameDir.absoluteFilePath(slotName);
+        out.push_back({source, target, true, true});
+      }
+    } else {
+      for (const auto& baseRel : layout.baseRelativePaths) {
+        QString source = QDir(paths.gameSavesRoot).filePath(baseRel);
+        QString target = gameDir.absoluteFilePath(baseRel);
+        out.push_back({source, target, true, true});
+      }
+    }
+
+    return out;
+  } catch (...) {
+    return {};
+  }
+}
+
+/*static*/ SaveStoragePaths GameXngine::resolveSaveStorage(const QString& profilePath,
+                                                           const QString& gameId)
+{
+  SaveStoragePaths p;
+  p.profileRoot = QDir::toNativeSeparators(profilePath);
+  QDir profileDir(profilePath);
+  QString savesRoot = profileDir.filePath("xngine/saves");
+  p.savesRoot = QDir::toNativeSeparators(savesRoot);
+  p.gameSavesRoot = QDir::toNativeSeparators(QDir(p.savesRoot).filePath(gameId));
+
+  // ensure directories exist
+  QDir().mkpath(p.savesRoot);
+  QDir().mkpath(p.gameSavesRoot);
+
+  return p;
+}
+
+/*static*/ std::vector<SaveSlot>
+GameXngine::enumerateSaveSlots(const SaveStoragePaths& paths, const SaveLayout& layout)
+{
+  std::vector<SaveSlot> out;
+  for (const auto& baseRel : layout.baseRelativePaths) {
+    QDir baseDir(QDir(paths.gameSavesRoot).filePath(baseRel));
+    if (!baseDir.exists())
+      continue;
+    const auto entries = baseDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    for (const QFileInfo& fi : entries) {
+      QRegularExpressionMatch m = layout.slotDirRegex.match(fi.fileName());
+      if (!m.hasMatch())
+        continue;
+      bool ok = false;
+      int slot = m.captured(1).toInt(&ok);
+      if (!ok)
+        continue;
+      QDir slotDir(fi.absoluteFilePath());
+      if (layout.validator && !layout.validator(slotDir))
+        continue;
+      SaveSlot s;
+      s.slotNumber = slot;
+      s.slotName = fi.fileName();
+      s.absolutePath = QDir::toNativeSeparators(fi.absoluteFilePath());
+      s.lastModified = fi.lastModified();
+      out.push_back(s);
+    }
+  }
+
+  std::sort(out.begin(), out.end(), [](const SaveSlot& a, const SaveSlot& b) {
+    if (a.slotNumber != b.slotNumber)
+      return a.slotNumber < b.slotNumber;
+    return a.lastModified > b.lastModified;
+  });
+
+  return out;
+}
+
+/*static*/ bool GameXngine::ensureSaveDirsExist(const SaveStoragePaths& paths, const SaveLayout& layout)
+{
+  bool ok = true;
+  QDir gameRoot(paths.gameSavesRoot);
+  if (!gameRoot.exists())
+    ok = QDir().mkpath(paths.gameSavesRoot);
+
+  // For layouts with maxSlotHint, create empty slot dirs
+  if (layout.maxSlotHint) {
+    for (int i = 0; i <= *layout.maxSlotHint; ++i) {
+      QString name;
+      if (layout.slotWidthHint > 1) {
+        name = QString("SAVE%1").arg(i, layout.slotWidthHint, 10, QChar('0'));
+      } else {
+        name = QString("SAVE%1").arg(i);
+      }
+      QDir slotDir(gameRoot.filePath(name));
+      if (!slotDir.exists()) {
+        if (!QDir().mkpath(slotDir.absolutePath()))
+          ok = false;
+      }
+    }
+  } else {
+    // Ensure base relative paths exist
+    for (const auto& baseRel : layout.baseRelativePaths) {
+      QDir d(gameRoot.filePath(baseRel));
+      if (!d.exists()) {
+        if (!QDir().mkpath(d.absolutePath()))
+          ok = false;
+      }
+    }
+  }
+
+  return ok;
 }
 
 std::unique_ptr<BYTE[]> GameXngine::getRegValue(HKEY key, LPCWSTR path, LPCWSTR value,

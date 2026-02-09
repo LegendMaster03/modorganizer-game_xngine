@@ -19,6 +19,7 @@
 #include <QStandardPaths>
 #include <QSettings>
 #include <QFile>
+#include <QRegularExpression>
 
 #include <Windows.h>
 #include <winver.h>
@@ -308,26 +309,7 @@ QString GameRedguard::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) 
 
 QDir GameRedguard::savesDirectory() const
 {
-  qInfo().noquote() << "[GameRedguard] savesDirectory() ENTRY";
-  QDir gameDir = gameDirectory();
-  if (gameDir.path().isEmpty() || !gameDir.exists()) {
-    return gameDir;
-  }
-
-  // Steam version: saves in Redguard/SAVEGAME/
-  QDir steamSaves(gameDir.filePath("Redguard/SAVEGAME"));
-  if (steamSaves.exists()) {
-    return steamSaves;
-  }
-
-  // GOG version: saves in SAVE/
-  QDir gogSaves(gameDir.filePath("SAVE"));
-  if (gogSaves.exists()) {
-    return gogSaves;
-  }
-
-  // Fallback to Redguard directory
-  return gameDir.filePath("Redguard");
+  return GameXngine::savesDirectory();
 }
 
 QString GameRedguard::savegameExtension() const
@@ -346,4 +328,21 @@ std::shared_ptr<const XngineSaveGame> GameRedguard::makeSaveGame(QString filepat
 {
   OutputDebugStringA("[GameRedguard] makeSaveGame() called\n");
   return std::make_shared<XngineSaveGame>(filepath, this);
+}
+
+SaveLayout GameRedguard::saveLayout() const
+{
+  SaveLayout layout;
+  layout.baseRelativePaths = {"SAVEGAME"};
+  layout.slotDirRegex = QRegularExpression("^SAVEGAME\\.(\\d{3})$");
+  layout.slotWidthHint = 3;
+  layout.validator = [](const QDir& slotDir) {
+    return slotDir.exists();
+  };
+  return layout;
+}
+
+QString GameRedguard::saveGameId() const
+{
+  return "redguard";
 }

@@ -45,5 +45,4 @@ add_subdirectory(src/xngine)
 # Build each game module
 add_subdirectory(src/games/redguard)
 add_subdirectory(src/games/daggerfall)
-add_subdirectory(src/games/arena)
 add_subdirectory(src/games/battlespire)

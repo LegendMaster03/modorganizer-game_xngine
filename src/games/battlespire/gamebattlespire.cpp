@@ -20,6 +20,7 @@
 #include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QFile>
+#include <QRegularExpression>
 
 #include <Windows.h>
 
@@ -100,10 +101,7 @@ bool GameBattlespire::init(IOrganizer* moInfo)
 std::vector<std::shared_ptr<const MOBase::ISaveGame>>
 GameBattlespire::listSaves(QDir folder) const
 {
-  Q_UNUSED(folder);
-  qInfo().noquote() << "[GameBattlespire] listSaves() - disabled for stability";
-  OutputDebugStringA("[GameBattlespire] listSaves() - disabled for stability\n");
-  return {};
+  return GameXngine::listSaves(folder);
 }
 
 QString GameBattlespire::gameName() const
@@ -377,63 +375,7 @@ QDir GameBattlespire::documentsDirectory() const
 
 QDir GameBattlespire::savesDirectory() const
 {
-  qInfo().noquote() << "[GameBattlespire] savesDirectory() ENTRY";
-  OutputDebugStringA("[GameBattlespire] savesDirectory() ENTRY\n");
-  qWarning().noquote() << "[GameBattlespire] savesDirectory() build tag: 2026-02-09T0515";
-
-  /*
-  const QString disableEnv = QProcessEnvironment::systemEnvironment().value("MO2_BATTLESPIRE_DISABLE_SAVESDIR");
-  if (!disableEnv.isEmpty() && disableEnv.compare("0", Qt::CaseInsensitive) != 0 &&
-      disableEnv.compare("false", Qt::CaseInsensitive) != 0) {
-    qWarning().noquote() << "[GameBattlespire] savesDirectory() disabled by MO2_BATTLESPIRE_DISABLE_SAVESDIR";
-    return QDir();
-  }
-
-  QDir gameDir = gameDirectory();
-  if (gameDir.path().isEmpty() || !gameDir.exists()) {
-    qWarning().noquote() << "[GameBattlespire] savesDirectory() - game directory invalid:"
-                         << gameDir.absolutePath();
-    return gameDir;
-  }
-  if (gameDir.exists("GAMEDATA")) {
-    const QString rawPath = gameDir.filePath("GAMEDATA");
-    const QString cleanPath = QDir::cleanPath(rawPath);
-    if (cleanPath.indexOf(QChar(0)) >= 0) {
-      qWarning().noquote() << "[GameBattlespire] savesDirectory() - GAMEDATA path contains NUL";
-      return QDir();
-    }
-    QDir saves(cleanPath);
-    qInfo().noquote() << "[GameBattlespire] savesDirectory() using GAMEDATA:" << saves.absolutePath();
-    return saves;
-  }
-  qInfo().noquote() << "[GameBattlespire] savesDirectory() using game directory:" << gameDir.absolutePath();
-  return gameDir;
-  */
-
-  /*
-  QDir fallbackDir = gameDirectory();
-  if (fallbackDir.path().isEmpty() || !fallbackDir.exists()) {
-    qWarning().noquote() << "[GameBattlespire] savesDirectory() fallback to root";
-    return QDir(QDir::rootPath());
-  }
-  qWarning().noquote() << "[GameBattlespire] savesDirectory() using fallback game directory:"
-                       << fallbackDir.absolutePath();
-  return fallbackDir;
-  */
-
-  /*
-  QDir gameDir = gameDirectory();
-  if (gameDir.path().isEmpty() || !gameDir.exists()) {
-    qWarning().noquote() << "[GameBattlespire] savesDirectory() - game directory invalid:" << gameDir.absolutePath();
-    return QDir();
-  }
-  qWarning().noquote() << "[GameBattlespire] savesDirectory() using game root:" << gameDir.absolutePath();
-  return gameDir;
-  */
-
-  QDir docsDir = documentsDirectory();
-  qWarning().noquote() << "[GameBattlespire] savesDirectory() using documents directory (isolation):" << docsDir.absolutePath();
-  return docsDir;
+  return GameXngine::savesDirectory();
 }
 
 QString GameBattlespire::savegameExtension() const
@@ -455,6 +397,24 @@ std::shared_ptr<const XngineSaveGame> GameBattlespire::makeSaveGame(QString file
   qInfo().noquote() << "[GameBattlespire] makeSaveGame() called";
   OutputDebugStringA("[GameBattlespire] makeSaveGame() called\n");
   return std::make_shared<XngineSaveGame>(filepath, this);
+}
+
+SaveLayout GameBattlespire::saveLayout() const
+{
+  SaveLayout layout;
+  layout.baseRelativePaths = {""};
+  layout.slotDirRegex = QRegularExpression("^SAVE(\\d+)$");
+  layout.slotWidthHint = 1;
+  layout.maxSlotHint = 9;
+  layout.validator = [](const QDir& slotDir) {
+    return slotDir.exists();
+  };
+  return layout;
+}
+
+QString GameBattlespire::saveGameId() const
+{
+  return "battlespire";
 }
 
 QString GameBattlespire::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const

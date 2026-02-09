@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.16)
-
 find_package(Qt6 COMPONENTS Core Gui Widgets REQUIRED)
 
 # Create xngine static library

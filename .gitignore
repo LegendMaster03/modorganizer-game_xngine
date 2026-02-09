@@ -34,6 +34,10 @@ ui_*.h
 # Logs
 *.log
 *.txt.user
+err.txt
+out.txt
+qt_debug.txt
+SESSION_LOG.md
 
 # Backup files
 *.backup
@@ -50,3 +54,6 @@ Thumbs.db
 # Debug logs
 redguard_*.log
 redguard_*.txt
+
+# Crash dumps
+*.dmp

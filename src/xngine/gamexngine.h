@@ -12,6 +12,7 @@ class XngineGamePlugins;
 class XngineUnmanagedMods;
 
 #include <QObject>
+#include <QtPlugin>
 #include <QString>
 #include <ShlObj.h>
 #include <dbghelp.h>
@@ -20,13 +21,11 @@ class XngineUnmanagedMods;
 #include <memory>
 
 #include "xnginesavegame.h"
+#include "xnginesaves.h"
 #include "igamefeatures.h"
 
 class GameXngine : public MOBase::IPluginGame, public MOBase::IPluginFileMapper
 {
-  Q_OBJECT
-  Q_INTERFACES(MOBase::IPlugin MOBase::IPluginGame MOBase::IPluginFileMapper)
-
   friend class XngineScriptExtender;
   friend class XngineSaveGameInfo;
   friend class XngineSaveGameInfoWidget;
@@ -88,7 +87,20 @@ public:  // IPluginFileMapper interface
 public:  // Other (e.g. for game features)
   QString myGamesPath() const;
 
+  static SaveStoragePaths resolveSaveStorage(const QString& profilePath, const QString& gameId);
+
+  static std::vector<SaveSlot> enumerateSaveSlots(const SaveStoragePaths& paths,
+                                                  const SaveLayout& layout);
+
+  static bool ensureSaveDirsExist(const SaveStoragePaths& paths, const SaveLayout& layout);
+
 protected:
+  virtual SaveLayout saveLayout() const = 0;
+  virtual QString saveGameId() const = 0;
+  virtual QString saveSlotPrefix() const;
+
+  QString profilePath() const;
+
   // Retrieve the saves extension for the game.
   virtual QString savegameExtension() const   = 0;
   virtual QString savegameSEExtension() const = 0;

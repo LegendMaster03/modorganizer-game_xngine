@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.16)
-
 project(modorganizer_game_daggerfall)
 
 # Find Qt

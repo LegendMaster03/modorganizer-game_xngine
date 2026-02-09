@@ -19,6 +19,7 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QFile>
+#include <QRegularExpression>
 
 #include <Windows.h>
 
@@ -238,24 +239,7 @@ QString GameDaggerfall::identifyGamePath() const
 
 QDir GameDaggerfall::savesDirectory() const
 {
-  QDir gameDir = gameDirectory();
-  if (gameDir.path().isEmpty() || !gameDir.exists()) {
-    return gameDir;
-  }
-
-  // Steam version: saves in DF/DAGGER/SAVE0-SAVE5
-  QDir steamSaves(gameDir.filePath("DF/DAGGER"));
-  if (steamSaves.exists() && QDir(steamSaves.filePath("SAVE0")).exists()) {
-    return steamSaves;
-  }
-
-  // GOG version: saves at root level SAVE0-SAVE5
-  if (QDir(gameDir.filePath("SAVE0")).exists()) {
-    return gameDir;
-  }
-
-  // Fallback to DF/DAGGER directory
-  return gameDir.filePath("DF/DAGGER");
+  return GameXngine::savesDirectory();
 }
 
 QString GameDaggerfall::savegameExtension() const
@@ -274,6 +258,24 @@ std::shared_ptr<const XngineSaveGame> GameDaggerfall::makeSaveGame(QString filep
 {
   OutputDebugStringA("[GameDaggerfall] makeSaveGame() called\n");
   return std::make_shared<XngineSaveGame>(filepath, this);
+}
+
+SaveLayout GameDaggerfall::saveLayout() const
+{
+  SaveLayout layout;
+  layout.baseRelativePaths = {""};
+  layout.slotDirRegex = QRegularExpression("^SAVE(\\d+)$");
+  layout.slotWidthHint = 1;
+  layout.maxSlotHint = 5;
+  layout.validator = [](const QDir& slotDir) {
+    return slotDir.exists();
+  };
+  return layout;
+}
+
+QString GameDaggerfall::saveGameId() const
+{
+  return "daggerfall";
 }
 
 QString GameDaggerfall::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const
