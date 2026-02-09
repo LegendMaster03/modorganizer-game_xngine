@@ -58,11 +58,8 @@ list(APPEND CMAKE_AUTOMOC_MOC_OPTIONS "-I${MO2_SRC_PATH}")
 list(APPEND CMAKE_AUTOMOC_MOC_OPTIONS "-I${MO2_UIBASE_PATH}/game_features")
 
 # Try to find compression libraries; they may be provided by vcpkg
-find_package(zlib QUIET)
-find_package(lz4 QUIET)
-
-# Add vcpkg include paths for compression libraries
-include_directories(C:/vcpkg/installed/x64-windows/include)
+find_package(ZLIB QUIET)
+find_package(lz4 CONFIG QUIET)
 
 target_link_libraries(xngine PUBLIC
 	Qt6::Core
@@ -70,11 +67,13 @@ target_link_libraries(xngine PUBLIC
 	Qt6::Widgets
 	${MO2_UIBASE_LIB}
 	imagehlp.lib
-	C:/vcpkg/installed/x64-windows/lib/zlib.lib
-	C:/vcpkg/installed/x64-windows/lib/lz4.lib
 )
 
 # Link against compression libraries if found
+if(ZLIB_FOUND)
+	target_link_libraries(xngine PUBLIC ZLIB::ZLIB)
+endif()
+
 if(lz4_FOUND)
 	target_link_libraries(xngine PUBLIC lz4::lz4)
 endif()

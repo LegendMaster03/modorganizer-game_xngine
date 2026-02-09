@@ -57,3 +57,11 @@ redguard_*.txt
 
 # Crash dumps
 *.dmp
+
+# Local overrides and backups
+config/local.env.bat
+config/local.env.ps1
+config/local.env.json
+tools/local_backup/
+*.local.bat
+*.local.ps1

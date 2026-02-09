@@ -1,0 +1,8 @@
+{
+  "name": "modorganizer-game-xngine",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "zlib",
+    "lz4"
+  ]
+}

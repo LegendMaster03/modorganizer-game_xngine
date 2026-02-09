@@ -45,29 +45,34 @@ if (-not $vcVarsPath) {
 
 Write-Host "Setting up build environment..." -ForegroundColor Cyan
 
+$localEnv = Join-Path $PSScriptRoot "config\local.env.ps1"
+if (Test-Path $localEnv) {
+    . $localEnv
+}
+
 # Import the Visual Studio environment
 cmd /c """$vcVarsPath"" && powershell -NoExit -Command {
     Write-Host 'Visual Studio environment loaded!' -ForegroundColor Green
-    cd 'D:\Projects\modorganizer-game_xngine'
-    
+    Set-Location $PSScriptRoot
+
     if (Test-Path 'build') {
         Remove-Item 'build' -Recurse -Force
     }
-    
+
     New-Item 'build' -ItemType Directory -Force | Out-Null
-    cd 'build'
-    
+    Set-Location 'build'
+
     Write-Host 'Configuring CMake...' -ForegroundColor Cyan
     cmake .. -G 'Visual Studio 17 2022' -A x64
-    
+
     if ($LASTEXITCODE -eq 0) {
         Write-Host 'CMake configuration successful!' -ForegroundColor Green
         Write-Host 'Now building the project...' -ForegroundColor Cyan
         cmake --build . --config Release
-        
+
         if ($LASTEXITCODE -eq 0) {
             Write-Host 'Build successful!' -ForegroundColor Green
-            Write-Host 'DLL location: D:\Projects\modorganizer-game_xngine\build\bin\Release\plugins\' -ForegroundColor Green
+            Write-Host 'DLL location: build\bin\Release\plugins\' -ForegroundColor Green
         } else {
             Write-Host 'Build failed!' -ForegroundColor Red
         }

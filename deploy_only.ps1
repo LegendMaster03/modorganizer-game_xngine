@@ -3,21 +3,33 @@
 
 param(
     [string]$BuildDir = ".\build",
-    [string]$MO2PluginsDir = "C:\Modding\MO2\plugins"
+    [string]$MO2PluginsDir = ""
 )
+
+$localEnv = Join-Path $PSScriptRoot "config\local.env.ps1"
+if (Test-Path $localEnv) {
+    . $localEnv
+}
+
+if (-not $MO2PluginsDir) {
+    $MO2PluginsDir = $env:MO2_PLUGINS_DIR
+}
+
+if (-not $MO2PluginsDir) {
+    Write-Host "ERROR: MO2_PLUGINS_DIR is not set. Use config\local.env.ps1 or an environment variable." -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "=== Deploying XnGine Plugins ===" -ForegroundColor Cyan
 
 # Define DLL files to deploy and their source locations
 $DllsToDeployParam = @(
-    @{ src = "$BuildDir\bin\Release\plugins\game_arena.dll"; dst = "$MO2PluginsDir\game_arena.dll" },
     @{ src = "$BuildDir\bin\Release\plugins\game_battlespire.dll"; dst = "$MO2PluginsDir\game_battlespire.dll" },
     @{ src = "$BuildDir\bin\Release\plugins\game_redguard.dll"; dst = "$MO2PluginsDir\game_redguard.dll" },
     @{ src = "$BuildDir\bin\Release\plugins\game_daggerfall.dll"; dst = "$MO2PluginsDir\game_daggerfall.dll" }
 )
 
 $JsonFilesToDeploy = @(
-    @{ src = ".\src\games\arena\gamearena.json"; dst = "$MO2PluginsDir\game_arena.json" },
     @{ src = ".\src\games\battlespire\gamebattlespire.json"; dst = "$MO2PluginsDir\game_battlespire.json" },
     @{ src = ".\src\games\redguard\gameredguard.json"; dst = "$MO2PluginsDir\game_redguard.json" },
     @{ src = ".\src\games\daggerfall\gamedaggerfall.json"; dst = "$MO2PluginsDir\game_daggerfall.json" }

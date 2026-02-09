@@ -1,10 +1,31 @@
 @echo off
-set PATH=%SystemRoot%\system32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0%
-call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+setlocal enabledelayedexpansion
+
+set "SCRIPT_DIR=%~dp0"
+set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
+set "LOCAL_ENV=%SCRIPT_DIR%\config\local.env.bat"
+if exist "%LOCAL_ENV%" call "%LOCAL_ENV%"
+
+if "%VCPKG_ROOT%"=="" (
+	echo ERROR: VCPKG_ROOT is not set. Use config\local.env.bat or an environment variable.
+	exit /b 1
+)
+
+if not "%VCVARS_BAT%"=="" (
+	call "%VCVARS_BAT%"
+	if errorlevel 1 goto error_vcvars
+)
+
 set VCPKG_FORCE_SYSTEM_BINARIES=
-set VCPKG_ROOT=C:/vcpkg
 set CC=cl
 set CXX=cl
+
 echo VCPKG_ROOT=%VCPKG_ROOT%
-cd /d C:\vcpkg
-"C:/vcpkg/vcpkg.exe" install qtbase:x64-windows zlib:x64-windows
+pushd "%SCRIPT_DIR%"
+"%VCPKG_ROOT%\vcpkg.exe" install
+popd
+exit /b 0
+
+:error_vcvars
+echo ERROR: Failed to initialize Visual Studio environment
+exit /b 1

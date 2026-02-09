@@ -1,0 +1,26 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default (Ninja, Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "QT_ROOT": "$env{QT_ROOT}",
+        "MO2_UIBASE_PATH": "$env{MO2_UIBASE_PATH}",
+        "MO2_UIBASE_LIB": "$env{MO2_UIBASE_LIB}",
+        "MO2_SRC_PATH": "$env{MO2_SRC_PATH}"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "configuration": "Release"
+    }
+  ]
+}

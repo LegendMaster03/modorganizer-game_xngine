@@ -22,7 +22,16 @@ Work in progress. Builds succeed, but MO2 crashes during plugin metadata parsing
 - vcpkg (zlib, lz4)
 - Mod Organizer 2 SDK (uibase)
 
+Dependencies are described in vcpkg.json. You can use CMakePresets.json with environment variables for local paths.
+
+## Building
+
+See [BUILDING.md](BUILDING.md) for full setup and build instructions.
+
 ## Build and Deploy
+
+1. Copy `config/local.env.example.bat` to `config/local.env.bat` and fill in your paths.
+2. If you prefer PowerShell, copy `config/local.env.example.ps1` to `config/local.env.ps1`.
 
 Build and deploy to your MO2 plugins folder:
 
@@ -36,7 +45,7 @@ Deploy only (if already built):
 .\deploy_only.ps1
 ```
 
-Default target path is `C:\Modding\MO2\plugins` (adjust in scripts as needed).
+Default target path is your MO2 plugins directory (set via environment or local config).
 
 ## Current Crash (Known Blocker)
 
@@ -74,6 +83,16 @@ This plugin is open source. See individual source files for licensing details.
 ## Credits
 
 Based on the Redguard Mod Manager Java implementation. Ported to C++ for MO2 integration.
+
+## Support
+
+For issues or questions, open a GitHub issue or ask in the Mod Organizer 2 community.
+
+## Acknowledgments
+
+- Dillonn241 for starting the Redguard modding scene
+- Mod Organizer 2 team for the plugin system
+- Bethesda for the XnGine engine and Redguard
 
 ## Support
 

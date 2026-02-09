@@ -9,11 +9,12 @@ Write-Host "`nSearching for MO2 installations...`n"
 $searchPaths = @(
     "C:\Program Files\Mod Organizer 2",
     "C:\Program Files (x86)\Mod Organizer 2",
-    "$env:LOCALAPPDATA\Mod Organizer 2",
-    "C:\Games\Mod Organizer 2",
-    "D:\Games\Mod Organizer 2",
-    "E:\Games\Mod Organizer 2"
+    "$env:LOCALAPPDATA\Mod Organizer 2"
 )
+
+if ($env:MO2_ROOT) {
+    $searchPaths += $env:MO2_ROOT
+}
 
 foreach ($path in $searchPaths) {
     if (Test-Path "$path\ModOrganizer.exe") {
