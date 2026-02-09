@@ -65,3 +65,5 @@ config/local.env.json
 tools/local_backup/
 *.local.bat
 *.local.ps1
+*.bat
+*.ps1
