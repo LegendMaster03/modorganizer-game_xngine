@@ -47,35 +47,6 @@ Deploy only (if already built):
 
 Default target path is your MO2 plugins directory (set via environment or local config).
 
-## Current Crash (Known Blocker)
-
-MO2 crashes while loading `game_battlespire.dll` during Qt plugin metadata parsing.
-
-- Call stack: `Qt6Core!QtPrivate::QStringList_join` in `qt_plugin_query_metadata_v2`
-- Occurs before plugin instantiation
-- Repro: launch MO2 with any of the XnGine plugins present in `plugins/`
-
-### What Has Been Tried
-
-- `Q_PLUGIN_METADATA` with and without JSON
-- Standard MO2 IID: `com.tannin.ModOrganizer.PluginGame/2.0`
-- `Q_INTERFACES` moved to concrete plugin classes
-- Removed duplicate `QObject` base
-- Simplified MOC inputs and metadata
-
-## Repo Layout
-
-```
-src/
-  xngine/        Shared engine implementation
-  games/
-    battlespire/ Game module
-    daggerfall/  Game module
-    redguard/    Game module
-build_and_deploy.bat
-CMakeLists.txt
-```
-
 ## License
 
 This plugin is open source. See individual source files for licensing details.
