@@ -14,6 +14,12 @@ include_directories(${CMAKE_SOURCE_DIR}/src/xngine)
 set(REDGUARD_GAME_SOURCES
     gameredguard.cpp
     gameredguard.h
+    redguardsmapchanges.cpp
+    redguardsmapchanges.h
+    redguardsrtxdatabase.cpp
+    redguardsrtxdatabase.h
+    redguardsutils.cpp
+    redguardsutils.h
     # redguardsmoddatachecker.h  # Disabled - using XnGine base
     # redguardsmoddatacontent.cpp  # Disabled - using XnGine base
     # redguardsmoddatacontent.h  # Disabled - using XnGine base

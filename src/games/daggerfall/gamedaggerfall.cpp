@@ -20,8 +20,11 @@
 #include <QStandardPaths>
 #include <QFile>
 #include <QRegularExpression>
+#include <QIcon>
 
 #include <Windows.h>
+
+#include "utility.h"
 
 #include <exception>
 #include <memory>
@@ -87,17 +90,20 @@ QList<ExecutableInfo> GameDaggerfall::executables() const
   }
 
   // Steam DOSBox launcher
-  QFileInfo steamDosbox(gameDir.filePath("DOSBox-0.74/dosbox.exe"));
+  QFileInfo steamDosbox(gameDir.filePath("DOSBox-0.73/dosbox.exe"));
+  QFileInfo steamConfig(gameDir.filePath("DOSBox-0.73/df.conf"));
   if (steamDosbox.exists()) {
-    executables << ExecutableInfo("Daggerfall (Steam DOSBox)", steamDosbox)
-                   .withArgument("-conf dosbox_daggerfall.conf");
+    executables << ExecutableInfo("Daggerfall (Steam DOSBox Windowed)", steamDosbox)
+                   .withArgument("-noconsole -conf df.conf");
+    executables << ExecutableInfo("Daggerfall (Steam DOSBox Fullscreen)", steamDosbox)
+                   .withArgument("-noconsole -conf df.conf -fullscreen");
   }
 
   // GOG DOSBox launcher
   QFileInfo gogDosbox(gameDir.filePath("DOSBOX/dosbox.exe"));
   if (gogDosbox.exists()) {
     executables << ExecutableInfo("Daggerfall (GOG DOSBox)", gogDosbox)
-                   .withArgument("-conf dosbox_daggerfall.conf");
+                   .withArgument(R"(-conf "..\dosbox_daggerfall.conf" -conf "..\dosbox_daggerfall_single.conf" -noconsole -c "exit")");
   }
 
   // Standalone executable if it exists
@@ -112,12 +118,15 @@ QList<ExecutableInfo> GameDaggerfall::executables() const
 
 QString GameDaggerfall::steamAPPId() const
 {
+  qInfo().noquote() << "[GameDaggerfall] steamAPPId() called";
   OutputDebugStringA("[GameDaggerfall] steamAPPId() called\n");
   return "275170";
 }
 
 QString GameDaggerfall::gogAPPId() const
 {
+  qInfo().noquote() << "[GameDaggerfall] gogAPPId() called";
+  OutputDebugStringA("[GameDaggerfall] gogAPPId() called\n");
   return "1435829353";
 }
 
@@ -143,6 +152,30 @@ QStringList GameDaggerfall::validShortNames() const
 {
   OutputDebugStringA("[GameDaggerfall] validShortNames() called\n");
   return {"daggerfall", "df"};
+}
+
+QIcon GameDaggerfall::gameIcon() const
+{
+  QDir dir = gameDirectory();
+  
+  // Try .ico files first
+  QStringList icoCandidates = {
+      "DF/DAGGER/DAGGER.ICO",
+      "DAGGER.ICO",
+      "goggame-1435829353.ico"
+  };
+  
+  for (const QString& relPath : icoCandidates) {
+    QFileInfo iconFile(dir.filePath(relPath));
+    if (iconFile.exists()) {
+      return QIcon(iconFile.absoluteFilePath());
+    }
+  }
+  
+  // Fallback to EXE icon
+  const QString exePath = dir.absoluteFilePath("DF/DAGGER/DAGGER.EXE");
+  QIcon icon = MOBase::iconForExecutable(exePath);
+  return icon.isNull() ? GameXngine::gameIcon() : icon;
 }
 
 int GameDaggerfall::nexusModOrganizerID() const
@@ -210,18 +243,17 @@ QString GameDaggerfall::identifyGamePath() const
     }
   }
 
-  // Try GOG (common GOG install paths)
-  QStringList gogPaths = {
-      "C:/Program Files (x86)/GOG Galaxy/Games/Daggerfall",
-      "C:/Program Files/GOG Galaxy/Games/Daggerfall",
-      "C:/Program Files/GOG Galaxy/Games/Daggerfall"};
-
-  for (const QString& gogPath : gogPaths) {
-    if (QDir(gogPath).exists() && QDir(gogPath + "/DOSBOX").exists() &&
+  // Try GOG registry (using GOG Game ID 1435829353)
+  QString gogPath = findInRegistry(HKEY_LOCAL_MACHINE,
+                                   L"Software\\GOG.com\\Games\\1435829353",
+                                   L"path");
+  if (!gogPath.isEmpty()) {
+    // Verify it has the GOG DOSBox structure
+    if (QDir(gogPath + "/DOSBOX").exists() &&
         QFile::exists(gogPath + "/DOSBOX/dosbox.exe") &&
         (QFile::exists(gogPath + "/dosbox_daggerfall.conf") ||
          QFile::exists(gogPath + "/DF/DAGGER/DAGGER.EXE"))) {
-      OutputDebugStringA("[GameDaggerfall] GOG path verified\n");
+      OutputDebugStringA("[GameDaggerfall] GOG registry path verified\n");
       return gogPath;
     }
   }

@@ -21,8 +21,11 @@
 #include <QStandardPaths>
 #include <QFile>
 #include <QRegularExpression>
+#include <QIcon>
 
 #include <Windows.h>
+
+#include "utility.h"
 
 #include <exception>
 #include <memory>
@@ -131,6 +134,50 @@ QList<MOBase::ExecutableInfo> GameBattlespire::executables() const
     return executables;
   }
 
+  // Steam DOSBox launcher
+  QFileInfo steamDosbox(gameDir.filePath("DOSBox-0.73/dosbox.exe"));
+  QFileInfo steamConfig(gameDir.filePath("DOSBox-0.73/bs.conf"));
+  QFileInfo steamSingleConfig(gameDir.filePath("DOSBox-0.73/bs_single.conf"));
+  QFileInfo steamClientConfig(gameDir.filePath("DOSBox-0.73/bs_client.conf"));
+  QFileInfo steamServerConfig(gameDir.filePath("DOSBox-0.73/bs_server.conf"));
+  if (steamDosbox.exists() && steamConfig.exists() && steamSingleConfig.exists()) {
+    executables << ExecutableInfo("Battlespire (Steam DOSBox Single Windowed)", steamDosbox)
+                   .withArgument("-noconsole -conf bs.conf -conf bs_single.conf");
+    executables << ExecutableInfo("Battlespire (Steam DOSBox Single Fullscreen)", steamDosbox)
+                   .withArgument("-noconsole -conf bs.conf -conf bs_single.conf -fullscreen");
+  }
+  if (steamDosbox.exists() && steamConfig.exists() && steamClientConfig.exists()) {
+    executables << ExecutableInfo("Battlespire (Steam DOSBox Client Windowed)", steamDosbox)
+                   .withArgument("-noconsole -conf bs.conf -conf bs_client.conf");
+    executables << ExecutableInfo("Battlespire (Steam DOSBox Client Fullscreen)", steamDosbox)
+                   .withArgument("-noconsole -conf bs.conf -conf bs_client.conf -fullscreen");
+  }
+  if (steamDosbox.exists() && steamConfig.exists() && steamServerConfig.exists()) {
+    executables << ExecutableInfo("Battlespire (Steam DOSBox Server Windowed)", steamDosbox)
+                   .withArgument("-noconsole -conf bs.conf -conf bs_server.conf");
+    executables << ExecutableInfo("Battlespire (Steam DOSBox Server Fullscreen)", steamDosbox)
+                   .withArgument("-noconsole -conf bs.conf -conf bs_server.conf -fullscreen");
+  }
+
+  // GOG DOSBox launcher
+  QFileInfo gogDosbox(gameDir.filePath("DOSBOX/dosbox.exe"));
+  QFileInfo gogConfig(gameDir.filePath("dosbox_battlespire.conf"));
+  QFileInfo gogSingleConfig(gameDir.filePath("dosbox_battlespire_single.conf"));
+  QFileInfo gogClientConfig(gameDir.filePath("dosbox_battlespire_client.conf"));
+  QFileInfo gogServerConfig(gameDir.filePath("dosbox_battlespire_server.conf"));
+  if (gogDosbox.exists() && gogConfig.exists() && gogSingleConfig.exists()) {
+    executables << ExecutableInfo("Battlespire (GOG DOSBox Single)", gogDosbox)
+                   .withArgument(R"(-conf "..\dosbox_battlespire.conf" -conf "..\dosbox_battlespire_single.conf" -noconsole -c "exit")");
+  }
+  if (gogDosbox.exists() && gogConfig.exists() && gogClientConfig.exists()) {
+    executables << ExecutableInfo("Battlespire (GOG DOSBox Client)", gogDosbox)
+                   .withArgument(R"(-conf "..\dosbox_battlespire.conf" -conf "..\dosbox_battlespire_client.conf" -noconsole -c "exit")");
+  }
+  if (gogDosbox.exists() && gogConfig.exists() && gogServerConfig.exists()) {
+    executables << ExecutableInfo("Battlespire (GOG DOSBox Server)", gogDosbox)
+                   .withArgument(R"(-conf "..\dosbox_battlespire.conf" -conf "..\dosbox_battlespire_server.conf" -noconsole -c "exit")");
+  }
+
   QFileInfo spireBat(gameDir.filePath("SPIRE.BAT"));
   if (spireBat.exists()) {
     qInfo().noquote() << "[GameBattlespire] Found SPIRE.BAT executable";
@@ -138,6 +185,7 @@ QList<MOBase::ExecutableInfo> GameBattlespire::executables() const
     executables << ExecutableInfo("Battlespire", spireBat);
   }
 
+  // Standalone executable if it exists
   QFileInfo gameExe(gameDir.filePath("GAME.EXE"));
   if (gameExe.exists()) {
     qInfo().noquote() << "[GameBattlespire] Found GAME.EXE executable";
@@ -174,6 +222,8 @@ QString GameBattlespire::steamAPPId() const
 
 QString GameBattlespire::gogAPPId() const
 {
+  qInfo().noquote() << "[GameBattlespire] gogAPPId() called";
+  OutputDebugStringA("[GameBattlespire] gogAPPId() called\n");
   return "1435829464";
 }
 
@@ -241,9 +291,26 @@ QString GameBattlespire::gameVersion() const
 
 QIcon GameBattlespire::gameIcon() const
 {
-  qInfo().noquote() << "[GameBattlespire] gameIcon() called - returning default icon";
-  OutputDebugStringA("[GameBattlespire] gameIcon() called - returning default icon\n");
-  return QIcon();
+  QDir dir = gameDirectory();
+  
+  // Try .ico files first
+  QStringList icoCandidates = {
+      "SPIRE.ico",
+      "SPIRE.ICO",
+      "goggame-1435829464.ico"
+  };
+  
+  for (const QString& relPath : icoCandidates) {
+    QFileInfo iconFile(dir.filePath(relPath));
+    if (iconFile.exists()) {
+      return QIcon(iconFile.absoluteFilePath());
+    }
+  }
+  
+  // Fallback to EXE icon
+  const QString exePath = dir.absoluteFilePath("GAME.EXE");
+  QIcon icon = MOBase::iconForExecutable(exePath);
+  return icon.isNull() ? GameXngine::gameIcon() : icon;
 }
 
 QString GameBattlespire::name() const
@@ -303,29 +370,14 @@ QString GameBattlespire::identifyGamePath() const
     }
   }
 
-  // Try GOG (common GOG install paths)
-  QStringList gogPaths = {
-      "C:/Program Files (x86)/GOG Galaxy/Games/Battlespire",
-      "C:/Program Files/GOG Galaxy/Games/Battlespire",
-      "C:/Program Files (x86)/GOG Galaxy/Games/An Elder Scrolls Legend Battlespire",
-      "C:/Program Files/GOG Galaxy/Games/An Elder Scrolls Legend Battlespire",
-      "D:/SteamLibrary/steamapps/common/An Elder Scrolls Legend Battlespire"};
-
-    // Prefer a non-Program Files Steam library when available
-    QStringList steamPaths = {
-      "D:/SteamLibrary/steamapps/common/An Elder Scrolls Legend Battlespire",
-      "F:/SteamLibrary/steamapps/common/An Elder Scrolls Legend Battlespire"};
-
-  for (const QString& gogPath : gogPaths) {
+  // Try GOG registry (using GOG Game ID 1435829464)
+  QString gogPath = findInRegistry(HKEY_LOCAL_MACHINE,
+                                   L"Software\\GOG.com\\Games\\1435829464",
+                                   L"path");
+  if (!gogPath.isEmpty()) {
     if (QDir(gogPath).exists() && QDir(gogPath + "/GAMEDATA").exists()) {
-      for (const QString& steamPath : steamPaths) {
-        if (QDir(steamPath).exists() && QDir(steamPath + "/GAMEDATA").exists()) {
-          qInfo().noquote() << "[GameBattlespire] Prefer Steam path over Program Files:" << steamPath;
-          return steamPath;
-        }
-      }
-      qInfo().noquote() << "[GameBattlespire] GOG path verified";
-      OutputDebugStringA("[GameBattlespire] GOG path verified\n");
+      qInfo().noquote() << "[GameBattlespire] GOG registry path verified";
+      OutputDebugStringA("[GameBattlespire] GOG registry path verified\n");
       return gogPath;
     }
   }

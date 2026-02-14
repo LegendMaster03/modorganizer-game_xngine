@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QtPlugin>
 #include <QtGlobal>
+#include <QIcon>
 #include <QStandardPaths>
 #include <windows.h>
 #include <memory>
@@ -35,6 +36,8 @@ public:  // IPluginGame interface
   virtual QStringList validShortNames() const override;
   virtual int nexusModOrganizerID() const override;
   virtual int nexusGameID() const override;
+  virtual QIcon gameIcon() const override;
+  virtual QDir dataDirectory() const override;
 
 public:  // IPlugin interface
   virtual QString name() const override;
@@ -46,6 +49,8 @@ public:  // IPlugin interface
 
 protected:
   virtual QString identifyGamePath() const override;
+  virtual bool looksValid(QDir const& path) const override;
+  virtual bool prepareIni(const QString& exec) override;
   virtual QDir savesDirectory() const override;
   virtual QString savegameExtension() const override;
   virtual QString savegameSEExtension() const override;
@@ -56,6 +61,7 @@ protected:
 
 private:
   QString findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const;
+  bool applyPatchMods();
 };
 
 #endif  // GAMEREDGUARD_H

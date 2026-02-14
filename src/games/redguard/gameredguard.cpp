@@ -3,6 +3,9 @@
 #include "redguardsmoddatachecker.h"
 #include "redguardsmoddatacontent.h"
 #include "redguardsavegame.h"
+#include "redguardsmapchanges.h"
+#include "redguardsrtxdatabase.h"
+#include "redguardsutils.h"
 
 #include <executableinfo.h>
 #include <pluginsetting.h>
@@ -20,15 +23,386 @@
 #include <QSettings>
 #include <QFile>
 #include <QRegularExpression>
+#include <QIcon>
+#include <QDir>
+#include <QDirIterator>
+#include <QTextStream>
+#include <QSet>
 
 #include <Windows.h>
 #include <winver.h>
+
+#include "utility.h"
 
 #include <exception>
 #include <memory>
 #include <stdexcept>
 
 using namespace MOBase;
+
+namespace {
+constexpr const char* kPatchTempModPrefix = "__redguard_patch_output_";
+
+QString profileSuffix(const QString& profilePath)
+{
+  if (profilePath.isEmpty()) {
+    return "default";
+  }
+  const QString name = QDir(profilePath).dirName();
+  return name.isEmpty() ? QString("default") : name;
+}
+
+bool ensureDir(const QString& path)
+{
+  QDir dir;
+  return dir.mkpath(path);
+}
+
+bool removeDirRecursive(const QString& path)
+{
+  QDir dir(path);
+  if (!dir.exists()) {
+    return true;
+  }
+  return dir.removeRecursively();
+}
+
+bool copyDirectoryContents(const QString& sourceDir, const QString& destDir)
+{
+  QDir src(sourceDir);
+  if (!src.exists()) {
+    return true;
+  }
+
+  if (!ensureDir(destDir)) {
+    return false;
+  }
+
+  int copiedCount = 0;
+  QDirIterator it(sourceDir, QDir::Files, QDirIterator::Subdirectories);
+  while (it.hasNext()) {
+    const QString srcFile = it.next();
+    const QString relPath = src.relativeFilePath(srcFile);
+    const QString dstFile = QDir(destDir).filePath(relPath);
+    const QString dstDirPath = QFileInfo(dstFile).absolutePath();
+    if (!ensureDir(dstDirPath)) {
+      return false;
+    }
+    QFile::remove(dstFile);
+    if (!QFile::copy(srcFile, dstFile)) {
+      return false;
+    }
+    ++copiedCount;
+  }
+
+  qInfo().noquote() << "[GameRedguard] Copied" << copiedCount << "files from"
+                    << sourceDir << "to" << destDir;
+
+  return true;
+}
+
+bool resolveBaseFilePath(const QString& tempModPath, const QString& gameDir,
+                         const QString& fileName, QString& basePath,
+                         QString& relativeSubdir)
+{
+  const QString tempRoot = QDir(tempModPath).filePath(fileName);
+  if (QFile::exists(tempRoot)) {
+    basePath      = tempRoot;
+    relativeSubdir = "";
+    return true;
+  }
+
+  const QString tempRedguard = QDir(tempModPath).filePath("Redguard/" + fileName);
+  if (QFile::exists(tempRedguard)) {
+    basePath      = tempRedguard;
+    relativeSubdir = "Redguard/";
+    return true;
+  }
+
+  const QString gameRoot = QDir(gameDir).filePath(fileName);
+  if (QFile::exists(gameRoot)) {
+    basePath      = gameRoot;
+    relativeSubdir = "";
+    return true;
+  }
+
+  const QString gameRedguard = QDir(gameDir).filePath("Redguard/" + fileName);
+  if (QFile::exists(gameRedguard)) {
+    basePath      = gameRedguard;
+    relativeSubdir = "Redguard/";
+    return true;
+  }
+
+  return false;
+}
+
+QMap<QString, QMap<QString, QMap<QString, QString>>> parseIniChanges(
+    const QString& changesFilePath)
+{
+  QMap<QString, QMap<QString, QMap<QString, QString>>> allChanges;
+  QFile file(changesFilePath);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    return allChanges;
+  }
+
+  QTextStream in(&file);
+  QString currentIni;
+  QString currentSection;
+
+  while (!in.atEnd()) {
+    const QString line = in.readLine();
+    const QString trimmed = line.trimmed();
+
+    if (trimmed.isEmpty() || trimmed.startsWith(";")) {
+      continue;
+    }
+
+    if (!line.startsWith(' ') && !line.startsWith('\t')) {
+      currentIni = trimmed;
+      currentSection.clear();
+      continue;
+    }
+
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      currentSection = trimmed.mid(1, trimmed.length() - 2).trimmed();
+      continue;
+    }
+
+    const int eqPos = trimmed.indexOf('=');
+    if (eqPos > 0 && !currentIni.isEmpty()) {
+      const QString key = trimmed.left(eqPos).trimmed();
+      const QString value = trimmed.mid(eqPos + 1).trimmed();
+      allChanges[currentIni][currentSection][key] = value;
+    }
+  }
+
+  return allChanges;
+}
+
+bool applyIniChangesToFile(const QString& iniFileName,
+                           const QMap<QString, QMap<QString, QString>>& sectionChanges,
+                           const QString& tempModPath,
+                           const QString& gameDir)
+{
+  QString basePath;
+  QString relativeSubdir;
+  if (!resolveBaseFilePath(tempModPath, gameDir, iniFileName, basePath, relativeSubdir)) {
+    qWarning().noquote() << "[GameRedguard] INI base file not found:" << iniFileName;
+    return false;
+  }
+
+  qInfo().noquote() << "[GameRedguard] INI base:" << basePath;
+
+  QFile sourceFile(basePath);
+  if (!sourceFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    qWarning().noquote() << "[GameRedguard] Could not read INI:" << basePath;
+    return false;
+  }
+  const QString fileText = QString::fromLatin1(sourceFile.readAll());
+  sourceFile.close();
+
+  QStringList lines = fileText.split('\n');
+
+  const auto findSectionRange = [&](const QString& sectionName,
+                                    int& startLine, int& endLine) -> bool {
+    startLine = -1;
+    endLine = lines.size() - 1;
+    if (sectionName.isEmpty()) {
+      for (int i = 0; i < lines.size(); ++i) {
+        const QString trimmed = lines[i].trimmed();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          endLine = i - 1;
+          return true;
+        }
+      }
+      return true;
+    }
+
+    for (int i = 0; i < lines.size(); ++i) {
+      const QString trimmed = lines[i].trimmed();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        const QString header = trimmed.mid(1, trimmed.length() - 2).trimmed();
+        if (header.compare(sectionName, Qt::CaseInsensitive) == 0) {
+          startLine = i;
+          for (int j = i + 1; j < lines.size(); ++j) {
+            const QString nextTrimmed = lines[j].trimmed();
+            if (nextTrimmed.startsWith('[') && nextTrimmed.endsWith(']')) {
+              endLine = j - 1;
+              return true;
+            }
+          }
+          endLine = lines.size() - 1;
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  for (auto sectionIt = sectionChanges.constBegin();
+       sectionIt != sectionChanges.constEnd(); ++sectionIt) {
+    const QString sectionName = sectionIt.key();
+    const QMap<QString, QString>& keyValues = sectionIt.value();
+
+    int sectionStart = -1;
+    int sectionEnd = lines.size() - 1;
+    const bool sectionFound = findSectionRange(sectionName, sectionStart, sectionEnd);
+
+    QSet<QString> updatedKeys;
+    int searchStart = sectionStart >= 0 ? sectionStart + 1 : 0;
+    int searchEnd = sectionEnd;
+
+    for (int i = searchStart; i <= searchEnd && i < lines.size(); ++i) {
+      QString trimmedLine = lines[i].trimmed();
+      if (trimmedLine.startsWith(';') || trimmedLine.startsWith('[')) {
+        continue;
+      }
+
+      const int eqPos = trimmedLine.indexOf('=');
+      if (eqPos <= 0) {
+        continue;
+      }
+
+      const QString key = trimmedLine.left(eqPos).trimmed();
+      if (keyValues.contains(key)) {
+        lines[i] = key + " = " + keyValues.value(key);
+        updatedKeys.insert(key);
+      }
+    }
+
+    QStringList missingLines;
+    for (auto kvIt = keyValues.constBegin(); kvIt != keyValues.constEnd(); ++kvIt) {
+      if (!updatedKeys.contains(kvIt.key())) {
+        missingLines.append(kvIt.key() + " = " + kvIt.value());
+      }
+    }
+
+    if (!missingLines.isEmpty()) {
+      if (sectionFound && sectionStart >= 0) {
+        int insertPos = sectionEnd + 1;
+        for (const QString& line : missingLines) {
+          lines.insert(insertPos, line);
+          ++insertPos;
+        }
+      } else if (!sectionName.isEmpty()) {
+        if (!lines.isEmpty() && !lines.last().trimmed().isEmpty()) {
+          lines.append("");
+        }
+        lines.append("[" + sectionName + "]");
+        for (const QString& line : missingLines) {
+          lines.append(line);
+        }
+      } else {
+        if (!lines.isEmpty() && !lines.last().trimmed().isEmpty()) {
+          lines.append("");
+        }
+        for (const QString& line : missingLines) {
+          lines.append(line);
+        }
+      }
+    }
+  }
+
+  const QString destPath = QDir(tempModPath).filePath(relativeSubdir + iniFileName);
+  qInfo().noquote() << "[GameRedguard] Writing INI patch output:" << destPath;
+  if (!relativeSubdir.isEmpty()) {
+    if (!ensureDir(QDir(tempModPath).filePath(relativeSubdir))) {
+      qWarning().noquote() << "[GameRedguard] Failed to create INI subdir:"
+                           << relativeSubdir;
+      return false;
+    }
+  }
+
+  QFile destFile(destPath);
+  if (!destFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    qWarning().noquote() << "[GameRedguard] Could not write INI:" << destPath;
+    return false;
+  }
+
+  QString outputText = lines.join("\n");
+  outputText = RedguardsUtils::fixUnsupportedCharacters(outputText);
+  destFile.write(outputText.toLatin1());
+  destFile.close();
+  return true;
+}
+
+bool applyIniChanges(const QString& modPath, const QString& tempModPath,
+                     const QString& gameDir)
+{
+  const QString changesFilePath = QDir(modPath).filePath("INI Changes.txt");
+  qInfo().noquote() << "[GameRedguard] Applying INI changes from" << changesFilePath;
+  const auto allChanges = parseIniChanges(changesFilePath);
+  if (allChanges.isEmpty()) {
+    qInfo().noquote() << "[GameRedguard] No INI changes parsed";
+    return true;
+  }
+
+  bool ok = true;
+  for (auto iniIt = allChanges.constBegin(); iniIt != allChanges.constEnd(); ++iniIt) {
+    if (!applyIniChangesToFile(iniIt.key(), iniIt.value(), tempModPath, gameDir)) {
+      ok = false;
+    }
+  }
+  return ok;
+}
+
+bool applyRtxChanges(const QString& modPath, const QString& tempModPath,
+                     const QString& gameDir)
+{
+  const QString changesFilePath = QDir(modPath).filePath("RTX Changes.txt");
+  qInfo().noquote() << "[GameRedguard] Applying RTX changes from" << changesFilePath;
+  QString basePath;
+  QString relativeSubdir;
+  if (!resolveBaseFilePath(tempModPath, gameDir, "ENGLISH.RTX", basePath, relativeSubdir)) {
+    qWarning().noquote() << "[GameRedguard] ENGLISH.RTX not found in game path";
+    return false;
+  }
+
+  RedguardsRtxDatabase rtxDb;
+  if (!rtxDb.readFile(basePath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to read RTX:" << basePath;
+    return false;
+  }
+
+  if (!rtxDb.applyChanges(changesFilePath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to apply RTX changes:" << changesFilePath;
+    return false;
+  }
+
+  const QString destPath = QDir(tempModPath).filePath(relativeSubdir + "ENGLISH.RTX");
+  qInfo().noquote() << "[GameRedguard] Writing RTX patch output:" << destPath;
+  if (!relativeSubdir.isEmpty()) {
+    if (!ensureDir(QDir(tempModPath).filePath(relativeSubdir))) {
+      qWarning().noquote() << "[GameRedguard] Failed to create RTX subdir:"
+                           << relativeSubdir;
+      return false;
+    }
+  }
+
+  if (!rtxDb.writeFile(destPath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to write RTX:" << destPath;
+    return false;
+  }
+
+  return true;
+}
+
+bool applyMapChanges(const QString& modPath, const QString& tempModPath)
+{
+  Q_UNUSED(tempModPath);
+  const QString changesFilePath = QDir(modPath).filePath("Map Changes.txt");
+  qInfo().noquote() << "[GameRedguard] Parsing Map Changes from" << changesFilePath;
+  RedguardsMapChanges mapChanges;
+  if (!mapChanges.readChanges(changesFilePath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to read Map Changes:" << changesFilePath;
+    return false;
+  }
+
+  qWarning().noquote() << "[GameRedguard] Map patching is not yet implemented;";
+  qWarning().noquote() << "[GameRedguard] Map Changes.txt was parsed but not applied.";
+  return true;
+}
+}  // namespace
 
 GameRedguard::GameRedguard() {
   qInfo().noquote() << "[GameRedguard] Constructor ENTRY";
@@ -39,10 +413,6 @@ GameRedguard::GameRedguard() {
 
 bool GameRedguard::init(IOrganizer* moInfo)
 {
-  qWarning().noquote() << "[GameRedguard] init() DISABLED for crash isolation";
-  return false;
-
-  /*
   qInfo().noquote() << "[GameRedguard] init() ENTRY";
   OutputDebugStringA("[GameRedguard] init() ENTRY\n");
   
@@ -94,7 +464,6 @@ bool GameRedguard::init(IOrganizer* moInfo)
     qWarning().noquote() << "[GameRedguard] UNKNOWN EXCEPTION in init()";
     return false;
   }
-  */
 }
 
 QString GameRedguard::gameName() const
@@ -121,19 +490,22 @@ QList<ExecutableInfo> GameRedguard::executables() const
   
   // Steam DOSBox launcher
   QFileInfo steamDosbox(gameDir.filePath("DOSBox-0.73/dosbox.exe"));
+  QFileInfo steamConfig(gameDir.filePath("DOSBox-0.73/rg.conf"));
   if (steamDosbox.exists()) {
-    executables << ExecutableInfo("Redguard (Steam DOSBox)", steamDosbox)
-                   .withArgument(R"(-conf rg.conf -c "cd Redguard" -c "REDGUARD.EXE")");
+    executables << ExecutableInfo("Redguard (Steam DOSBox Windowed)", steamDosbox)
+                   .withArgument("dosbox.exe -noconsole -conf rg.conf");
+    executables << ExecutableInfo("Redguard (Steam DOSBox Fullscreen)", steamDosbox)
+                   .withArgument("-noconsole -conf rg.conf -fullscreen");
   }
 
   // GOG DOSBox launcher
   QFileInfo gogDosbox(gameDir.filePath("DOSBOX/dosbox.exe"));
   if (gogDosbox.exists()) {
     executables << ExecutableInfo("Redguard (GOG DOSBox)", gogDosbox)
-                   .withArgument(R"(-conf dosbox_redguard.conf)");
+                   .withArgument(R"(-conf "..\dosbox_redguard.conf" -conf "..\dosbox_redguard_single.conf" -noconsole -c exit)");
   }
 
-  // Standalone Redguard exe if it exists
+  // Standalone executable if it exists
   QFileInfo redguardExe(gameDir.filePath("Redguard/REDGUARD.EXE"));
   if (redguardExe.exists()) {
     executables << ExecutableInfo("Redguard", redguardExe);
@@ -145,6 +517,7 @@ QList<ExecutableInfo> GameRedguard::executables() const
 
 QString GameRedguard::steamAPPId() const
 {
+  qInfo().noquote() << "[GameRedguard] steamAPPId() called";
   OutputDebugStringA("[GameRedguard] steamAPPId() called\n");
   return "1812410";
 }
@@ -152,6 +525,7 @@ QString GameRedguard::steamAPPId() const
 QString GameRedguard::gogAPPId() const
 {
   qInfo().noquote() << "[GameRedguard] gogAPPId() called";
+  OutputDebugStringA("[GameRedguard] gogAPPId() called\n");
   return "1435829617";
 }
 
@@ -177,6 +551,13 @@ QStringList GameRedguard::validShortNames() const
 {
   OutputDebugStringA("[GameRedguard] validShortNames() called\n");
   return {"redguard", "rg"};
+}
+
+QIcon GameRedguard::gameIcon() const
+{
+  const QString exePath = gameDirectory().absoluteFilePath("Redguard/REDGUARD.EXE");
+  QIcon icon = MOBase::iconForExecutable(exePath);
+  return icon.isNull() ? GameXngine::gameIcon() : icon;
 }
 
 int GameRedguard::nexusModOrganizerID() const
@@ -229,48 +610,43 @@ QList<PluginSetting> GameRedguard::settings() const
 
 QString GameRedguard::identifyGamePath() const
 {
+  qInfo().noquote() << "[GameRedguard] identifyGamePath() ENTRY";
   OutputDebugStringA("[GameRedguard] identifyGamePath() ENTRY\n");
-  
   try {
-    OutputDebugStringA("[GameRedguard] About to call findInRegistry for Steam\n");
-    // Try Steam first (using Steam App ID 1812410)
-    QString steamPath = findInRegistry(HKEY_LOCAL_MACHINE,
-                                       L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1812410",
-                                       L"InstallLocation");
-    OutputDebugStringA("[GameRedguard] findInRegistry returned\n");
-    
-    if (!steamPath.isEmpty()) {
-      OutputDebugStringA("[GameRedguard] Steam path found, verifying structure\n");
-      // Verify it has the Steam DOSBox structure
-      if (QDir(steamPath + "/DOSBox-0.73").exists() &&
-          QFile::exists(steamPath + "/DOSBox-0.73/dosbox.exe") &&
-          QFile::exists(steamPath + "/Redguard/REDGUARD.EXE")) {
-        OutputDebugStringA("[GameRedguard] Steam path verified\n");
-        return steamPath;
-      }
-      OutputDebugStringA("[GameRedguard] Steam path found but structure invalid\n");
+  // Try Steam first (using Steam App ID 1812410)
+  QString steamPath = findInRegistry(HKEY_LOCAL_MACHINE,
+                                     L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1812410",
+                                     L"InstallLocation");
+  if (!steamPath.isEmpty()) {
+    // Verify it has the Steam DOSBox structure
+    if (QDir(steamPath + "/DOSBox-0.73").exists() &&
+        QFile::exists(steamPath + "/DOSBox-0.73/dosbox.exe") &&
+        QFile::exists(steamPath + "/Redguard/REDGUARD.EXE")) {
+      qInfo().noquote() << "[GameRedguard] Steam path verified";
+      OutputDebugStringA("[GameRedguard] Steam path verified\n");
+      return steamPath;
     }
+  }
 
-    OutputDebugStringA("[GameRedguard] Checking GOG paths\n");
-    // Try GOG (common GOG install paths)
-    QStringList gogPaths = {
-        "C:/Program Files (x86)/GOG Galaxy/Games/Redguard",
-        "C:/Program Files/GOG Galaxy/Games/Redguard",
-        "C:/Program Files/GOG Galaxy/Games/Redguard"};
-
-    for (const QString& gogPath : gogPaths) {
-      OutputDebugStringA("[GameRedguard] Checking GOG path\n");
-      if (QDir(gogPath).exists() && QDir(gogPath + "/DOSBOX").exists() &&
-          QFile::exists(gogPath + "/DOSBOX/dosbox.exe") &&
-          QFile::exists(gogPath + "/dosbox_redguard.conf")) {
-        OutputDebugStringA("[GameRedguard] GOG path verified\n");
-        return gogPath;
-      }
+  // Try GOG registry (using GOG Game ID 1435829617)
+  QString gogPath = findInRegistry(HKEY_LOCAL_MACHINE,
+                                   L"Software\\GOG.com\\Games\\1435829617",
+                                   L"path");
+  if (!gogPath.isEmpty()) {
+    // Verify it has the GOG DOSBox structure
+    if (QDir(gogPath + "/DOSBOX").exists() &&
+        QFile::exists(gogPath + "/DOSBOX/dosbox.exe") &&
+        QFile::exists(gogPath + "/Redguard/REDGUARD.EXE")) {
+      qInfo().noquote() << "[GameRedguard] GOG registry path verified";
+      OutputDebugStringA("[GameRedguard] GOG registry path verified\n");
+      return gogPath;
     }
+  }
 
-    OutputDebugStringA("[GameRedguard] identifyGamePath() EXIT (not found)\n");
-    return {};
-  } catch (const std::exception& e) {
+  qWarning().noquote() << "[GameRedguard] identifyGamePath() EXIT (not found)";
+  OutputDebugStringA("[GameRedguard] identifyGamePath() EXIT (not found)\n");
+  return {};
+  } catch (const std::exception&) {
     OutputDebugStringA("[GameRedguard] EXCEPTION in identifyGamePath()\n");
     return {};
   } catch (...) {
@@ -305,6 +681,37 @@ QString GameRedguard::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) 
     return QString();
 
   return QString::fromWCharArray(buffer.get());
+}
+
+bool GameRedguard::looksValid(QDir const& path) const
+{
+  qInfo().noquote() << "[GameRedguard] looksValid() called";
+  OutputDebugStringA("[GameRedguard] looksValid() called\n");
+  
+  // Redguard has a unique structure - the executable is in a Redguard subdirectory
+  // Check for either Steam structure (DOSBox-0.73) or GOG structure (DOSBOX)
+  bool valid = (QDir(path.absolutePath() + "/DOSBox-0.73").exists() &&
+                QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE")) ||
+               (QDir(path.absolutePath() + "/DOSBOX").exists() &&
+                QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE"));
+  
+  return valid;
+}
+
+QDir GameRedguard::dataDirectory() const
+{
+  qInfo().noquote() << "[GameRedguard] dataDirectory() ENTRY";
+  OutputDebugStringA("[GameRedguard] dataDirectory() ENTRY\n");
+  QDir gameDir = gameDirectory();
+  if (gameDir.path().isEmpty() || !gameDir.exists()) {
+    qWarning().noquote() << "[GameRedguard] dataDirectory() - game directory invalid:" << gameDir.absolutePath();
+    OutputDebugStringA("[GameRedguard] dataDirectory() - game directory invalid\n");
+    return QDir();
+  }
+  QDir redguardDir = gameDir.absoluteFilePath("Redguard");
+  qInfo().noquote() << "[GameRedguard] dataDirectory() using Redguard subdirectory:" << redguardDir.absolutePath();
+  OutputDebugStringA(("[GameRedguard] dataDirectory() path='" + redguardDir.absolutePath().toStdString() + "'\n").c_str());
+  return redguardDir;
 }
 
 QDir GameRedguard::savesDirectory() const
@@ -345,4 +752,206 @@ SaveLayout GameRedguard::saveLayout() const
 QString GameRedguard::saveGameId() const
 {
   return "redguard";
+}
+
+bool GameRedguard::prepareIni(const QString& exec)
+{
+  qInfo().noquote() << "[GameRedguard] prepareIni() ENTRY";
+  OutputDebugStringA("[GameRedguard] prepareIni() ENTRY\n");
+  
+  // First call parent implementation
+  if (!GameXngine::prepareIni(exec)) {
+    qWarning().noquote() << "[GameRedguard] GameXngine::prepareIni() FAILED";
+    return false;
+  }
+  
+  // Apply patch-based mods
+  // NOTE: This requires copying the complete patch system implementation
+  // from modorganizer-game_redguard reference project, including:
+  // - MapChanges.h/cpp
+  // - RtxDatabase.h/cpp  
+  // - MapFile.h/cpp and related map handling
+  // - RGMODFrameworkWrapper.h/cpp patch application logic
+  //
+  // For now, log that patch mods are detected but refer to reference implementation
+  if (!applyPatchMods()) {
+    qWarning().noquote() << "[GameRedguard] applyPatchMods() FAILED";
+    // Don't fail launch - file replacement mods should still work
+    OutputDebugStringA("[GameRedguard] WARNING: Patch mod application failed but continuing launch\n");
+  }
+  
+  qInfo().noquote() << "[GameRedguard] prepareIni() EXIT SUCCESS";
+  OutputDebugStringA("[GameRedguard] prepareIni() EXIT\n");
+  return true;
+}
+
+bool GameRedguard::applyPatchMods()
+{
+  qInfo().noquote() << "[GameRedguard] applyPatchMods() ENTRY";
+  OutputDebugStringA("[GameRedguard] applyPatchMods() ENTRY\n");
+  
+  if (!m_Organizer) {
+    qWarning().noquote() << "[GameRedguard] m_Organizer is NULL";
+    return false;
+  }
+  
+  // Get the mod list to find enabled mods
+  auto* modList = m_Organizer->modList();
+  if (!modList) {
+    qWarning().noquote() << "[GameRedguard] modList is NULL";
+    return false;
+  }
+  
+  // Get all mods ordered by priority (load order matters for patches)
+  QStringList allMods = modList->allModsByProfilePriority();
+  if (allMods.isEmpty()) {
+    qInfo().noquote() << "[GameRedguard] No mods in profile, nothing to apply";
+    return true;
+  }
+  
+  // Get the mods directory path
+  QString modsPath = m_Organizer->modsPath();
+  QString gameDir = gameDirectory().absolutePath();
+
+  const QString tempModName =
+      QString(kPatchTempModPrefix) + profileSuffix(profilePath());
+  const QString tempModPath = QDir(modsPath).filePath(tempModName);
+  
+  qInfo().noquote() << "[GameRedguard] Scanning" << allMods.size() << "mods for patch files";
+  qInfo().noquote() << "[GameRedguard] Mods path:" << modsPath;
+  qInfo().noquote() << "[GameRedguard] Game directory:" << gameDir;
+  
+  int patchModCount = 0;
+  QStringList patchFileTypes = {"INI Changes.txt", "Map Changes.txt", "RTX Changes.txt"};
+  
+  // Scan enabled mods for patch files
+  int lastPatchPriority = -1;
+  QList<QString> patchModsInOrder;
+  for (const QString& modName : allMods) {
+    // Check if mod is active
+    if (!(modList->state(modName) & IModList::STATE_ACTIVE)) {
+      continue;
+    }
+    
+    QString modPath = modsPath + "/" + modName;
+    QDir modDir(modPath);
+    if (!modDir.exists()) {
+      continue;
+    }
+    
+    // Check for patch files
+    bool hasPatchFiles = false;
+    for (const QString& patchFile : patchFileTypes) {
+      if (QFile::exists(modDir.absoluteFilePath(patchFile))) {
+        if (!hasPatchFiles) {
+          qInfo().noquote() << "[GameRedguard] Found patch mod:" << modName;
+          hasPatchFiles = true;
+          patchModCount++;
+          patchModsInOrder.append(modName);
+        }
+        qInfo().noquote() << "[GameRedguard]   - Has" << patchFile;
+      }
+    }
+
+    if (hasPatchFiles) {
+      lastPatchPriority = modList->priority(modName);
+    }
+  }
+  
+  if (patchModCount == 0) {
+    qInfo().noquote() << "[GameRedguard] No patch-based mods found";
+    return true;
+  }
+  
+  // Log status
+  qWarning().noquote() << "[GameRedguard] ========================================";
+  qWarning().noquote() << "[GameRedguard] PATCH MODS DETECTED:" << patchModCount << "mod(s)";
+  qWarning().noquote() << "[GameRedguard] ========================================";
+  qWarning().noquote() << "[GameRedguard] Building temporary patch output mod:" << tempModName;
+  qInfo().noquote() << "[GameRedguard] Temp mod path:" << tempModPath;
+  qWarning().noquote() << "[GameRedguard] ========================================";
+
+  if (!removeDirRecursive(tempModPath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to clean existing temp mod:" << tempModPath;
+  }
+
+  if (!ensureDir(tempModPath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to create temp mod path:" << tempModPath;
+    return false;
+  }
+
+  static bool cleanupRegistered = false;
+  if (!cleanupRegistered) {
+    cleanupRegistered = true;
+    m_Organizer->onFinishedRun([tempModPath, tempModName, modList](const QString&, unsigned int) {
+      if (modList) {
+        modList->setActive(tempModName, false);
+      }
+      removeDirRecursive(tempModPath);
+    });
+  }
+
+  if (!modList->getMod(tempModName)) {
+    if (QDir(tempModPath).exists()) {
+      removeDirRecursive(tempModPath);
+    }
+    MOBase::GuessedValue<QString> guessedName(tempModName);
+    auto* created = m_Organizer->createMod(guessedName);
+    if (!created) {
+      qWarning().noquote() << "[GameRedguard] Failed to create temp mod entry:" << tempModName;
+    }
+  }
+
+  modList->setActive(tempModName, true);
+  if (lastPatchPriority >= 0) {
+    modList->setPriority(tempModName, lastPatchPriority + 1);
+  }
+
+  bool success = true;
+  for (const QString& modName : patchModsInOrder) {
+    const QString modPath = QDir(modsPath).filePath(modName);
+    qInfo().noquote() << "[GameRedguard] Applying patch mod:" << modName
+                      << "from" << modPath;
+
+    if (QFile::exists(QDir(modPath).filePath("INI Changes.txt"))) {
+      if (!applyIniChanges(modPath, tempModPath, gameDir)) {
+        success = false;
+      }
+    }
+
+    if (QFile::exists(QDir(modPath).filePath("Map Changes.txt"))) {
+      if (!applyMapChanges(modPath, tempModPath)) {
+        success = false;
+      }
+    }
+
+    if (QFile::exists(QDir(modPath).filePath("RTX Changes.txt"))) {
+      if (!applyRtxChanges(modPath, tempModPath, gameDir)) {
+        success = false;
+      }
+    }
+
+    const QString audioSource = QDir(modPath).filePath("Audio");
+    if (QDir(audioSource).exists()) {
+      const QString audioDest = QDir(tempModPath).filePath("Audio");
+      qInfo().noquote() << "[GameRedguard] Staging Audio ->" << audioDest;
+      if (!copyDirectoryContents(audioSource, audioDest)) {
+        qWarning().noquote() << "[GameRedguard] Failed to stage Audio for mod:" << modName;
+        success = false;
+      }
+    }
+
+    const QString texturesSource = QDir(modPath).filePath("Textures");
+    if (QDir(texturesSource).exists()) {
+      const QString texturesDest = QDir(tempModPath).filePath("Textures");
+      qInfo().noquote() << "[GameRedguard] Staging Textures ->" << texturesDest;
+      if (!copyDirectoryContents(texturesSource, texturesDest)) {
+        qWarning().noquote() << "[GameRedguard] Failed to stage Textures for mod:" << modName;
+        success = false;
+      }
+    }
+  }
+
+  qInfo().noquote() << "[GameRedguard] applyPatchMods() EXIT";
+  return success;
 }

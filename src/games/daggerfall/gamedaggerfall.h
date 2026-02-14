@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QtPlugin>
 #include <QtGlobal>
+#include <QIcon>
 #include <QStandardPaths>
 #include <windows.h>
 #include <memory>
@@ -35,6 +36,7 @@ public:  // IPluginGame interface
   virtual QStringList validShortNames() const override;
   virtual int nexusModOrganizerID() const override;
   virtual int nexusGameID() const override;
+  virtual QIcon gameIcon() const override;
 
 public:  // IPlugin interface
   virtual QString name() const override;

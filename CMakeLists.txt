@@ -38,7 +38,7 @@ endif()
 # Set global include directories for Qt's moc preprocessor
 include_directories(${MO2_UIBASE_INCLUDE})
 include_directories(${MO2_SRC_PATH})
-include_directories(${MO2_UIBASE_PATH}/include/uibase/game_features)
+include_directories(${MO2_UIBASE_PATH}/game_features)
 
 # Build xngine base library
 add_subdirectory(src/xngine)

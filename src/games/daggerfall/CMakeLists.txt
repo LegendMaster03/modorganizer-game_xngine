@@ -14,9 +14,6 @@ include_directories(${CMAKE_SOURCE_DIR}/src/xngine)
 set(DAGGERFALL_GAME_SOURCES
     gamedaggerfall.cpp
     gamedaggerfall.h
-    # daggerfallsmoddatachecker.h  # Disabled - using XnGine base
-    # daggerfallsmoddatacontent.cpp  # Disabled - using XnGine base
-    # daggerfallsmoddatacontent.h  # Disabled - using XnGine base
 )
 
 # Create shared library
