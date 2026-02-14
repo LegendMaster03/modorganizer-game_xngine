@@ -2,10 +2,6 @@
 
 This repository provides Mod Organizer 2 (MO2) game plugins for Bethesda XnGine titles. The plugins share a common XnGine base and expose per-game modules.
 
-## Status
-
-Work in progress. Builds succeed, but MO2 crashes during plugin metadata parsing (Qt6 `qt_plugin_query_metadata_v2`), so the plugins do not currently load in MO2.
-
 ## Supported Games
 
 - An Elder Scrolls Legend: Battlespire
