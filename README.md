@@ -75,4 +75,4 @@ See project license file for details.
 
 - Dillonn241 for starting the Redguard modding scene
 - ModOrganizer 2 team for the plugin system
-- Bethesda for the XnGine engine and Redguard
+- Bethesda for XnGine
