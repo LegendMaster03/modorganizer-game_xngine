@@ -26,6 +26,7 @@ public:
    * @return Pointer to list of changes, or nullptr if no changes at that position
    */
   QList<QString>* lineChangesAt(const QString& mapName, int pos);
+  const QList<QString>* lineChangesAt(const QString& mapName, int pos) const;
 
   /**
    * Checks if a map has any modifications.
@@ -42,11 +43,11 @@ public:
   void addChanges(const QString& mapName, const QMap<int, QList<QString>>& mapChanges);
 
   /**
-   * Adds a single change at a position.
-   * Pass an empty string to represent a deletion.
+  * Adds a single change at a position.
+  * Pass "null" to represent a deletion.
    * @param mapName The name of the map
    * @param pos The line position
-   * @param line The change (or empty string for deletion)
+  * @param line The change (or "null" for deletion)
    */
   void addChange(const QString& mapName, int pos, const QString& line);
 
@@ -64,6 +65,8 @@ public:
    * @return true if successful, false otherwise
    */
   bool writeChanges(const QString& filePath) const;
+
+  bool isEmpty() const { return mLineChanges.isEmpty(); }
 
 private:
   // Map of map name -> (position -> list of changes)

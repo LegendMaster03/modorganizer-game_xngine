@@ -3,7 +3,9 @@
 #include "redguardsmoddatachecker.h"
 #include "redguardsmoddatacontent.h"
 #include "redguardsavegame.h"
+#include "redguardsmapdatabase.h"
 #include "redguardsmapchanges.h"
+#include "redguardsmapfile.h"
 #include "redguardsrtxdatabase.h"
 #include "redguardsutils.h"
 
@@ -46,10 +48,10 @@ constexpr const char* kPatchTempModPrefix = "__redguard_patch_output_";
 QString profileSuffix(const QString& profilePath)
 {
   if (profilePath.isEmpty()) {
-    return "default";
+    return "Default";
   }
   const QString name = QDir(profilePath).dirName();
-  return name.isEmpty() ? QString("default") : name;
+  return name.isEmpty() ? QString("Default") : name;
 }
 
 bool ensureDir(const QString& path)
@@ -134,6 +136,38 @@ bool resolveBaseFilePath(const QString& tempModPath, const QString& gameDir,
   }
 
   return false;
+}
+
+QString findSoupPath(const QString& gameDir)
+{
+  const QStringList candidates = {
+      QDir(gameDir).filePath("Redguard/soup386/SOUP386.DEF"),
+      QDir(gameDir).filePath("soup386/SOUP386.DEF")
+  };
+
+  for (const QString& path : candidates) {
+    if (QFile::exists(path)) {
+      return path;
+    }
+  }
+  return QString();
+}
+
+QString findMapsRoot(const QString& gameDir)
+{
+  const QStringList candidates = {
+      QDir(gameDir).filePath("Redguard/maps"),
+      QDir(gameDir).filePath("Redguard/MAPS"),
+      QDir(gameDir).filePath("maps"),
+      QDir(gameDir).filePath("MAPS")
+  };
+
+  for (const QString& path : candidates) {
+    if (QDir(path).exists()) {
+      return path;
+    }
+  }
+  return QString();
 }
 
 QMap<QString, QMap<QString, QMap<QString, QString>>> parseIniChanges(
@@ -303,12 +337,17 @@ bool applyIniChangesToFile(const QString& iniFileName,
     }
   }
 
-  const QString destPath = QDir(tempModPath).filePath(relativeSubdir + iniFileName);
+  // Strip "Redguard/" prefix for mod output since mod root is already at the data level
+  QString modSubdir = relativeSubdir;
+  if (modSubdir.startsWith("Redguard/", Qt::CaseInsensitive)) {
+    modSubdir = modSubdir.mid(9);  // Remove "Redguard/" (9 chars)
+  }
+  const QString destPath = QDir(tempModPath).filePath(modSubdir + iniFileName);
   qInfo().noquote() << "[GameRedguard] Writing INI patch output:" << destPath;
-  if (!relativeSubdir.isEmpty()) {
-    if (!ensureDir(QDir(tempModPath).filePath(relativeSubdir))) {
+  if (!modSubdir.isEmpty()) {
+    if (!ensureDir(QDir(tempModPath).filePath(modSubdir))) {
       qWarning().noquote() << "[GameRedguard] Failed to create INI subdir:"
-                           << relativeSubdir;
+                           << modSubdir;
       return false;
     }
   }
@@ -369,12 +408,17 @@ bool applyRtxChanges(const QString& modPath, const QString& tempModPath,
     return false;
   }
 
-  const QString destPath = QDir(tempModPath).filePath(relativeSubdir + "ENGLISH.RTX");
+  // Strip "Redguard/" prefix for mod output since mod root is already at the data level
+  QString modSubdir = relativeSubdir;
+  if (modSubdir.startsWith("Redguard/", Qt::CaseInsensitive)) {
+    modSubdir = modSubdir.mid(9);  // Remove "Redguard/" (9 chars)
+  }
+  const QString destPath = QDir(tempModPath).filePath(modSubdir + "ENGLISH.RTX");
   qInfo().noquote() << "[GameRedguard] Writing RTX patch output:" << destPath;
-  if (!relativeSubdir.isEmpty()) {
-    if (!ensureDir(QDir(tempModPath).filePath(relativeSubdir))) {
+  if (!modSubdir.isEmpty()) {
+    if (!ensureDir(QDir(tempModPath).filePath(modSubdir))) {
       qWarning().noquote() << "[GameRedguard] Failed to create RTX subdir:"
-                           << relativeSubdir;
+                           << modSubdir;
       return false;
     }
   }
@@ -387,20 +431,134 @@ bool applyRtxChanges(const QString& modPath, const QString& tempModPath,
   return true;
 }
 
-bool applyMapChanges(const QString& modPath, const QString& tempModPath)
+bool applyMapChanges(const RedguardsMapChanges& mapChanges, const QString& tempModPath,
+                     const QString& gameDir)
 {
-  Q_UNUSED(tempModPath);
-  const QString changesFilePath = QDir(modPath).filePath("Map Changes.txt");
-  qInfo().noquote() << "[GameRedguard] Parsing Map Changes from" << changesFilePath;
-  RedguardsMapChanges mapChanges;
-  if (!mapChanges.readChanges(changesFilePath)) {
-    qWarning().noquote() << "[GameRedguard] Failed to read Map Changes:" << changesFilePath;
+  if (mapChanges.isEmpty()) {
+    qInfo().noquote() << "[GameRedguard] No Map Changes to apply";
+    return true;
+  }
+
+  QString rtxBasePath;
+  QString rtxSubdir;
+  if (!resolveBaseFilePath(tempModPath, gameDir, "ENGLISH.RTX", rtxBasePath, rtxSubdir)) {
+    qWarning().noquote() << "[GameRedguard] ENGLISH.RTX not found for map pipeline";
     return false;
   }
 
-  qWarning().noquote() << "[GameRedguard] Map patching is not yet implemented;";
-  qWarning().noquote() << "[GameRedguard] Map Changes.txt was parsed but not applied.";
-  return true;
+  RedguardsRtxDatabase rtxDb;
+  if (!rtxDb.readFile(rtxBasePath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to read RTX for map pipeline:" << rtxBasePath;
+    return false;
+  }
+
+  RedguardsMapDatabase mapDb(rtxDb);
+
+  QString worldPath;
+  QString worldSubdir;
+  if (!resolveBaseFilePath(tempModPath, gameDir, "WORLD.INI", worldPath, worldSubdir)) {
+    qWarning().noquote() << "[GameRedguard] WORLD.INI not found for map pipeline";
+    return false;
+  }
+
+  QString itemPath;
+  QString itemSubdir;
+  if (!resolveBaseFilePath(tempModPath, gameDir, "ITEM.INI", itemPath, itemSubdir)) {
+    qWarning().noquote() << "[GameRedguard] ITEM.INI not found for map pipeline";
+    return false;
+  }
+
+  QString soupPath = findSoupPath(gameDir);
+  if (soupPath.isEmpty()) {
+    qWarning().noquote() << "[GameRedguard] SOUP386.DEF not found for map pipeline";
+    return false;
+  }
+
+  if (!mapDb.readWorldFile(worldPath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to read WORLD.INI:" << worldPath;
+    return false;
+  }
+  if (!mapDb.readSoupFile(soupPath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to read SOUP386.DEF:" << soupPath;
+    return false;
+  }
+  if (!mapDb.readItemsFile(itemPath)) {
+    qWarning().noquote() << "[GameRedguard] Failed to read ITEM.INI:" << itemPath;
+    return false;
+  }
+
+  const QString mapsRoot = findMapsRoot(gameDir);
+  if (mapsRoot.isEmpty()) {
+    qWarning().noquote() << "[GameRedguard] MAPS directory not found for map pipeline";
+    return false;
+  }
+
+  const QString relativeMapsSubdir = QDir(gameDir).relativeFilePath(mapsRoot);
+  // Strip "Redguard/" prefix for mod output since mod root is already at the data level
+  QString modMapsSubdir = relativeMapsSubdir;
+  if (modMapsSubdir.startsWith("Redguard/", Qt::CaseInsensitive)) {
+    modMapsSubdir = modMapsSubdir.mid(9);  // Remove "Redguard/" (9 chars)
+  }
+  const QString outputMapsRoot = QDir(tempModPath).filePath(modMapsSubdir);
+  if (!ensureDir(outputMapsRoot)) {
+    qWarning().noquote() << "[GameRedguard] Failed to create map output directory:" << outputMapsRoot;
+    return false;
+  }
+
+  bool success = true;
+  for (auto* mapFile : mapDb.mapFiles()) {
+    if (!mapChanges.hasModifiedMap(mapFile->name())) {
+      continue;
+    }
+
+    const QString mapPath = QDir(mapsRoot).filePath(mapFile->name() + ".RGM");
+    if (!QFile::exists(mapPath)) {
+      qWarning().noquote() << "[GameRedguard] Map file not found:" << mapPath;
+      success = false;
+      continue;
+    }
+
+    if (mapFile->isEmpty() && !mapFile->readMap(mapPath)) {
+      qWarning().noquote() << "[GameRedguard] Failed to read map file:" << mapPath;
+      success = false;
+      continue;
+    }
+
+    const QString modifiedScript = mapFile->getModifiedScript(mapChanges);
+    if (mapFile->name() == "ISLAND") {
+      const QString scriptDumpPath = QDir(outputMapsRoot).filePath("ISLAND.script.txt");
+      qInfo().noquote() << "[GameRedguard] Script dump target:" << scriptDumpPath;
+      QFile scriptDump(scriptDumpPath);
+      if (scriptDump.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&scriptDump);
+        out << modifiedScript;
+        scriptDump.close();
+        qInfo().noquote() << "[GameRedguard] Wrote script dump:" << scriptDumpPath;
+      } else {
+        qWarning().noquote() << "[GameRedguard] Failed to write script dump:" << scriptDumpPath
+                             << "error:" << scriptDump.errorString();
+        const QString fallbackPath = QDir(tempModPath).filePath("ISLAND.script.txt");
+        QFile fallbackDump(fallbackPath);
+        if (fallbackDump.open(QIODevice::WriteOnly | QIODevice::Text)) {
+          QTextStream out(&fallbackDump);
+          out << modifiedScript;
+          fallbackDump.close();
+          qInfo().noquote() << "[GameRedguard] Wrote fallback script dump:" << fallbackPath;
+        } else {
+          qWarning().noquote() << "[GameRedguard] Failed to write fallback script dump:" << fallbackPath
+                               << "error:" << fallbackDump.errorString();
+        }
+      }
+    }
+    const QString outputPath = QDir(outputMapsRoot).filePath(mapFile->name() + ".RGM");
+    qInfo().noquote() << "[GameRedguard] Writing patched map:" << outputPath;
+    if (!mapFile->writeMap(outputPath, modifiedScript)) {
+      qWarning().noquote() << "[GameRedguard] Failed to write patched map:" << outputPath;
+      success = false;
+    }
+  }
+
+  return success;
 }
 }  // namespace
 
@@ -875,9 +1033,54 @@ bool GameRedguard::applyPatchMods()
     qWarning().noquote() << "[GameRedguard] Failed to clean existing temp mod:" << tempModPath;
   }
 
+  // Create mod entry FIRST - let MO2 create the folder
+  if (!modList->getMod(tempModName)) {
+    MOBase::GuessedValue<QString> guessedName(tempModName);
+    auto* created = m_Organizer->createMod(guessedName);
+    if (!created) {
+      qWarning().noquote() << "[GameRedguard] Failed to create temp mod entry:" << tempModName;
+      qWarning().noquote() << "[GameRedguard] Patches will be generated but may not be loaded by MO2";
+      // Even if createMod failed, ensure the folder exists for patch writing
+      if (!ensureDir(tempModPath)) {
+        qWarning().noquote() << "[GameRedguard] Failed to create temp mod path:" << tempModPath;
+        return false;
+      }
+    }
+  }
+
+  // Now ensure the folder exists (in case createMod succeeded)
   if (!ensureDir(tempModPath)) {
     qWarning().noquote() << "[GameRedguard] Failed to create temp mod path:" << tempModPath;
     return false;
+  }
+
+  // Create meta.ini for MO2 to recognize this folder as a mod
+  QString metaIniPath = QDir(tempModPath).filePath("meta.ini");
+  QFile metaFile(metaIniPath);
+  if (!metaFile.exists()) {
+    if (metaFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+      QTextStream out(&metaFile);
+      out << "[General]\n";
+      out << "name=" << tempModName << "\n";
+      out << "version=1.0\n";
+      out << "author=Mod Organizer\n";
+      out << "description=Temporary patched mod output\n";
+      metaFile.close();
+      qInfo().noquote() << "[GameRedguard] Created meta.ini for temp mod";
+    }
+  }
+
+  // Try to activate if mod is now in the mod list
+  if (modList->getMod(tempModName)) {
+    modList->setActive(tempModName, true);
+    qInfo().noquote() << "[GameRedguard] Set temp mod active:" << tempModName;
+    
+    if (lastPatchPriority >= 0) {
+      modList->setPriority(tempModName, lastPatchPriority + 1);
+      qInfo().noquote() << "[GameRedguard] Set temp mod priority:" << (lastPatchPriority + 1);
+    }
+  } else {
+    qWarning().noquote() << "[GameRedguard] Temp mod not found in mod list - cannot activate";
   }
 
   static bool cleanupRegistered = false;
@@ -888,26 +1091,13 @@ bool GameRedguard::applyPatchMods()
         modList->setActive(tempModName, false);
       }
       removeDirRecursive(tempModPath);
+      qInfo().noquote() << "[GameRedguard] Cleanup complete - temp mod deleted";
     });
   }
 
-  if (!modList->getMod(tempModName)) {
-    if (QDir(tempModPath).exists()) {
-      removeDirRecursive(tempModPath);
-    }
-    MOBase::GuessedValue<QString> guessedName(tempModName);
-    auto* created = m_Organizer->createMod(guessedName);
-    if (!created) {
-      qWarning().noquote() << "[GameRedguard] Failed to create temp mod entry:" << tempModName;
-    }
-  }
-
-  modList->setActive(tempModName, true);
-  if (lastPatchPriority >= 0) {
-    modList->setPriority(tempModName, lastPatchPriority + 1);
-  }
-
   bool success = true;
+  RedguardsMapChanges combinedMapChanges;
+  bool hasMapChanges = false;
   for (const QString& modName : patchModsInOrder) {
     const QString modPath = QDir(modsPath).filePath(modName);
     qInfo().noquote() << "[GameRedguard] Applying patch mod:" << modName
@@ -920,8 +1110,13 @@ bool GameRedguard::applyPatchMods()
     }
 
     if (QFile::exists(QDir(modPath).filePath("Map Changes.txt"))) {
-      if (!applyMapChanges(modPath, tempModPath)) {
+      const QString changesPath = QDir(modPath).filePath("Map Changes.txt");
+      qInfo().noquote() << "[GameRedguard] Parsing Map Changes from" << changesPath;
+      if (!combinedMapChanges.readChanges(changesPath)) {
+        qWarning().noquote() << "[GameRedguard] Failed to read Map Changes:" << changesPath;
         success = false;
+      } else {
+        hasMapChanges = true;
       }
     }
 
@@ -949,6 +1144,12 @@ bool GameRedguard::applyPatchMods()
         qWarning().noquote() << "[GameRedguard] Failed to stage Textures for mod:" << modName;
         success = false;
       }
+    }
+  }
+
+  if (hasMapChanges) {
+    if (!applyMapChanges(combinedMapChanges, tempModPath, gameDir)) {
+      success = false;
     }
   }
 

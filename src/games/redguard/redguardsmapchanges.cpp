@@ -2,6 +2,7 @@
 
 #include <QFile>
 #include <QTextStream>
+#include <QDebug>
 
 RedguardsMapChanges::RedguardsMapChanges() = default;
 
@@ -11,6 +12,20 @@ QList<QString>* RedguardsMapChanges::lineChangesAt(const QString& mapName, int p
     return &mLineChanges[mapName][pos];
   }
   return nullptr;
+}
+
+const QList<QString>* RedguardsMapChanges::lineChangesAt(const QString& mapName,
+                                                         int pos) const
+{
+  auto mapIt = mLineChanges.constFind(mapName);
+  if (mapIt == mLineChanges.constEnd()) {
+    return nullptr;
+  }
+  auto posIt = mapIt->constFind(pos);
+  if (posIt == mapIt->constEnd()) {
+    return nullptr;
+  }
+  return &(*posIt);
 }
 
 bool RedguardsMapChanges::hasModifiedMap(const QString& mapName) const
@@ -41,13 +56,18 @@ void RedguardsMapChanges::addChange(const QString& mapName, int pos, const QStri
 
   QList<QString>& list = mLineChanges[mapName][pos];
 
-  // Handle deletions (represented as empty strings)
-  if (line.isEmpty()) {
-    if (list.isEmpty() || !list.first().isEmpty()) {
-      list.prepend("");  // Add deletion marker at front
+  if (line.isEmpty() && mapName == "ISLAND" && pos == 8621) {
+    qInfo().noquote() << "[GameRedguard] Map" << mapName << "position" << pos
+                      << "empty change line preserved as insertion";
+  }
+
+  // Handle deletions (represented as literal "null" string)
+  if (line == "null") {
+    if (list.isEmpty() || list.first() != "null") {
+      list.prepend("null");  // Add deletion marker at front
     }
   } else {
-    list.append(line);  // Add insertion
+    list.append(line);  // Add insertion (including empty strings)
   }
 }
 
@@ -69,7 +89,15 @@ bool RedguardsMapChanges::readChanges(const QString& changesFilePath)
       // Check if line starts with whitespace (it's a position/change line)
       if (line.at(0) != ' ' && line.at(0) != '\t') {
         // This is a map name
-        currentMap = trimmed;
+        currentMap = trimmed.toUpper();
+        if (currentMap.startsWith("MAPS/")) {
+          currentMap = currentMap.mid(5);
+        } else if (currentMap.startsWith("MAPS\\")) {
+          currentMap = currentMap.mid(5);
+        }
+        if (currentMap.endsWith(".RGM")) {
+          currentMap = currentMap.left(currentMap.length() - 4);
+        }
         if (!mLineChanges.contains(currentMap)) {
           mLineChanges[currentMap] = QMap<int, QList<QString>>();
         }
@@ -80,7 +108,7 @@ bool RedguardsMapChanges::readChanges(const QString& changesFilePath)
           bool ok = false;
           int pos = parts[0].trimmed().toInt(&ok);
           if (ok) {
-            QString change = parts.size() > 1 ? parts[1] : "";
+            QString change = parts.size() > 1 ? parts[1].trimmed() : "";
             addChange(currentMap, pos, change);
           }
         }
@@ -110,7 +138,9 @@ bool RedguardsMapChanges::writeChanges(const QString& filePath) const
       const QList<QString>& changes = posIt.value();
 
       for (const QString& change : changes) {
-        out << "  " << pos << "\t" << change << "\n";
+        // Write literal "null" deletion markers; preserve empty strings
+        const QString output = (change == "null") ? "null" : change;
+        out << "  " << pos << "\t" << output << "\n";
       }
     }
   }

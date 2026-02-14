@@ -92,8 +92,14 @@ public:
    */
   int size() const { return mEntries.size(); }
 
+  /**
+   * Returns all entries (label -> entry).
+   */
+  const QMap<QString, RedguardsRtxEntry>& entries() const { return mEntries; }
+
 private:
   QMap<QString, RedguardsRtxEntry> mEntries;  ///< Map of label -> entry
+  QList<QString> mEntryOrder;  ///< Original file order of entry labels
 
   // Utility functions for binary format parsing
   int readLittleEndianInt(const QByteArray& data, int offset) const;

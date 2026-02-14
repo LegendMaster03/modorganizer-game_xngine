@@ -16,6 +16,25 @@ set(REDGUARD_GAME_SOURCES
     gameredguard.h
     redguardsmapchanges.cpp
     redguardsmapchanges.h
+    redguardsmapdatabase.cpp
+    redguardsmapdatabase.h
+    redguardsmapfile.cpp
+    redguardsmapfile.h
+    redguardsmapheader.cpp
+    redguardsmapheader.h
+    redguardsparsedmapheader.h
+    redguardsscriptinstruction.cpp
+    redguardsscriptinstruction.h
+    redguardsscriptparser.cpp
+    redguardsscriptparser.h
+    redguardsscriptreader.cpp
+    redguardsscriptreader.h
+    redguardssoupflag.cpp
+    redguardssoupflag.h
+    redguardssoupfunction.cpp
+    redguardssoupfunction.h
+    redguardsitem.cpp
+    redguardsitem.h
     redguardsrtxdatabase.cpp
     redguardsrtxdatabase.h
     redguardsutils.cpp

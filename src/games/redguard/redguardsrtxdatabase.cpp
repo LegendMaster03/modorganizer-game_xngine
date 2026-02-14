@@ -9,7 +9,7 @@
 RedguardsRtxDatabase::RedguardsRtxDatabase() = default;
 
 RedguardsRtxDatabase::RedguardsRtxDatabase(const RedguardsRtxDatabase& other)
-    : mEntries(other.mEntries)
+    : mEntries(other.mEntries), mEntryOrder(other.mEntryOrder)
 {
 }
 
@@ -21,6 +21,7 @@ bool RedguardsRtxDatabase::readFile(const QString& filePath)
   }
 
   mEntries.clear();
+  mEntryOrder.clear();
 
   while (!file.atEnd()) {
     // Read 4-byte label
@@ -147,6 +148,7 @@ bool RedguardsRtxDatabase::readFile(const QString& filePath)
     }
 
     mEntries[label] = entry;
+    mEntryOrder.append(label);
   }
 
   file.close();
@@ -164,12 +166,20 @@ bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
   int totalBytes = 0;
   QList<int> entryPositions;
 
-  // Write all entries
-  for (auto it = mEntries.begin(); it != mEntries.end(); ++it) {
-    const RedguardsRtxEntry& entry = it.value();
+  // Write all entries in original order
+  for (const QString& label : mEntryOrder) {
+    if (!mEntries.contains(label)) {
+      continue;
+    }
+    const RedguardsRtxEntry& entry = mEntries[label];
 
-    // Write label (4 bytes)
-    QByteArray labelBytes = writeString(entry.label);
+    // Write label (ALWAYS exactly 4 bytes, padded with nulls)
+    QByteArray labelBytes(4, 0);
+    QByteArray labelStr = entry.label.toLatin1();
+    int copyLen = qMin(4, labelStr.length());
+    for (int i = 0; i < copyLen; ++i) {
+      labelBytes[i] = labelStr[i];
+    }
     output.append(labelBytes);
     totalBytes += 4;
 
@@ -178,8 +188,8 @@ bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
     output.append(QByteArray(4, 0));
     totalBytes += 4;
 
-    // Save position for reverse index
-    entryPositions.append(totalBytes);
+    // Save position for reverse index (this is where the entry STARTS)
+    entryPositions.append(totalBytes - 8);  // Back up to start of label
 
     // Write hasAudio flag (2 bytes)
     QByteArray audioFlag;
@@ -231,20 +241,28 @@ bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
   output.append("END ");
   totalBytes += 4;
 
-  // Write reverse index
-  for (int i = mEntries.size() - 1; i >= 0; --i) {
-    auto it = mEntries.begin();
-    std::advance(it, i);
-    const RedguardsRtxEntry& entry = it.value();
-
-    output.append(writeString(entry.label));
+  // Write reverse index in original order (reversed)
+  for (int i = mEntryOrder.size() - 1; i >= 0; --i) {
+    const QString& label = mEntryOrder[i];
+    if (!mEntries.contains(label)) {
+      continue;
+    }
+    
+    // Write label (ALWAYS exactly 4 bytes, padded with nulls)
+    QByteArray labelBytes(4, 0);
+    QByteArray labelStr = label.toLatin1();
+    int copyLen = qMin(4, labelStr.length());
+    for (int j = 0; j < copyLen; ++j) {
+      labelBytes[j] = labelStr[j];
+    }
+    output.append(labelBytes);
+    
+    // Write position (4 bytes, little endian)
     QByteArray posBytes(4, 0);
-    writeLittleEndianInt(posBytes, 0, entryPositions[i]);
+    if (i >= 0 && i < entryPositions.size()) {
+      writeLittleEndianInt(posBytes, 0, entryPositions[i]);
+    }
     output.append(posBytes);
-
-    QByteArray lenBytes(4, 0);
-    writeLittleEndianInt(lenBytes, 0, entry.length());
-    output.append(lenBytes);
   }
 
   // Write footer
@@ -287,6 +305,9 @@ bool RedguardsRtxDatabase::applyChanges(const QString& changesFilePath)
         newEntry.label    = label;
         newEntry.subtitle = subtitle;
         mEntries[label]   = newEntry;
+        if (!mEntryOrder.contains(label)) {
+          mEntryOrder.append(label);
+        }
       } else {
         // Update existing entry
         if (mEntries.contains(label)) {
