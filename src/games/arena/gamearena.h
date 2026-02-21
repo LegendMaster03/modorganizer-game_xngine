@@ -53,6 +53,7 @@ public:  // IPlugin interface
 protected:
   virtual QString identifyGamePath() const override;
   virtual bool looksValid(QDir const& path) const override;
+  virtual MappingType mappings() const override;
   virtual QDir savesDirectory() const override;
   virtual QString savegameExtension() const override;
   virtual QString savegameSEExtension() const override;

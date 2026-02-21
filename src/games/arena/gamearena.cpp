@@ -1,10 +1,10 @@
 #include "gamearena.h"
+#include "arenasavegame.h"
 
 #include <executableinfo.h>
 #include <pluginsetting.h>
 
 #include <xnginelocalsavegames.h>
-#include <xnginesavegame.h>
 #include <xnginesavegameinfo.h>
 #include <xngineunmanagedmods.h>
 
@@ -407,6 +407,58 @@ QDir GameArena::savesDirectory() const
   return GameXngine::savesDirectory();
 }
 
+MappingType GameArena::mappings() const
+{
+  MappingType out;
+
+  const auto profile = profilePath();
+  if (profile.isEmpty()) {
+    return out;
+  }
+
+  const auto layout = saveLayout();
+  const auto paths = resolveSaveStorage(profile, saveGameId());
+  ensureSaveDirsExist(paths, layout, saveSlotPrefix());
+
+  const QDir gameDir = gameDirectory();
+  const QString sourceRoot = paths.gameSavesRoot;
+  const QString targetRoot = gameDir.absolutePath();
+
+  // Flat Arena save bundle files.
+  const QStringList stems = {"SAVEENGN", "LOG", "SPELLS"};
+  for (int slot = 0; slot <= 9; ++slot) {
+    const QString suffix2 = QString("%1").arg(slot, 2, 10, QChar('0'));
+    const QString suffix1 = QString::number(slot);
+    for (const auto& stem : stems) {
+      out.push_back({QDir(sourceRoot).filePath(stem + "." + suffix2),
+                     QDir(targetRoot).filePath(stem + "." + suffix2),
+                     false,
+                     false});
+      out.push_back({QDir(sourceRoot).filePath(stem + "." + suffix1),
+                     QDir(targetRoot).filePath(stem + "." + suffix1),
+                     false,
+                     false});
+    }
+  }
+
+  // Optional slot names table.
+  out.push_back({QDir(sourceRoot).filePath("NAMES.DAT"),
+                 QDir(targetRoot).filePath("NAMES.DAT"),
+                 false,
+                 false});
+
+  // Compatibility: profile slot directories SAVE0..SAVE9 should project
+  // their *contents* directly into game root.
+  for (int slot = 0; slot <= 9; ++slot) {
+    out.push_back({QDir(sourceRoot).filePath(QString("SAVE%1").arg(slot)),
+                   targetRoot,
+                   true,
+                   true});
+  }
+
+  return out;
+}
+
 QString GameArena::savegameExtension() const
 {
   return "sav";
@@ -419,17 +471,18 @@ QString GameArena::savegameSEExtension() const
 
 std::shared_ptr<const XngineSaveGame> GameArena::makeSaveGame(QString filepath) const
 {
-  return std::make_shared<XngineSaveGame>(filepath, this);
+  return std::make_shared<ArenaSaveGame>(filepath, this);
 }
 
 SaveLayout GameArena::saveLayout() const
 {
   SaveLayout layout;
   layout.baseRelativePaths = {""};
-  layout.slotEntriesAreFiles = true;
-  layout.slotFileRegex = QRegularExpression("(?i)^SAVEENGN\\.(\\d{1,2})$");
-  layout.slotWidthHint = 2;
-  layout.maxSlotHint.reset();
+  layout.slotEntriesAreFiles = false;
+  layout.slotDirRegex = QRegularExpression("(?i)^SAVE(\\d+)$");
+  layout.slotWidthHint = 1;
+  layout.maxSlotHint = 9;
+  layout.validator = [](const QDir&) { return true; };
   return layout;
 }
 
@@ -440,7 +493,7 @@ QString GameArena::saveGameId() const
 
 QString GameArena::saveSlotPrefix() const
 {
-  return "SAVEGAME.";
+  return "SAVE";
 }
 
 QString GameArena::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const

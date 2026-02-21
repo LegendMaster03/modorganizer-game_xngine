@@ -14,6 +14,8 @@ include_directories(${CMAKE_SOURCE_DIR}/src/xngine)
 set(ARENA_GAME_SOURCES
     gamearena.cpp
     gamearena.h
+    arenasavegame.cpp
+    arenasavegame.h
 )
 
 # Create shared library
