@@ -1,0 +1,17 @@
+{
+  "patchSets": [
+    {
+      "id": "example_107213_wagon_1000",
+      "name": "Wagon Weight 1000 lbs (v1.07.213)",
+      "targetVersion": "Daggerfall v1.07.213",
+      "notes": "Value is stored as pounds * 4 in little-endian.",
+      "patches": [
+        {
+          "offset": "0xDFE13",
+          "replacement": "A0 0F",
+          "description": "Set wagon max weight to 1000 lbs"
+        }
+      ]
+    }
+  ]
+}

@@ -120,7 +120,15 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
   header->setFont(headerFont);
   layout->addWidget(header);
 
-  QLabel* detail = new QLabel(slotLabel);
+  QString detailText = slotLabel;
+  if (auto xngineSave = dynamic_cast<XngineSaveGame const*>(&save)) {
+    const QString extra = xngineSave->getGameDetails().trimmed();
+    if (!extra.isEmpty()) {
+      detailText = extra;
+    }
+  }
+  QLabel* detail = new QLabel(detailText);
+  detail->setWordWrap(true);
   detail->setIndent(10);
   layout->addWidget(detail);
 }

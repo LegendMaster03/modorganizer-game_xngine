@@ -3,7 +3,10 @@
 // Game-specific feature classes disabled - using XnGine base implementations instead
 // #include "daggerfallsmoddatachecker.h"
 // #include "daggerfallsmoddatacontent.h"
-// #include "daggerfallsavegame.h"
+#include "daggerfallsavegame.h"
+#if defined(XNGINE_DAGGERFALL_EXE_PATCHING)
+#include "daggerfallfallexehacks.h"
+#endif
 
 #include <executableinfo.h>
 #include <pluginsetting.h>
@@ -30,45 +33,81 @@
 #include <memory>
 #include <stdexcept>
 
+#if defined(_DEBUG)
+#define DF_TRACE(msg) OutputDebugStringA(msg)
+#else
+#define DF_TRACE(msg) ((void)0)
+#endif
+
 using namespace MOBase;
+
+#if defined(XNGINE_DAGGERFALL_EXE_PATCHING)
+namespace
+{
+void validateUserFallExePatchCatalog(const QDir& gameDir)
+{
+  if (gameDir.path().isEmpty() || !gameDir.exists()) {
+    return;
+  }
+
+  const QString catalogPath = gameDir.absoluteFilePath("fall_exe_patches.json");
+  if (!QFileInfo::exists(catalogPath)) {
+    return;
+  }
+
+  QString err;
+  if (!DaggerfallFallExeHacks::validatePatchJsonFile(catalogPath, &err)) {
+    qWarning().noquote() << "[GameDaggerfall] Invalid fall_exe_patches.json:" << err;
+    DF_TRACE("[GameDaggerfall] fall_exe_patches.json validation FAILED\n");
+    return;
+  }
+
+  qInfo().noquote() << "[GameDaggerfall] Validated user patch catalog:" << catalogPath;
+  DF_TRACE("[GameDaggerfall] fall_exe_patches.json validation OK\n");
+}
+}  // namespace
+#endif
 
 GameDaggerfall::GameDaggerfall()
 {
-  OutputDebugStringA("[GameDaggerfall] Constructor ENTRY\n");
-  OutputDebugStringA("[GameDaggerfall] Constructor EXIT\n");
+  DF_TRACE("[GameDaggerfall] Constructor ENTRY\n");
+  DF_TRACE("[GameDaggerfall] Constructor EXIT\n");
 }
 
 bool GameDaggerfall::init(IOrganizer* moInfo)
 {
-  OutputDebugStringA("[GameDaggerfall] init() ENTRY\n");
+  DF_TRACE("[GameDaggerfall] init() ENTRY\n");
 
   try {
-    OutputDebugStringA("[GameDaggerfall] About to call GameXngine::init()\n");
+    DF_TRACE("[GameDaggerfall] About to call GameXngine::init()\n");
     if (!GameXngine::init(moInfo)) {
-      OutputDebugStringA("[GameDaggerfall] GameXngine::init() FAILED\n");
+      DF_TRACE("[GameDaggerfall] GameXngine::init() FAILED\n");
       return false;
     }
-    OutputDebugStringA("[GameDaggerfall] GameXngine::init() SUCCESS\n");
+    DF_TRACE("[GameDaggerfall] GameXngine::init() SUCCESS\n");
 
     const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
     registerFeature(std::make_shared<XngineSaveGameInfo>(this));
     registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
     registerFeature(std::make_shared<XngineUnmanagedMods>(this));
+#if defined(XNGINE_DAGGERFALL_EXE_PATCHING)
+    validateUserFallExePatchCatalog(gameDirectory());
+#endif
 
-    OutputDebugStringA("[GameDaggerfall] init() EXIT SUCCESS\n");
+    DF_TRACE("[GameDaggerfall] init() EXIT SUCCESS\n");
     return true;
   } catch (const std::exception&) {
-    OutputDebugStringA("[GameDaggerfall] EXCEPTION in init()\n");
+    DF_TRACE("[GameDaggerfall] EXCEPTION in init()\n");
     return false;
   } catch (...) {
-    OutputDebugStringA("[GameDaggerfall] UNKNOWN EXCEPTION in init()\n");
+    DF_TRACE("[GameDaggerfall] UNKNOWN EXCEPTION in init()\n");
     return false;
   }
 }
 
 QString GameDaggerfall::gameName() const
 {
-  OutputDebugStringA("[GameDaggerfall] gameName() called\n");
+  DF_TRACE("[GameDaggerfall] gameName() called\n");
   return "Daggerfall";
 }
 
@@ -79,11 +118,11 @@ QString GameDaggerfall::displayGameName() const
 
 QList<ExecutableInfo> GameDaggerfall::executables() const
 {
-  OutputDebugStringA("[GameDaggerfall] executables() ENTRY\n");
+  DF_TRACE("[GameDaggerfall] executables() ENTRY\n");
   QList<ExecutableInfo> executables;
   QDir gameDir = gameDirectory();
   if (gameDir.path().isEmpty() || !gameDir.exists()) {
-    OutputDebugStringA("[GameDaggerfall] executables() - game directory invalid\n");
+    DF_TRACE("[GameDaggerfall] executables() - game directory invalid\n");
     return executables;
   }
 
@@ -101,7 +140,7 @@ QList<ExecutableInfo> GameDaggerfall::executables() const
   QFileInfo gogDosbox(gameDir.filePath("DOSBOX/dosbox.exe"));
   if (gogDosbox.exists()) {
     executables << ExecutableInfo("Daggerfall (GOG DOSBox)", gogDosbox)
-                   .withArgument(R"(-conf "..\dosbox_daggerfall_single.conf" -noconsole -c "exit")");
+                   .withArgument(R"(-conf "..\dosbox_daggerfall.conf" -conf "..\dosbox_daggerfall_single.conf" -noconsole -c "exit")");
   }
 
   // Standalone executable if it exists
@@ -110,45 +149,43 @@ QList<ExecutableInfo> GameDaggerfall::executables() const
     executables << ExecutableInfo("Daggerfall", daggerExe);
   }
 
-  OutputDebugStringA("[GameDaggerfall] executables() EXIT\n");
+  DF_TRACE("[GameDaggerfall] executables() EXIT\n");
   return executables;
 }
 
 QString GameDaggerfall::steamAPPId() const
 {
-  qInfo().noquote() << "[GameDaggerfall] steamAPPId() called";
-  OutputDebugStringA("[GameDaggerfall] steamAPPId() called\n");
+  DF_TRACE("[GameDaggerfall] steamAPPId() called\n");
   return "275170";
 }
 
 QString GameDaggerfall::gogAPPId() const
 {
-  qInfo().noquote() << "[GameDaggerfall] gogAPPId() called";
-  OutputDebugStringA("[GameDaggerfall] gogAPPId() called\n");
+  DF_TRACE("[GameDaggerfall] gogAPPId() called\n");
   return "1435829353";
 }
 
 QString GameDaggerfall::binaryName() const
 {
-  OutputDebugStringA("[GameDaggerfall] binaryName() called\n");
+  DF_TRACE("[GameDaggerfall] binaryName() called\n");
   return "DAGGER.EXE";
 }
 
 QString GameDaggerfall::gameShortName() const
 {
-  OutputDebugStringA("[GameDaggerfall] gameShortName() called\n");
+  DF_TRACE("[GameDaggerfall] gameShortName() called\n");
   return "Daggerfall";
 }
 
 QString GameDaggerfall::gameNexusName() const
 {
-  OutputDebugStringA("[GameDaggerfall] gameNexusName() called\n");
+  DF_TRACE("[GameDaggerfall] gameNexusName() called\n");
   return "daggerfall";
 }
 
 QStringList GameDaggerfall::validShortNames() const
 {
-  OutputDebugStringA("[GameDaggerfall] validShortNames() called\n");
+  DF_TRACE("[GameDaggerfall] validShortNames() called\n");
   return {"daggerfall", "df"};
 }
 
@@ -206,13 +243,13 @@ QIcon GameDaggerfall::gameIcon() const
 
 int GameDaggerfall::nexusModOrganizerID() const
 {
-  OutputDebugStringA("[GameDaggerfall] nexusModOrganizerID() called\n");
+  DF_TRACE("[GameDaggerfall] nexusModOrganizerID() called\n");
   return 0;  // To be determined
 }
 
 int GameDaggerfall::nexusGameID() const
 {
-  OutputDebugStringA("[GameDaggerfall] nexusGameID() called\n");
+  DF_TRACE("[GameDaggerfall] nexusGameID() called\n");
   return 232;  // Nexus Game ID for Daggerfall
 }
 
@@ -223,37 +260,37 @@ QString GameDaggerfall::name() const
 
 QString GameDaggerfall::localizedName() const
 {
-  OutputDebugStringA("[GameDaggerfall] localizedName() called\n");
+  DF_TRACE("[GameDaggerfall] localizedName() called\n");
   return tr("The Elder Scrolls Adventures: Daggerfall Support Plugin");
 }
 
 QString GameDaggerfall::author() const
 {
-  OutputDebugStringA("[GameDaggerfall] author() called\n");
+  DF_TRACE("[GameDaggerfall] author() called\n");
   return "Legend_Master";
 }
 
 QString GameDaggerfall::description() const
 {
-  OutputDebugStringA("[GameDaggerfall] description() called\n");
+  DF_TRACE("[GameDaggerfall] description() called\n");
   return tr("Adds support for the game The Elder Scrolls Adventures: Daggerfall");
 }
 
 VersionInfo GameDaggerfall::version() const
 {
-  OutputDebugStringA("[GameDaggerfall] version() called\n");
+  DF_TRACE("[GameDaggerfall] version() called\n");
   return VersionInfo(1, 0, 0, VersionInfo::RELEASE_FINAL);
 }
 
 QList<PluginSetting> GameDaggerfall::settings() const
 {
-  OutputDebugStringA("[GameDaggerfall] settings() called\n");
+  DF_TRACE("[GameDaggerfall] settings() called\n");
   return QList<PluginSetting>();
 }
 
 QString GameDaggerfall::identifyGamePath() const
 {
-  OutputDebugStringA("[GameDaggerfall] identifyGamePath() ENTRY\n");
+  DF_TRACE("[GameDaggerfall] identifyGamePath() ENTRY\n");
   try {
   // Try Steam first (using Steam App ID 275170)
   QString steamPath = findInRegistry(HKEY_LOCAL_MACHINE,
@@ -264,7 +301,7 @@ QString GameDaggerfall::identifyGamePath() const
     if (QDir(steamPath + "/DOSBox-0.74").exists() &&
         QFile::exists(steamPath + "/DOSBox-0.74/dosbox.exe") &&
         QFile::exists(steamPath + "/DF/DAGGER/DAGGER.EXE")) {
-      OutputDebugStringA("[GameDaggerfall] Steam path verified\n");
+      DF_TRACE("[GameDaggerfall] Steam path verified\n");
       return steamPath;
     }
   }
@@ -279,18 +316,18 @@ QString GameDaggerfall::identifyGamePath() const
         QFile::exists(gogPath + "/DOSBOX/dosbox.exe") &&
         (QFile::exists(gogPath + "/dosbox_daggerfall.conf") ||
          QFile::exists(gogPath + "/DF/DAGGER/DAGGER.EXE"))) {
-      OutputDebugStringA("[GameDaggerfall] GOG registry path verified\n");
+      DF_TRACE("[GameDaggerfall] GOG registry path verified\n");
       return gogPath;
     }
   }
 
-  OutputDebugStringA("[GameDaggerfall] identifyGamePath() EXIT (not found)\n");
+  DF_TRACE("[GameDaggerfall] identifyGamePath() EXIT (not found)\n");
   return {};
   } catch (const std::exception&) {
-    OutputDebugStringA("[GameDaggerfall] EXCEPTION in identifyGamePath()\n");
+    DF_TRACE("[GameDaggerfall] EXCEPTION in identifyGamePath()\n");
     return {};
   } catch (...) {
-    OutputDebugStringA("[GameDaggerfall] UNKNOWN EXCEPTION in identifyGamePath()\n");
+    DF_TRACE("[GameDaggerfall] UNKNOWN EXCEPTION in identifyGamePath()\n");
     return {};
   }
 }
@@ -300,22 +337,43 @@ QDir GameDaggerfall::savesDirectory() const
   return GameXngine::savesDirectory();
 }
 
+MappingType GameDaggerfall::mappings() const
+{
+  MappingType out = GameXngine::mappings();
+
+  const auto profile = profilePath();
+  if (profile.isEmpty()) {
+    return out;
+  }
+
+  const auto layout = saveLayout();
+  const auto paths = resolveSaveStorage(profile, saveGameId());
+  ensureSaveDirsExist(paths, layout, saveSlotPrefix());
+
+  const QDir gameDir = gameDirectory();
+  const QString sourceCloudRoot = paths.gameSavesRoot;
+  const QString targetCloudRoot = gameDir.absoluteFilePath("cloud_saves");
+  out.push_back({sourceCloudRoot, targetCloudRoot, true, true});
+
+  return out;
+}
+
 QString GameDaggerfall::savegameExtension() const
 {
-  OutputDebugStringA("[GameDaggerfall] savegameExtension() called\n");
+  DF_TRACE("[GameDaggerfall] savegameExtension() called\n");
   return "sav";
 }
 
 QString GameDaggerfall::savegameSEExtension() const
 {
-  OutputDebugStringA("[GameDaggerfall] savegameSEExtension() called\n");
+  DF_TRACE("[GameDaggerfall] savegameSEExtension() called\n");
   return "sav";
 }
 
 std::shared_ptr<const XngineSaveGame> GameDaggerfall::makeSaveGame(QString filepath) const
 {
-  OutputDebugStringA("[GameDaggerfall] makeSaveGame() called\n");
-  return std::make_shared<XngineSaveGame>(filepath, this);
+  DF_TRACE("[GameDaggerfall] makeSaveGame() called\n");
+  return std::make_shared<DaggerfallsSaveGame>(filepath, this);
 }
 
 SaveLayout GameDaggerfall::saveLayout() const
@@ -391,3 +449,4 @@ QString GameDaggerfall::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value
 
   return QString::fromWCharArray(buffer.get());
 }
+

@@ -45,6 +45,7 @@ public:
   virtual unsigned short getPCLevel() const { return m_PCLevel; }
   virtual QString getPCLocation() const { return m_PCLocation; }
   virtual unsigned long getSaveNumber() const { return m_SaveNumber; }
+  virtual QString getGameDetails() const { return {}; }
 
   QStringList const& getPlugins() const { return m_DataFields.value()->Plugins; }
   QStringList const& getMediumPlugins() const

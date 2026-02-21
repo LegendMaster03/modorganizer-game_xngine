@@ -14,12 +14,67 @@
         "MO2_UIBASE_LIB": "$env{MO2_UIBASE_LIB}",
         "MO2_SRC_PATH": "$env{MO2_SRC_PATH}"
       }
+    },
+    {
+      "name": "daggerfall-runtime",
+      "displayName": "Daggerfall Runtime Only",
+      "inherits": "default",
+      "binaryDir": "${sourceDir}/build/daggerfall-runtime",
+      "cacheVariables": {
+        "XNGINE_DAGGERFALL_ENABLE_TOOLKIT": "OFF",
+        "XNGINE_DAGGERFALL_ENABLE_EXE_PATCHING": "OFF"
+      }
+    },
+    {
+      "name": "daggerfall-toolkit",
+      "displayName": "Daggerfall Toolkit",
+      "inherits": "default",
+      "binaryDir": "${sourceDir}/build/daggerfall-toolkit",
+      "cacheVariables": {
+        "XNGINE_DAGGERFALL_ENABLE_TOOLKIT": "ON",
+        "XNGINE_DAGGERFALL_ENABLE_EXE_PATCHING": "OFF",
+        "XNGINE_DAGGERFALL_TOOLKIT_TEXT": "ON",
+        "XNGINE_DAGGERFALL_TOOLKIT_QUEST": "ON",
+        "XNGINE_DAGGERFALL_TOOLKIT_WORLD": "ON",
+        "XNGINE_DAGGERFALL_TOOLKIT_AUTHORING": "ON",
+        "XNGINE_DAGGERFALL_TOOLKIT_ASSETS": "ON"
+      }
+    },
+    {
+      "name": "daggerfall-full",
+      "displayName": "Daggerfall Full (Toolkit + EXE Patching)",
+      "inherits": "default",
+      "binaryDir": "${sourceDir}/build/daggerfall-full",
+      "cacheVariables": {
+        "XNGINE_DAGGERFALL_ENABLE_TOOLKIT": "ON",
+        "XNGINE_DAGGERFALL_ENABLE_EXE_PATCHING": "ON",
+        "XNGINE_DAGGERFALL_TOOLKIT_TEXT": "ON",
+        "XNGINE_DAGGERFALL_TOOLKIT_QUEST": "ON",
+        "XNGINE_DAGGERFALL_TOOLKIT_WORLD": "ON",
+        "XNGINE_DAGGERFALL_TOOLKIT_AUTHORING": "ON",
+        "XNGINE_DAGGERFALL_TOOLKIT_ASSETS": "ON"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "default",
       "configurePreset": "default",
+      "configuration": "Release"
+    },
+    {
+      "name": "daggerfall-runtime",
+      "configurePreset": "daggerfall-runtime",
+      "configuration": "Release"
+    },
+    {
+      "name": "daggerfall-toolkit",
+      "configurePreset": "daggerfall-toolkit",
+      "configuration": "Release"
+    },
+    {
+      "name": "daggerfall-full",
+      "configurePreset": "daggerfall-full",
       "configuration": "Release"
     }
   ]

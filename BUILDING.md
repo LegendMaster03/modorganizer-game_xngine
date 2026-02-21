@@ -47,6 +47,33 @@ cmake --preset default
 cmake --build --preset default
 ```
 
+## Advanced (Developers)
+
+### Daggerfall Build Profiles
+
+The Daggerfall plugin supports keep/prune profiles via CMake options.
+
+- `daggerfall-runtime`: core runtime only (no toolkit, no EXE patching)
+- `daggerfall-toolkit`: runtime + toolkit (default safe advanced profile)
+- `daggerfall-full`: toolkit + EXE patching (explicit legacy/unsafe profile)
+
+Use these presets:
+
+```bat
+cmake --preset daggerfall-runtime
+cmake --build --preset daggerfall-runtime
+```
+
+```bat
+cmake --preset daggerfall-toolkit
+cmake --build --preset daggerfall-toolkit
+```
+
+```bat
+cmake --preset daggerfall-full
+cmake --build --preset daggerfall-full
+```
+
 ## Notes
 
 - Keep personal paths in `config/local.env.bat` only.

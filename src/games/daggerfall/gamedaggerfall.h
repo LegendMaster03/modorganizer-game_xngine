@@ -38,6 +38,7 @@ public:  // IPluginGame interface
   virtual int nexusModOrganizerID() const override;
   virtual int nexusGameID() const override;
   virtual QIcon gameIcon() const override;
+  virtual MappingType mappings() const override;
 
 public:  // IPlugin interface
   virtual QString name() const override;
