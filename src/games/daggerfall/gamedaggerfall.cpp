@@ -50,7 +50,11 @@ bool GameDaggerfall::init(IOrganizer* moInfo)
     }
     OutputDebugStringA("[GameDaggerfall] GameXngine::init() SUCCESS\n");
 
-    // Features disabled for now
+    const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
+    registerFeature(std::make_shared<XngineSaveGameInfo>(this));
+    registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
+    registerFeature(std::make_shared<XngineUnmanagedMods>(this));
+
     OutputDebugStringA("[GameDaggerfall] init() EXIT SUCCESS\n");
     return true;
   } catch (const std::exception&) {
@@ -60,12 +64,6 @@ bool GameDaggerfall::init(IOrganizer* moInfo)
     OutputDebugStringA("[GameDaggerfall] UNKNOWN EXCEPTION in init()\n");
     return false;
   }
-
-  // DaggerfallsModDataChecker registration disabled - legacy implementation
-  // DaggerfallsModDataContent registration disabled - legacy implementation
-  // registerFeature(std::make_shared<XngineSaveGameInfo>(this));
-  // registerFeature(std::make_shared<XngineLocalSavegames>(this));
-  // registerFeature(std::make_shared<XngineUnmanagedMods>(this));
 }
 
 QString GameDaggerfall::gameName() const
@@ -103,7 +101,7 @@ QList<ExecutableInfo> GameDaggerfall::executables() const
   QFileInfo gogDosbox(gameDir.filePath("DOSBOX/dosbox.exe"));
   if (gogDosbox.exists()) {
     executables << ExecutableInfo("Daggerfall (GOG DOSBox)", gogDosbox)
-                   .withArgument(R"(-conf "..\dosbox_daggerfall.conf" -conf "..\dosbox_daggerfall_single.conf" -noconsole -c "exit")");
+                   .withArgument(R"(-conf "..\dosbox_daggerfall_single.conf" -noconsole -c "exit")");
   }
 
   // Standalone executable if it exists

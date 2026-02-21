@@ -11,7 +11,7 @@
 class GameBattlespire : public GameXngine
 {
   Q_OBJECT
-  Q_INTERFACES(MOBase::IPlugin MOBase::IPluginGame)
+  Q_INTERFACES(MOBase::IPlugin MOBase::IPluginGame MOBase::IPluginFileMapper)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
   Q_PLUGIN_METADATA(IID "com.tannin.ModOrganizer.PluginGame/2.0" FILE "gamebattlespire.json")
 #endif

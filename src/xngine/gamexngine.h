@@ -111,7 +111,8 @@ public:  // Other (e.g. for game features)
   static std::vector<SaveSlot> enumerateSaveSlots(const SaveStoragePaths& paths,
                                                   const SaveLayout& layout);
 
-  static bool ensureSaveDirsExist(const SaveStoragePaths& paths, const SaveLayout& layout);
+  static bool ensureSaveDirsExist(const SaveStoragePaths& paths, const SaveLayout& layout,
+                                  const QString& slotPrefix = "SAVE");
 
   virtual XngineBSAFormat::Traits bsaTraits() const;
 

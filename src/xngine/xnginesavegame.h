@@ -209,10 +209,11 @@ protected:
   bool m_LightEnabled;
 
   QString m_FileName;
+  QString m_DisplayName;
   QString m_PCName;
-  unsigned short m_PCLevel;
+  unsigned short m_PCLevel = 0;
   QString m_PCLocation;
-  unsigned long m_SaveNumber;
+  unsigned long m_SaveNumber = 0;
   QDateTime m_CreationTime;
 
   // Those three fields are usually much slower to fetch than

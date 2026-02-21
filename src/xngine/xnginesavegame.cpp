@@ -5,6 +5,7 @@
 #include "scriptextender.h"
 
 #include <QDate>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QScopedArrayPointer>
@@ -29,7 +30,37 @@ XngineSaveGame::XngineSaveGame(QString const& file, GameXngine const* game,
       m_DataFields([this]() {
         return fetchDataFields();
       })
-{}
+{
+  QString normalizedPath = QDir::fromNativeSeparators(file);
+  while (normalizedPath.endsWith('/')) {
+    normalizedPath.chop(1);
+  }
+
+  QFileInfo info(normalizedPath);
+  if (info.isDir()) {
+    m_DisplayName = info.fileName();
+    if (m_DisplayName.isEmpty()) {
+      m_DisplayName = QDir(normalizedPath).dirName();
+    }
+    QDir saveDir(normalizedPath);
+    const auto files = saveDir.entryInfoList(QDir::Files, QDir::Time);
+    if (!files.isEmpty()) {
+      m_CreationTime = files.front().lastModified();
+    }
+  } else {
+    const QString baseName = info.completeBaseName();
+    if (baseName.compare("SAVEGAME", Qt::CaseInsensitive) == 0) {
+      const QString slotName = info.dir().dirName();
+      m_DisplayName = slotName.isEmpty() ? info.fileName() : slotName;
+    } else {
+      m_DisplayName = baseName.isEmpty() ? info.fileName() : baseName;
+    }
+  }
+
+  if (m_DisplayName.isEmpty()) {
+    m_DisplayName = QFileInfo(normalizedPath).fileName();
+  }
+}
 
 XngineSaveGame::~XngineSaveGame() {}
 
@@ -45,11 +76,21 @@ QDateTime XngineSaveGame::getCreationTime() const
 
 QString XngineSaveGame::getName() const
 {
-  return QObject::tr("%1, #%2, Level %3, %4")
-      .arg(m_PCName)
-      .arg(m_SaveNumber)
-      .arg(m_PCLevel)
-      .arg(m_PCLocation);
+  if (m_PCName.isEmpty()) {
+    return m_DisplayName;
+  }
+
+  QStringList parts;
+  parts << m_PCName;
+  parts << QString("#%1").arg(m_SaveNumber);
+  if (m_PCLevel > 0) {
+    parts << QObject::tr("Level %1").arg(m_PCLevel);
+  }
+  if (!m_PCLocation.isEmpty()) {
+    parts << m_PCLocation;
+  }
+
+  return parts.join(", ");
 }
 
 QString XngineSaveGame::getSaveGroupIdentifier() const
@@ -59,6 +100,16 @@ QString XngineSaveGame::getSaveGroupIdentifier() const
 
 QStringList XngineSaveGame::allFiles() const
 {
+  QFileInfo saveInfo(m_FileName);
+  if (saveInfo.isDir()) {
+    QStringList files;
+    const auto entries = QDir(m_FileName).entryInfoList(QDir::Files, QDir::Name);
+    for (const auto& entry : entries) {
+      files.push_back(entry.absoluteFilePath());
+    }
+    return files;
+  }
+
   // This returns all valid files associated with this game
   QStringList res = {m_FileName};
   auto e = m_Game->m_Organizer->gameFeatures()->gameFeature<MOBase::ScriptExtender>();

@@ -584,7 +584,13 @@ bool GameRedguard::init(IOrganizer* moInfo)
     OutputDebugStringA("[GameRedguard] GameXngine::init() SUCCESS\n");
     qInfo().noquote() << "[GameRedguard] GameXngine::init() SUCCESS";
 
-    // Test ModDataChecker first
+    // Register save-related features even if optional checker setup fails.
+    const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
+    registerFeature(std::make_shared<XngineSaveGameInfo>(this));
+    registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
+    registerFeature(std::make_shared<XngineUnmanagedMods>(this));
+
+    // Optional checker feature: don't fail plugin init if this breaks.
     OutputDebugStringA("[GameRedguard] About to create RedguardsModDataChecker\n");
     try {
       auto checker = std::make_shared<RedguardsModDataChecker>(this);
@@ -594,24 +600,20 @@ bool GameRedguard::init(IOrganizer* moInfo)
       registerFeature(checker);
       OutputDebugStringA("[GameRedguard] RedguardsModDataChecker registered successfully\n");
       qInfo().noquote() << "[GameRedguard] RedguardsModDataChecker registered successfully";
-    } catch (const std::exception& e) {
-      OutputDebugStringA("[GameRedguard] EXCEPTION creating/registering RedguardsModDataChecker\n");
-      return false;
+    } catch (const std::exception&) {
+      OutputDebugStringA("[GameRedguard] EXCEPTION creating/registering RedguardsModDataChecker (continuing)\n");
+      qWarning().noquote() << "[GameRedguard] RedguardsModDataChecker setup failed, continuing";
     } catch (...) {
-      OutputDebugStringA("[GameRedguard] UNKNOWN EXCEPTION creating/registering RedguardsModDataChecker\n");
-      return false;
+      OutputDebugStringA("[GameRedguard] UNKNOWN EXCEPTION creating/registering RedguardsModDataChecker (continuing)\n");
+      qWarning().noquote() << "[GameRedguard] RedguardsModDataChecker setup failed (unknown), continuing";
     }
-    
+
     // Keep these disabled for now
     // OutputDebugStringA("[GameRedguard] Registering RedguardsModDataContent\n");
     // registerFeature(std::make_shared<RedguardsModDataContent>(m_Organizer->gameFeatures()));
-    
-    // registerFeature(std::make_shared<XngineSaveGameInfo>(this));
-    // registerFeature(std::make_shared<XngineLocalSavegames>(this));
-    // registerFeature(std::make_shared<XngineUnmanagedMods>(this));
 
-    OutputDebugStringA("[GameRedguard] init() EXIT SUCCESS (features disabled for testing)\n");
-    qInfo().noquote() << "[GameRedguard] init() EXIT SUCCESS (features disabled for testing)";
+    OutputDebugStringA("[GameRedguard] init() EXIT SUCCESS\n");
+    qInfo().noquote() << "[GameRedguard] init() EXIT SUCCESS";
     return true;
   } catch (const std::exception& e) {
     OutputDebugStringA("[GameRedguard] EXCEPTION in init()\n");
@@ -934,11 +936,11 @@ std::shared_ptr<const XngineSaveGame> GameRedguard::makeSaveGame(QString filepat
 SaveLayout GameRedguard::saveLayout() const
 {
   SaveLayout layout;
-  layout.baseRelativePaths = {"SAVEGAME"};
-  layout.slotDirRegex = QRegularExpression("^SAVEGAME\\.(\\d{3})$");
+  layout.baseRelativePaths = {""};
+  layout.slotDirRegex = QRegularExpression("(?i)^SAVEGAME\\.(\\d+)$");
   layout.slotWidthHint = 3;
   layout.validator = [](const QDir& slotDir) {
-    return slotDir.exists();
+    return slotDir.exists() && QFileInfo::exists(slotDir.filePath("SAVEGAME.SAV"));
   };
   return layout;
 }

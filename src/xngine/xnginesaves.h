@@ -11,9 +11,12 @@
 struct SaveLayout {
   std::vector<QString> baseRelativePaths;
   QRegularExpression slotDirRegex;
+  QRegularExpression slotFileRegex;
+  bool slotEntriesAreFiles = false;
   int slotWidthHint = 1;
   std::optional<int> maxSlotHint;
   std::function<bool(const QDir&)> validator;
+  bool oneSavePerSlot = true;
 };
 
 struct SaveSlot {

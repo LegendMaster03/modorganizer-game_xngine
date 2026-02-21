@@ -3,7 +3,10 @@
 #include <executableinfo.h>
 #include <pluginsetting.h>
 
+#include <xnginelocalsavegames.h>
 #include <xnginesavegame.h>
+#include <xnginesavegameinfo.h>
+#include <xngineunmanagedmods.h>
 
 #include <QFile>
 #include <QFileInfo>
@@ -89,7 +92,16 @@ GameArena::GameArena() = default;
 
 bool GameArena::init(IOrganizer* moInfo)
 {
-  return GameXngine::init(moInfo);
+  if (!GameXngine::init(moInfo)) {
+    return false;
+  }
+
+  const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
+  registerFeature(std::make_shared<XngineSaveGameInfo>(this));
+  registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
+  registerFeature(std::make_shared<XngineUnmanagedMods>(this));
+
+  return true;
 }
 
 QString GameArena::gameName() const
@@ -414,18 +426,21 @@ SaveLayout GameArena::saveLayout() const
 {
   SaveLayout layout;
   layout.baseRelativePaths = {""};
-  layout.slotDirRegex = QRegularExpression("^(?:SAVEGAME\\.)?(\\d+)$");
-  layout.slotWidthHint = 1;
-  layout.maxSlotHint = 9;
-  layout.validator = [](const QDir& slotDir) {
-    return slotDir.exists();
-  };
+  layout.slotEntriesAreFiles = true;
+  layout.slotFileRegex = QRegularExpression("(?i)^SAVEENGN\\.(\\d{1,2})$");
+  layout.slotWidthHint = 2;
+  layout.maxSlotHint.reset();
   return layout;
 }
 
 QString GameArena::saveGameId() const
 {
   return "arena";
+}
+
+QString GameArena::saveSlotPrefix() const
+{
+  return "SAVEGAME.";
 }
 
 QString GameArena::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const

@@ -3,6 +3,8 @@ add_library(game_battlespire MODULE)
 target_sources(game_battlespire PRIVATE
   gamebattlespire.h
   gamebattlespire.cpp
+  battlespiresavegame.h
+  battlespiresavegame.cpp
   # Game-specific feature classes disabled
   # battlespiredatachecker.h
   # battlespiremodatacontent.h

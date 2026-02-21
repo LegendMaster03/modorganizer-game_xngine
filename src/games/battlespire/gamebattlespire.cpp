@@ -4,6 +4,7 @@
 // #include "battlespiredatachecker.h"
 // #include "battlespiremodatacontent.h"
 // #include "battlespireafegame.h"
+#include "battlespiresavegame.h"
 
 #include <executableinfo.h>
 #include <pluginsetting.h>
@@ -80,7 +81,11 @@ bool GameBattlespire::init(IOrganizer* moInfo)
     qInfo().noquote() << "[GameBattlespire] GameXngine::init() SUCCESS";
     OutputDebugStringA("[GameBattlespire] GameXngine::init() SUCCESS\n");
 
-    // Features disabled for now
+    const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
+    registerFeature(std::make_shared<XngineSaveGameInfo>(this));
+    registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
+    registerFeature(std::make_shared<XngineUnmanagedMods>(this));
+
     qInfo().noquote() << "[GameBattlespire] init() EXIT SUCCESS";
     OutputDebugStringA("[GameBattlespire] init() EXIT SUCCESS\n");
     return true;
@@ -93,12 +98,6 @@ bool GameBattlespire::init(IOrganizer* moInfo)
     OutputDebugStringA("[GameBattlespire] UNKNOWN EXCEPTION in init()\n");
     return false;
   }
-
-  // BattlespiresModDataChecker registration disabled - legacy implementation
-  // BattlespireModDataContent registration disabled - legacy implementation
-  // registerFeature(std::make_shared<XngineSaveGameInfo>(this));
-  // registerFeature(std::make_shared<XngineLocalSavegames>(this));
-  // registerFeature(std::make_shared<XngineUnmanagedMods>(this));
 }
 
 std::vector<std::shared_ptr<const MOBase::ISaveGame>>
@@ -171,11 +170,11 @@ QList<MOBase::ExecutableInfo> GameBattlespire::executables() const
   }
   if (gogDosbox.exists() && gogConfig.exists() && gogClientConfig.exists()) {
     executables << ExecutableInfo("Battlespire (GOG DOSBox Client)", gogDosbox)
-                   .withArgument(R"(-conf "..\dosbox_battlespire.conf" -conf "..\dosbox_battlespire_client.conf" -noconsole -c "exit")");
+                   .withArgument(R"(-noconsole -c "exit")");
   }
   if (gogDosbox.exists() && gogConfig.exists() && gogServerConfig.exists()) {
     executables << ExecutableInfo("Battlespire (GOG DOSBox Server)", gogDosbox)
-                   .withArgument(R"(-conf "..\dosbox_battlespire.conf" -conf "..\dosbox_battlespire_server.conf" -noconsole -c "exit")");
+                   .withArgument(R"(-noconsole -c "exit")");
   }
 
   QFileInfo spireBat(gameDir.filePath("SPIRE.BAT"));
@@ -480,7 +479,7 @@ std::shared_ptr<const XngineSaveGame> GameBattlespire::makeSaveGame(QString file
 {
   qInfo().noquote() << "[GameBattlespire] makeSaveGame() called";
   OutputDebugStringA("[GameBattlespire] makeSaveGame() called\n");
-  return std::make_shared<XngineSaveGame>(filepath, this);
+  return std::make_shared<BattlespireSaveGame>(filepath, this);
 }
 
 SaveLayout GameBattlespire::saveLayout() const
