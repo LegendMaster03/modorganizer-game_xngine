@@ -1,6 +1,8 @@
 # Building
 
-These instructions follow the same level of detail as modorganizer-game_bethesda, but use local environment variables so no private paths are required in the repository.
+This project is set up for team use:
+- Shared scripts are committed.
+- Machine-specific paths live only in ignored local env files.
 
 ## Prerequisites
 
@@ -10,50 +12,42 @@ These instructions follow the same level of detail as modorganizer-game_bethesda
 - Ninja
 - Qt 6.7.1 (MSVC 2019 64-bit)
 - vcpkg
-- Mod Organizer 2 SDK (uibase) and Mod Organizer 2 source tree
+- Mod Organizer 2 uibase and Mod Organizer 2 source tree
 
-## Configure Local Environment
+## One-Time Local Setup
 
-1. Copy config/local.env.example.bat to config/local.env.bat.
-2. Fill in the variables for your machine:
-   - MO2_PLUGINS_DIR
-   - MO2_UIBASE_PATH
-   - MO2_UIBASE_LIB
-   - MO2_SRC_PATH
-   - QT_ROOT
-   - VCPKG_ROOT
-   - VCVARS_BAT
+1. Copy `config/local.env.example.bat` to `config/local.env.bat`.
+2. Fill in your local paths in `config/local.env.bat`.
+3. Do not edit shared build scripts for personal paths.
 
-If you prefer PowerShell, copy config/local.env.example.ps1 to config/local.env.ps1 instead.
+`config/local.env.bat` is ignored by git.
 
-## Install Dependencies
+## Build
 
-This repository uses vcpkg manifest mode. From the repository root:
+From repository root:
+
+```bat
+build_ms.bat
+```
+
+`build_ms.bat` reads `config/local.env.bat` automatically if it exists.
+
+## Optional
+
+Install/refresh vcpkg dependencies:
 
 ```bat
 run_vcpkg_install.bat
 ```
 
-## Build With CMake Presets
+Build with CMake presets:
 
 ```bat
 cmake --preset default
 cmake --build --preset default
 ```
 
-## Build and Deploy
-
-```bat
-build_and_deploy.bat
-```
-
-## Deploy Only
-
-```powershell
-.\deploy_only.ps1
-```
-
 ## Notes
 
-- CMake uses the environment variables provided by config/local.env.bat or config/local.env.ps1.
-- The repository does not store any machine specific paths.
+- Keep personal paths in `config/local.env.bat` only.
+- Do not commit machine-specific values.

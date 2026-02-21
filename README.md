@@ -27,18 +27,11 @@ See [BUILDING.md](BUILDING.md) for full setup and build instructions.
 ## Build and Deploy
 
 1. Copy `config/local.env.example.bat` to `config/local.env.bat` and fill in your paths.
-2. If you prefer PowerShell, copy `config/local.env.example.ps1` to `config/local.env.ps1`.
 
 Build and deploy to your MO2 plugins folder:
 
 ```bat
 build_and_deploy.bat
-```
-
-Deploy only (if already built):
-
-```powershell
-.\deploy_only.ps1
 ```
 
 Default target path is your MO2 plugins directory (set via environment or local config).
