@@ -6,6 +6,8 @@ add_library(xngine STATIC
 	dummybsa.h
 	gamexngine.cpp
 	gamexngine.h
+	xnginebsaformat.cpp
+	xnginebsaformat.h
 	xnginebsainvalidation.cpp
 	xnginebsainvalidation.h
 	xnginedataarchives.cpp

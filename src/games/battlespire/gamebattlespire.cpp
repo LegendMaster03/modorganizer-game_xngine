@@ -261,6 +261,49 @@ QStringList GameBattlespire::validShortNames() const
   return {"battlespire"};
 }
 
+QStringList GameBattlespire::iniFiles() const
+{
+  const QStringList candidates = {"SPIRE.CFG",
+                                };
+
+  QStringList ordered;
+  const QDir root = gameDirectory();
+  for (const auto& candidate : candidates) {
+    if (QFileInfo::exists(root.filePath(candidate))) {
+      ordered.push_back(candidate);
+    }
+  }
+  for (const auto& candidate : candidates) {
+    if (!ordered.contains(candidate)) {
+      ordered.push_back(candidate);
+    }
+  }
+  return ordered;
+}
+
+QVector<XngineBSAFormat::FileSpec> GameBattlespire::bsaFileSpecs() const
+{
+  return {
+      {"TXT.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
+       "Text payloads used by game systems (e.g. magical items list)."},
+      {"FLC.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
+       "Conversation animation frames (some files may contain two leading unknown bytes)."},
+      {"WAVES.BSA", false, XngineBSAFormat::IndexType::NameRecord, true,
+       "CD-only headerless 8-bit mono PCM at 11025 Hz; absent from GOG release."},
+  };
+}
+
+XngineBSAFormat::Traits GameBattlespire::bsaTraits() const
+{
+  XngineBSAFormat::Traits traits;
+  traits.allowCompressed = true;
+  traits.allowCompressedPassthroughWrite = true;
+  traits.compressionMode = XngineBSAFormat::CompressionMode::BattlespireLzss;
+  traits.allowMissingTypeHeader = true;
+  traits.writeTypeHeader = true;
+  return traits;
+}
+
 int GameBattlespire::nexusModOrganizerID() const
 {
   qInfo().noquote() << "[GameBattlespire] nexusModOrganizerID() called";
@@ -410,19 +453,8 @@ QDir GameBattlespire::dataDirectory() const
 
 QDir GameBattlespire::documentsDirectory() const
 {
-  qInfo().noquote() << "[GameBattlespire] documentsDirectory() ENTRY";
-  const QString localBase = GameXngine::localAppFolder();
-  QDir docsDir;
-  if (!localBase.isEmpty()) {
-    docsDir = QDir(QDir::cleanPath(localBase + "/Battlespire"));
-  } else {
-    docsDir = GameXngine::documentsDirectory();
-  }
-  if (!docsDir.path().isEmpty()) {
-    QDir().mkpath(docsDir.absolutePath());
-  }
-  qInfo().noquote() << "[GameBattlespire] documentsDirectory() using path:" << docsDir.absolutePath();
-  return docsDir;
+  qInfo().noquote() << "[GameBattlespire] documentsDirectory() using game install path";
+  return gameDirectory();
 }
 
 QDir GameBattlespire::savesDirectory() const

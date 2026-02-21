@@ -154,6 +154,34 @@ QStringList GameDaggerfall::validShortNames() const
   return {"daggerfall", "df"};
 }
 
+QStringList GameDaggerfall::iniFiles() const
+{
+  const QStringList candidates = {
+      "SETUP.INI",
+      "DF/DAGGER/SETUP.INI",
+      // CASTER.CFG is a possible candidate but does not open in a text editor and may not be a true CFG file - excluding for now
+      //"CASTER.CFG",
+      //"DF/DAGGER/CASTER.CFG",
+      "HMISET.CFG",
+      "DF/DAGGER/HMISET.CFG",
+      "Z.CFG",
+      "DF/DAGGER/Z.CFG"};
+
+  QStringList ordered;
+  const QDir root = gameDirectory();
+  for (const auto& candidate : candidates) {
+    if (QFileInfo::exists(root.filePath(candidate))) {
+      ordered.push_back(candidate);
+    }
+  }
+  for (const auto& candidate : candidates) {
+    if (!ordered.contains(candidate)) {
+      ordered.push_back(candidate);
+    }
+  }
+  return ordered;
+}
+
 QIcon GameDaggerfall::gameIcon() const
 {
   QDir dir = gameDirectory();
@@ -308,6 +336,35 @@ SaveLayout GameDaggerfall::saveLayout() const
 QString GameDaggerfall::saveGameId() const
 {
   return "daggerfall";
+}
+
+XngineBSAFormat::Traits GameDaggerfall::bsaTraits() const
+{
+  XngineBSAFormat::Traits traits;
+  traits.allowCompressed = false;
+  traits.enforceDos83Names = true;
+  traits.normalizeNameCase = true;
+  return traits;
+}
+
+QVector<XngineBSAFormat::FileSpec> GameDaggerfall::bsaFileSpecs() const
+{
+  return {
+      {"ARCH3D.BSA", true, XngineBSAFormat::IndexType::NumberRecord, false,
+       "3D object/mesh records."},
+      {"BLOCKS.BSA", true, XngineBSAFormat::IndexType::NameRecord, false,
+       "RMB/RDB/RDI block records."},
+      {"MAPS.BSA", true, XngineBSAFormat::IndexType::NameRecord, false,
+       "Region/location records (MAPNAMES/MAPTABLE/MAPPITEM/MAPDITEM)."},
+      {"MONSTER.BSA", true, XngineBSAFormat::IndexType::NameRecord, false,
+       "Monster config and animation references."},
+      {"MIDI.BSA", true, XngineBSAFormat::IndexType::NameRecord, false,
+       "Music records."},
+      {"DAGGER.SND", true, XngineBSAFormat::IndexType::NumberRecord, false,
+       "Raw PCM audio records."},
+      {"MAPSAVE.SAV", true, XngineBSAFormat::IndexType::NameRecord, true,
+       "Automap save data records."},
+  };
 }
 
 QString GameDaggerfall::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const

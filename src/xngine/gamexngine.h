@@ -19,9 +19,11 @@ class XngineUnmanagedMods;
 #include <ipluginfilemapper.h>
 #include <iplugingame.h>
 #include <memory>
+#include <optional>
 
 #include "xnginesavegame.h"
 #include "xnginesaves.h"
+#include "xnginebsaformat.h"
 #include "igamefeatures.h"
 
 class GameXngine : public MOBase::IPluginGame, public MOBase::IPluginFileMapper
@@ -86,6 +88,23 @@ public:  // IPluginFileMapper interface
 
 public:  // Other (e.g. for game features)
   QString myGamesPath() const;
+  bool unpackXngineBsaArchive(const QString& archivePath, const QString& outputDirectory,
+                              QString* errorMessage = nullptr) const;
+  bool packXngineBsaArchive(const QString& inputDirectory, const QString& archivePath,
+                            XngineBSAFormat::IndexType type,
+                            QString* errorMessage = nullptr) const;
+  bool packXngineBsaArchiveFromManifest(const QString& inputDirectory,
+                                        const QString& manifestFilePath,
+                                        const QString& archivePath,
+                                        XngineBSAFormat::IndexType type,
+                                        QString* errorMessage = nullptr) const;
+  virtual QVector<XngineBSAFormat::FileSpec> bsaFileSpecs() const;
+  std::optional<XngineBSAFormat::FileSpec>
+  bsaFileSpecForArchiveName(const QString& archiveName) const;
+  bool unpackKnownXngineBsaArchive(const QString& archivePath, const QString& outputDirectory,
+                                   QString* errorMessage = nullptr) const;
+  bool packKnownXngineBsaArchive(const QString& inputDirectory, const QString& archivePath,
+                                 QString* errorMessage = nullptr) const;
 
   static SaveStoragePaths resolveSaveStorage(const QString& profilePath, const QString& gameId);
 
@@ -93,6 +112,8 @@ public:  // Other (e.g. for game features)
                                                   const SaveLayout& layout);
 
   static bool ensureSaveDirsExist(const SaveStoragePaths& paths, const SaveLayout& layout);
+
+  virtual XngineBSAFormat::Traits bsaTraits() const;
 
 protected:
   virtual SaveLayout saveLayout() const = 0;

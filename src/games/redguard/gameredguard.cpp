@@ -711,6 +711,42 @@ QStringList GameRedguard::validShortNames() const
   return {"redguard", "rg"};
 }
 
+QStringList GameRedguard::iniFiles() const
+{
+  const QStringList candidates = {
+      "COMBAT.INI",
+      "Redguard/COMBAT.INI",
+      "ITEM.INI",
+      "Redguard/ITEM.INI",
+      "KEYS.INI",
+      "Redguard/KEYS.INI",
+      "MENU.INI",
+      "Redguard/MENU.INI",
+      "REGISTRY.INI",
+      "Redguard/REGISTRY.INI",
+      "surface.ini",
+      "Redguard/surface.ini",
+      "SYSTEM.INI",
+      "Redguard/SYSTEM.INI",
+      "WORLD.INI",
+      "Redguard/WORLD.INI",
+  };
+
+  QStringList ordered;
+  const QDir root = gameDirectory();
+  for (const auto& candidate : candidates) {
+    if (QFileInfo::exists(root.filePath(candidate))) {
+      ordered.push_back(candidate);
+    }
+  }
+  for (const auto& candidate : candidates) {
+    if (!ordered.contains(candidate)) {
+      ordered.push_back(candidate);
+    }
+  }
+  return ordered;
+}
+
 QIcon GameRedguard::gameIcon() const
 {
   const QString exePath = gameDirectory().absoluteFilePath("Redguard/REDGUARD.EXE");

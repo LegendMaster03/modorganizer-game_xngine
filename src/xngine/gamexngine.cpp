@@ -169,9 +169,9 @@ void GameXngine::setGamePath(const QString& path)
 
 QDir GameXngine::documentsDirectory() const
 {
-  qInfo().noquote() << "[GameXngine] documentsDirectory() called path=" << m_MyGamesPath;
+  qInfo().noquote() << "[GameXngine] documentsDirectory() called path=" << m_GamePath;
   OutputDebugStringA("[GameXngine] documentsDirectory() called\n");
-  return m_MyGamesPath;
+  return gameDirectory();
 }
 
 QDir GameXngine::savesDirectory() const
@@ -417,6 +417,78 @@ QString GameXngine::myGamesPath() const
   return m_MyGamesPath;
 }
 
+bool GameXngine::unpackXngineBsaArchive(const QString& archivePath,
+                                        const QString& outputDirectory,
+                                        QString* errorMessage) const
+{
+  return XngineBSAFormat::unpackToDirectory(archivePath, outputDirectory, errorMessage,
+                                            bsaTraits());
+}
+
+bool GameXngine::packXngineBsaArchive(const QString& inputDirectory,
+                                      const QString& archivePath,
+                                      XngineBSAFormat::IndexType type,
+                                      QString* errorMessage) const
+{
+  return XngineBSAFormat::packFromDirectory(inputDirectory, archivePath, type,
+                                            errorMessage, bsaTraits());
+}
+
+bool GameXngine::packXngineBsaArchiveFromManifest(const QString& inputDirectory,
+                                                  const QString& manifestFilePath,
+                                                  const QString& archivePath,
+                                                  XngineBSAFormat::IndexType type,
+                                                  QString* errorMessage) const
+{
+  return XngineBSAFormat::packFromManifestFile(inputDirectory, manifestFilePath,
+                                               archivePath, type, errorMessage,
+                                               bsaTraits());
+}
+
+std::optional<XngineBSAFormat::FileSpec>
+GameXngine::bsaFileSpecForArchiveName(const QString& archiveName) const
+{
+  const QString lookup = QFileInfo(archiveName).fileName();
+  for (const auto& spec : bsaFileSpecs()) {
+    if (spec.archiveName.compare(lookup, Qt::CaseInsensitive) == 0) {
+      return spec;
+    }
+  }
+  return std::nullopt;
+}
+
+bool GameXngine::unpackKnownXngineBsaArchive(const QString& archivePath,
+                                             const QString& outputDirectory,
+                                             QString* errorMessage) const
+{
+  return unpackXngineBsaArchive(archivePath, outputDirectory, errorMessage);
+}
+
+bool GameXngine::packKnownXngineBsaArchive(const QString& inputDirectory,
+                                           const QString& archivePath,
+                                           QString* errorMessage) const
+{
+  const auto spec = bsaFileSpecForArchiveName(archivePath);
+  if (!spec.has_value() || !spec->indexTypeKnown) {
+    if (errorMessage != nullptr) {
+      *errorMessage =
+          QString("No known BSA index type mapping for archive: %1")
+              .arg(QFileInfo(archivePath).fileName());
+    }
+    return false;
+  }
+
+  const QString manifestPath =
+      QDir(inputDirectory).filePath("xngine_bsa_manifest.tsv");
+  if (QFileInfo::exists(manifestPath)) {
+    return packXngineBsaArchiveFromManifest(inputDirectory, manifestPath, archivePath,
+                                            spec->indexType, errorMessage);
+  }
+
+  return packXngineBsaArchive(inputDirectory, archivePath, spec->indexType,
+                              errorMessage);
+}
+
 QString GameXngine::profilePath() const
 {
   if (!m_Organizer) {
@@ -437,6 +509,16 @@ QString GameXngine::profilePath() const
 QString GameXngine::saveSlotPrefix() const
 {
   return "SAVE";
+}
+
+XngineBSAFormat::Traits GameXngine::bsaTraits() const
+{
+  return {};
+}
+
+QVector<XngineBSAFormat::FileSpec> GameXngine::bsaFileSpecs() const
+{
+  return {};
 }
 
 /*static*/ QString GameXngine::getLootPath()

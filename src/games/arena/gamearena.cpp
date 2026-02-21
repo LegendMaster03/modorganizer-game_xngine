@@ -210,6 +210,30 @@ QStringList GameArena::validShortNames() const
   return {"arena", "tesarena"};
 }
 
+QStringList GameArena::iniFiles() const
+{
+  const QStringList candidates = {"ULTRAMID.INI",
+                                  "ARENA/ULTRAMID.INI",
+                                  "INSTALL.CFG",
+                                  "ARENA/INSTALL.CFG",
+                                  "SOUND.CFG",
+                                  "ARENA/SOUND.CFG",};
+
+  QStringList ordered;
+  const QDir root = gameDirectory();
+  for (const auto& candidate : candidates) {
+    if (QFileInfo::exists(root.filePath(candidate))) {
+      ordered.push_back(candidate);
+    }
+  }
+  for (const auto& candidate : candidates) {
+    if (!ordered.contains(candidate)) {
+      ordered.push_back(candidate);
+    }
+  }
+  return ordered;
+}
+
 QIcon GameArena::gameIcon() const
 {
   const QDir dir = gameDirectory();

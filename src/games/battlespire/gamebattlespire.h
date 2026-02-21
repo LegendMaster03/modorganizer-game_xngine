@@ -33,6 +33,7 @@ public:
   virtual QString gameShortName() const override;
   virtual QString gameNexusName() const override;
   virtual QStringList validShortNames() const override;
+  virtual QStringList iniFiles() const override;
   virtual int nexusModOrganizerID() const override;
   virtual int nexusGameID() const override;
   virtual bool looksValid(QDir const& path) const override;
@@ -58,6 +59,8 @@ protected:
 
   virtual SaveLayout saveLayout() const override;
   virtual QString saveGameId() const override;
+  virtual XngineBSAFormat::Traits bsaTraits() const override;
+  virtual QVector<XngineBSAFormat::FileSpec> bsaFileSpecs() const override;
 
 private:
   QString findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const;
