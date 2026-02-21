@@ -41,20 +41,25 @@ set_target_properties(xngine PROPERTIES
 target_include_directories(xngine PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${MO2_UIBASE_INCLUDE}
+	${MO2_UIBASE_PATH}
 	${MO2_UIBASE_PATH}/include/uibase/game_features
 	${MO2_SRC_PATH}
+	${MO2_SRC_PATH}/uibase/src
 )
 
 # Configure MOC options for AUTOMOC
 set_property(TARGET xngine APPEND PROPERTY AUTOMOC_MOC_OPTIONS
 	"-I${MO2_UIBASE_INCLUDE}"
+	"-I${MO2_UIBASE_PATH}"
 	"-I${MO2_SRC_PATH}"
+	"-I${MO2_SRC_PATH}/uibase/src"
 	"-I${MO2_UIBASE_PATH}/include/uibase/game_features"
 )
 
 # Set CMAKE_AUTOMOC_MOC_OPTIONS to include additional paths for moc preprocessor
 set(CMAKE_AUTOMOC_MOC_OPTIONS "-I${MO2_UIBASE_PATH}")
 list(APPEND CMAKE_AUTOMOC_MOC_OPTIONS "-I${MO2_SRC_PATH}")
+list(APPEND CMAKE_AUTOMOC_MOC_OPTIONS "-I${MO2_SRC_PATH}/uibase/src")
 list(APPEND CMAKE_AUTOMOC_MOC_OPTIONS "-I${MO2_UIBASE_PATH}/game_features")
 
 # Try to find compression libraries; they may be provided by vcpkg

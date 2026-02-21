@@ -39,6 +39,8 @@ endif()
 include_directories(${MO2_UIBASE_INCLUDE})
 include_directories(${MO2_SRC_PATH})
 include_directories(${MO2_UIBASE_PATH}/game_features)
+include_directories(${MO2_UIBASE_PATH})
+include_directories(${MO2_SRC_PATH}/uibase/src)
 
 # Build xngine base library
 add_subdirectory(src/xngine)
@@ -47,3 +49,4 @@ add_subdirectory(src/xngine)
 add_subdirectory(src/games/redguard)
 add_subdirectory(src/games/daggerfall)
 add_subdirectory(src/games/battlespire)
+add_subdirectory(src/games/arena)
