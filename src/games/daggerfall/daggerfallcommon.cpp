@@ -110,9 +110,9 @@ QHash<int, QString> regionNames()
 QHash<int, QString> locationTypes()
 {
   return {
-      {0, "City"},
-      {1, "Town"},
-      {2, "Village"},
+      {0, "Large Town"},
+      {1, "Medium Town"},
+      {2, "Small Town"},
       {3, "Farmstead"},
       {4, "Large Dungeon"},
       {5, "Temple"},
@@ -124,7 +124,7 @@ QHash<int, QString> locationTypes()
       {11, "Shack"},
       {12, "Cemetery"},
       {13, "Coven"},
-      {14, "Ship"},
+      {14, "Player's Ship"},
   };
 }
 
