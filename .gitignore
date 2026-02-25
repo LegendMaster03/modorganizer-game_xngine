@@ -67,3 +67,4 @@ tools/local_backup/
 *.local.ps1
 src/games/battlespire/LEVELS_FORMAT.md
 src/games/battlespire/LEVELS.TXT
+*.md

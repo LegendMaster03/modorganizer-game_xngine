@@ -6,6 +6,7 @@
 #include "scopeguard.h"
 #include "utility.h"
 #include "vdf_parser.h"
+#include "xnginearchiveextractorfeature.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -91,6 +92,7 @@ bool GameXngine::init(MOBase::IOrganizer* moInfo)
     }
     return prepareIni(binary);
   });
+  registerFeature(std::make_shared<XngineArchiveExtractorFeature>(this));
   qInfo().noquote() << "[GameXngine] init() EXIT";
   OutputDebugStringA("[GameXngine] init() EXIT\n");
   return true;
@@ -656,7 +658,12 @@ bool GameXngine::unpackKnownXngineBsaArchive(const QString& archivePath,
                                              const QString& outputDirectory,
                                              QString* errorMessage) const
 {
-  return unpackXngineBsaArchive(archivePath, outputDirectory, errorMessage);
+  auto traits = bsaTraits();
+  const auto spec = bsaFileSpecForArchiveName(archivePath);
+  if (spec.has_value()) {
+    traits.variantHint = spec->archiveVariant;
+  }
+  return XngineBSAFormat::unpackToDirectory(archivePath, outputDirectory, errorMessage, traits);
 }
 
 bool GameXngine::packKnownXngineBsaArchive(const QString& inputDirectory,
@@ -676,12 +683,16 @@ bool GameXngine::packKnownXngineBsaArchive(const QString& inputDirectory,
   const QString manifestPath =
       QDir(inputDirectory).filePath("xngine_bsa_manifest.tsv");
   if (QFileInfo::exists(manifestPath)) {
-    return packXngineBsaArchiveFromManifest(inputDirectory, manifestPath, archivePath,
-                                            spec->indexType, errorMessage);
+    auto traits = bsaTraits();
+    traits.variantHint = spec->archiveVariant;
+    return XngineBSAFormat::packFromManifestFile(inputDirectory, manifestPath, archivePath,
+                                                 spec->indexType, errorMessage, traits);
   }
 
-  return packXngineBsaArchive(inputDirectory, archivePath, spec->indexType,
-                              errorMessage);
+  auto traits = bsaTraits();
+  traits.variantHint = spec->archiveVariant;
+  return XngineBSAFormat::packFromDirectory(inputDirectory, archivePath, spec->indexType,
+                                            errorMessage, traits);
 }
 
 QString GameXngine::profilePath() const

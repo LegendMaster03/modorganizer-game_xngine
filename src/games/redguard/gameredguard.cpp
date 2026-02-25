@@ -608,9 +608,7 @@ bool GameRedguard::init(IOrganizer* moInfo)
       qWarning().noquote() << "[GameRedguard] RedguardsModDataChecker setup failed (unknown), continuing";
     }
 
-    // Keep these disabled for now
-    // OutputDebugStringA("[GameRedguard] Registering RedguardsModDataContent\n");
-    // registerFeature(std::make_shared<RedguardsModDataContent>(m_Organizer->gameFeatures()));
+    registerFeature(std::make_shared<RedguardsModDataContent>(m_Organizer->gameFeatures()));
 
     OutputDebugStringA("[GameRedguard] init() EXIT SUCCESS\n");
     qInfo().noquote() << "[GameRedguard] init() EXIT SUCCESS";
@@ -915,6 +913,52 @@ QDir GameRedguard::savesDirectory() const
   return GameXngine::savesDirectory();
 }
 
+MappingType GameRedguard::mappings() const
+{
+  MappingType out = GameXngine::mappings();
+
+  const auto profile = profilePath();
+  if (profile.isEmpty()) {
+    return out;
+  }
+
+  const auto layout = saveLayout();
+  const auto paths = resolveSaveStorage(profile, saveGameId());
+  ensureSaveDirsExist(paths, layout, saveSlotPrefix());
+
+  const QDir gameDir = gameDirectory();
+  const QString sourceRoot = paths.gameSavesRoot;
+
+  // Redguard writes save slots under SAVEGAME.* folders and some installs
+  // place them in the Redguard subdirectory. Map the whole save root there too.
+  out.push_back({sourceRoot, gameDir.absoluteFilePath("Redguard"), true, true});
+  out.push_back({QDir(sourceRoot).filePath("SAVEGAME"),
+                 gameDir.absoluteFilePath("Redguard/SAVEGAME"),
+                 true,
+                 true});
+
+  // Runtime diagnostic/save logs that should travel with save output and not
+  // spill into overwrite as unmanaged files.
+  const QStringList logFiles = {
+      QStringLiteral("BITMAP.LOG"),
+      QStringLiteral("GENERAL.LOG"),
+      QStringLiteral("PATH.LOG"),
+      QStringLiteral("SAVEFILE.LOG"),
+  };
+  for (const auto& logName : logFiles) {
+    out.push_back({QDir(sourceRoot).filePath(logName),
+                   gameDir.absoluteFilePath(logName),
+                   false,
+                   false});
+    out.push_back({QDir(sourceRoot).filePath(logName),
+                   gameDir.absoluteFilePath(QStringLiteral("Redguard/") + logName),
+                   false,
+                   false});
+  }
+
+  return out;
+}
+
 QString GameRedguard::savegameExtension() const
 {
   OutputDebugStringA("[GameRedguard] savegameExtension() called\n");
@@ -930,13 +974,13 @@ QString GameRedguard::savegameSEExtension() const
 std::shared_ptr<const XngineSaveGame> GameRedguard::makeSaveGame(QString filepath) const
 {
   OutputDebugStringA("[GameRedguard] makeSaveGame() called\n");
-  return std::make_shared<XngineSaveGame>(filepath, this);
+  return std::make_shared<RedguardsSaveGame>(filepath, this);
 }
 
 SaveLayout GameRedguard::saveLayout() const
 {
   SaveLayout layout;
-  layout.baseRelativePaths = {""};
+  layout.baseRelativePaths = {"", "SAVEGAME"};
   layout.slotDirRegex = QRegularExpression("(?i)^SAVEGAME\\.(\\d+)$");
   layout.slotWidthHint = 3;
   layout.validator = [](const QDir& slotDir) {
@@ -961,15 +1005,7 @@ bool GameRedguard::prepareIni(const QString& exec)
     return false;
   }
   
-  // Apply patch-based mods
-  // NOTE: This requires copying the complete patch system implementation
-  // from modorganizer-game_redguard reference project, including:
-  // - MapChanges.h/cpp
-  // - RtxDatabase.h/cpp  
-  // - MapFile.h/cpp and related map handling
-  // - RGMODFrameworkWrapper.h/cpp patch application logic
-  //
-  // For now, log that patch mods are detected but refer to reference implementation
+  // Apply patch-based mods.
   if (!applyPatchMods()) {
     qWarning().noquote() << "[GameRedguard] applyPatchMods() FAILED";
     // Don't fail launch - file replacement mods should still work

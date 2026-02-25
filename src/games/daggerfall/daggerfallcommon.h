@@ -26,6 +26,7 @@ namespace Data
 {
 QString regionName(int regionIndex);
 QString locationTypeName(int locationType);
+int locationTypePaletteIndex(int locationType);
 QString buildingTypeName(int buildingType);
 QString townBuildingTypeName(int buildingTypeCode);
 QString rulerTitleName(int rulerCode);
@@ -36,6 +37,7 @@ QString rdbPrefixForBlockIndex(quint8 blockIndex);
 
 QHash<int, QString> regionNames();
 QHash<int, QString> locationTypes();
+QHash<int, int> locationTypePaletteIndices();
 QHash<int, QString> buildingTypes();
 QHash<int, QString> townBuildingTypes();
 QHash<int, QString> rulerTitles();

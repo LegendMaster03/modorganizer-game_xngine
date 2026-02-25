@@ -59,6 +59,7 @@ protected:
     static FileNameSet result{
         "rgm",     // Redguard module files
         "rtx",     // Redguard texture format
+        "wld",     // Redguard world height/texture maps
         "sav",     // Savegame files
         "dat",     // Data files
         "mif",     // Map interchange format

@@ -6,8 +6,13 @@ add_library(xngine STATIC
 	dummybsa.h
 	gamexngine.cpp
 	gamexngine.h
+	xnginearchiveextractor.h
+	xnginearchiveextractorfeature.cpp
+	xnginearchiveextractorfeature.h
 	xnginebsaformat.cpp
 	xnginebsaformat.h
+	xnginepaletteformat.cpp
+	xnginepaletteformat.h
 	xnginebsainvalidation.cpp
 	xnginebsainvalidation.h
 	xnginedataarchives.cpp
@@ -20,6 +25,10 @@ add_library(xngine STATIC
 	xnginemoddatachecker.h
 	xnginemoddatacontent.cpp
 	xnginemoddatacontent.h
+	xnginerscformat.cpp
+	xnginerscformat.h
+	xnginetblformat.cpp
+	xnginetblformat.h
 	xnginesavegame.cpp
 	xnginesavegame.h
 	xnginesavegameinfo.cpp
@@ -31,6 +40,8 @@ add_library(xngine STATIC
 	xnginescriptextender.h
 	xngineunmanagedmods.cpp
 	xngineunmanagedmods.h
+	xnginewldformat.cpp
+	xnginewldformat.h
 	vdf_parser.h
 )
 

@@ -417,7 +417,7 @@ QVector<XngineBSAFormat::FileSpec> GameDaggerfall::bsaFileSpecs() const
       {"MIDI.BSA", true, XngineBSAFormat::IndexType::NameRecord, false,
        "Music records."},
       {"DAGGER.SND", true, XngineBSAFormat::IndexType::NumberRecord, false,
-       "Raw PCM audio records."},
+       "Raw PCM audio records.", XngineBSAFormat::ArchiveVariant::DaggerfallSnd},
       {"MAPSAVE.SAV", true, XngineBSAFormat::IndexType::NameRecord, true,
        "Automap save data records."},
   };

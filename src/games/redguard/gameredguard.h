@@ -35,6 +35,7 @@ public:  // IPluginGame interface
   virtual QString gameNexusName() const override;
   virtual QStringList validShortNames() const override;
   virtual QStringList iniFiles() const override;
+  virtual MappingType mappings() const override;
   virtual int nexusModOrganizerID() const override;
   virtual int nexusGameID() const override;
   virtual QIcon gameIcon() const override;

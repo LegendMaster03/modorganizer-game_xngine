@@ -66,6 +66,8 @@ set(DAGGERFALL_TOOLKIT_WORLD_SOURCES
     daggerfallpoliticpak.h
     daggerfallwoodswld.cpp
     daggerfallwoodswld.h
+    daggerfallwatertbl.cpp
+    daggerfallwatertbl.h
     daggerfallworldlayers.cpp
     daggerfallworldlayers.h
 )

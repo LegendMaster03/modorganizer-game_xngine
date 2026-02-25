@@ -50,6 +50,32 @@ XngineSaveGameInfoWidget::~XngineSaveGameInfoWidget()
 
 void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
 {
+  auto setLabelTextPreserveFont = [](QLabel* label, const QString& text) {
+    if (!Qt::mightBeRichText(text)) {
+      label->setText(text);
+      return;
+    }
+
+    const QFont font = label->font();
+    QStringList styles;
+    const QString family = font.family().toHtmlEscaped();
+    if (!family.isEmpty()) {
+      styles.push_back(QString("font-family:'%1'").arg(family));
+    }
+    if (font.pixelSize() > 0) {
+      styles.push_back(QString("font-size:%1px").arg(font.pixelSize()));
+    } else if (font.pointSizeF() > 0.0) {
+      styles.push_back(QString("font-size:%1pt").arg(font.pointSizeF(), 0, 'f', 1));
+    }
+    styles.push_back(QString("font-weight:%1").arg(font.weight()));
+    if (font.italic()) {
+      styles.push_back("font-style:italic");
+    }
+
+    label->setText(QString("<span style=\"%1\">%2</span>")
+                       .arg(styles.join("; "), text));
+  };
+
   const QString normalizedPath = QDir::fromNativeSeparators(save.getFilepath());
   const QFileInfo saveInfo(normalizedPath);
   QString slotLabel = saveInfo.fileName();
@@ -60,10 +86,20 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
     slotLabel = save.getName();
   }
   QString saveNumberLabel = slotLabel;
-  const QRegularExpression slotRegex("(?i)^SAVE(\\d+)$");
-  const QRegularExpressionMatch slotMatch = slotRegex.match(slotLabel);
+  const QRegularExpression slotRegexClassic("(?i)^SAVE(\\d+)$");
+  const QRegularExpression slotRegexRedguard("(?i)^SAVEGAME\\.(\\d+)$");
+  QRegularExpressionMatch slotMatch = slotRegexClassic.match(slotLabel);
+  if (!slotMatch.hasMatch()) {
+    slotMatch = slotRegexRedguard.match(slotLabel);
+  }
   if (slotMatch.hasMatch()) {
-    saveNumberLabel = slotMatch.captured(1);
+    bool ok = false;
+    const int slot = slotMatch.captured(1).toInt(&ok);
+    if (ok) {
+      saveNumberLabel = QString::number(slot);
+    } else {
+      saveNumberLabel = slotMatch.captured(1);
+    }
   }
   ui->saveNumLabel->setText(saveNumberLabel);
   ui->characterLabel->setText("");
@@ -77,7 +113,7 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
   ui->screenshotLabel->setPixmap(QPixmap());
   if (auto xngineSave = dynamic_cast<XngineSaveGame const*>(&save)) {
     ui->characterLabel->setText(xngineSave->getPCName());
-    ui->locationLabel->setText(xngineSave->getPCLocation());
+    setLabelTextPreserveFont(ui->locationLabel, xngineSave->getPCLocation());
     if (xngineSave->getPCLevel() > 0) {
       ui->levelLabel->setText(QString::number(xngineSave->getPCLevel()));
     }
@@ -114,21 +150,23 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
   this->resize(0, 0);
 
   QLayout* layout = ui->gameFrame->layout();
-  QLabel* header  = new QLabel(tr("Details"));
-  QFont headerFont = header->font();
-  headerFont.setItalic(true);
-  header->setFont(headerFont);
-  layout->addWidget(header);
-
-  QString detailText = slotLabel;
+  QString detailText;
   if (auto xngineSave = dynamic_cast<XngineSaveGame const*>(&save)) {
     const QString extra = xngineSave->getGameDetails().trimmed();
     if (!extra.isEmpty()) {
       detailText = extra;
     }
   }
-  QLabel* detail = new QLabel(detailText);
-  detail->setWordWrap(true);
-  detail->setIndent(10);
-  layout->addWidget(detail);
+  if (!detailText.isEmpty()) {
+    QLabel* header  = new QLabel(tr("Details"));
+    QFont headerFont = header->font();
+    headerFont.setItalic(true);
+    header->setFont(headerFont);
+    layout->addWidget(header);
+
+    QLabel* detail = new QLabel(detailText);
+    detail->setWordWrap(true);
+    detail->setIndent(10);
+    layout->addWidget(detail);
+  }
 }

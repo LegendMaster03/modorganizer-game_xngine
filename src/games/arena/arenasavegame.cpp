@@ -102,18 +102,12 @@ QString ArenaSaveGame::getName() const
 QString ArenaSaveGame::getGameDetails() const
 {
   QStringList lines;
-  if (m_Experience > 0) {
-    lines << QString("Experience: %1").arg(m_Experience);
-  }
+
   if (m_Gold > 0) {
     lines << QString("Gold: %1").arg(m_Gold);
   }
-  lines << QString("Blessing: %1 (raw %2)")
-               .arg(QString::number(m_BlessingScaled, 'f', 2))
-               .arg(m_BlessingRaw);
-  if (m_DetailRaw > 0) {
-    lines << QString("Detail Raw: 0x%1")
-                 .arg(m_DetailRaw, 8, 16, QChar('0'));
+  if (m_Experience > 0) {
+    lines << QString("Experience: %1").arg(m_Experience);
   }
 
   if (m_StaffPieces >= 0) {
@@ -134,6 +128,14 @@ QString ArenaSaveGame::getGameDetails() const
     if (!m_SpellPreview.isEmpty()) {
       lines << QString("Spells: %1").arg(m_SpellPreview.join(", "));
     }
+  }
+
+  lines << QString("Blessing: %1 (raw %2)")
+               .arg(QString::number(m_BlessingScaled, 'f', 2))
+               .arg(m_BlessingRaw);
+  if (m_DetailRaw > 0) {
+    lines << QString("Detail Raw: 0x%1")
+                 .arg(m_DetailRaw, 8, 16, QChar('0'));
   }
 
   return lines.join('\n');

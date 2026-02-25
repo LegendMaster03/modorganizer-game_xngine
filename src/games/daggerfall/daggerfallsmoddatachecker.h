@@ -34,6 +34,7 @@ protected:
         "mus",     // Music files
         "xmid",    // Extended MIDI
         "fnt",     // Font files
+        "wld",     // WOODS.WLD world map data
         "txt",     // Text files
         "cfg",     // Configuration files
         "ini",     // INI files

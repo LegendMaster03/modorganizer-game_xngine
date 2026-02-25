@@ -282,15 +282,17 @@ QStringList GameBattlespire::iniFiles() const
 
 QVector<XngineBSAFormat::FileSpec> GameBattlespire::bsaFileSpecs() const
 {
-  return {
-      {"TXT.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
-       "Text payloads used by game systems (e.g. magical items list)."},
-      {"FLC.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
-       "Conversation animation frames (some files may contain two leading unknown bytes)."},
-      {"WAVES.BSA", false, XngineBSAFormat::IndexType::NameRecord, true,
-       "CD-only headerless 8-bit mono PCM at 11025 Hz; absent from GOG release."},
-  };
-}
+    return {
+        {"TXT.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
+         "Text payloads used by game systems (e.g. magical items list)."},
+        {"FLC.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
+         "Conversation animation frames (some files may contain two leading unknown bytes)."},
+        {"SPIRE.SND", true, XngineBSAFormat::IndexType::NumberRecord, false,
+         "RIFF/WAVE audio records.", XngineBSAFormat::ArchiveVariant::BattlespireSnd},
+        {"WAVES.BSA", false, XngineBSAFormat::IndexType::NameRecord, true,
+         "CD-only headerless 8-bit mono PCM at 11025 Hz; absent from GOG release."},
+    };
+  }
 
 XngineBSAFormat::Traits GameBattlespire::bsaTraits() const
 {

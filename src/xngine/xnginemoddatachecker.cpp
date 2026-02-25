@@ -27,7 +27,7 @@ auto XngineModDataChecker::possibleFolderNames() const -> const FileNameSet&
  */
 auto XngineModDataChecker::possibleFileExtensions() const -> const FileNameSet&
 {
-  static FileNameSet result{"ini", "rtx", "rgm", "bsa", "dat", "mif", "img", "cfg"};
+  static FileNameSet result{"ini", "rtx", "rgm", "wld", "bsa", "dat", "mif", "img", "cfg"};
   return result;
 }
 

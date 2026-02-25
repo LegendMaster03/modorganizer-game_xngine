@@ -21,6 +21,13 @@ public:
     BattlespireLzss
   };
 
+  enum class ArchiveVariant
+  {
+    Standard,
+    DaggerfallSnd,
+    BattlespireSnd
+  };
+
   struct Traits
   {
     bool allowCompressed = false;
@@ -30,6 +37,7 @@ public:
     bool allowMissingTypeHeader = false;
     bool writeTypeHeader = true;
     CompressionMode compressionMode = CompressionMode::None;
+    ArchiveVariant variantHint = ArchiveVariant::Standard;
   };
 
   struct Entry
@@ -43,6 +51,7 @@ public:
   struct Archive
   {
     IndexType type = IndexType::NameRecord;
+    ArchiveVariant variant = ArchiveVariant::Standard;
     QVector<Entry> entries;
   };
 
@@ -53,6 +62,7 @@ public:
     IndexType indexType = IndexType::NameRecord;
     bool optional = false;
     QString usage;
+    ArchiveVariant archiveVariant = ArchiveVariant::Standard;
   };
 
 public:
@@ -77,6 +87,8 @@ public:
                                    const QString& filePath, IndexType type,
                                    QString* errorMessage = nullptr,
                                    const Traits& traits = Traits{});
+
+  static ArchiveVariant detectArchiveVariant(const QString& filePath, const Archive& archive);
 };
 
 #endif  // XNGINEBSAFORMAT_H

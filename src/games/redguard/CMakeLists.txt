@@ -14,6 +14,8 @@ include_directories(${CMAKE_SOURCE_DIR}/src/xngine)
 set(REDGUARD_GAME_SOURCES
     gameredguard.cpp
     gameredguard.h
+    redguardsavegame.cpp
+    redguardsavegame.h
     redguardsmapchanges.cpp
     redguardsmapchanges.h
     redguardsmapdatabase.cpp
@@ -37,11 +39,13 @@ set(REDGUARD_GAME_SOURCES
     redguardsitem.h
     redguardsrtxdatabase.cpp
     redguardsrtxdatabase.h
+    redguardswld.cpp
+    redguardswld.h
     redguardsutils.cpp
     redguardsutils.h
-    # redguardsmoddatachecker.h  # Disabled - using XnGine base
-    # redguardsmoddatacontent.cpp  # Disabled - using XnGine base
-    # redguardsmoddatacontent.h  # Disabled - using XnGine base
+    redguardsmoddatachecker.h
+    redguardsmoddatacontent.cpp
+    redguardsmoddatacontent.h
 )
 
 # Create shared library

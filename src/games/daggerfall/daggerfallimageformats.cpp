@@ -1,5 +1,6 @@
 #include "daggerfallimageformats.h"
 #include "daggerfallformatutils.h"
+#include "xnginepaletteformat.h"
 
 #include <QFile>
 #include <QFileInfo>
@@ -125,48 +126,27 @@ QByteArray applyColourTranslation(const QByteArray& indexedPixels, const QByteAr
 bool loadPaletteFile(const QString& path, PaletteFile& out, QString* errorMessage)
 {
   out = {};
-  const QByteArray data = readData(path, errorMessage);
-  if (data.isEmpty()) {
+  XnginePaletteFormat::Document palDoc;
+  XnginePaletteFormat::Traits palTraits;
+  palTraits.variant = XnginePaletteFormat::Variant::Auto;
+  palTraits.allowTrailingPaletteData = true;
+  palTraits.strictValidation = false;
+  if (!XnginePaletteFormat::readFile(path, palDoc, errorMessage, palTraits)) {
     return false;
   }
 
-  qsizetype base = -1;
-  if (data.size() == 768) {
-    out.isColFile = false;
-    base = 0;
-  } else if (data.size() == 776) {
-    out.isColFile = true;
-    if (!readLE32U(data, 0, out.colLength) || !readLE16U(data, 4, out.colMajor) ||
-        !readLE16U(data, 6, out.colMinor)) {
-      return setError(errorMessage, "Invalid COL header");
-    }
-    base = 8;
-  } else if (data.size() >= 768) {
-    // Be permissive, some files have extra bytes; use trailing 768.
-    base = data.size() - 768;
-  } else {
-    return setError(errorMessage, "Palette file is too small");
+  out.isColFile = (palDoc.variant == XnginePaletteFormat::Variant::HeaderedRgb256);
+  if (out.isColFile) {
+    out.colLength = palDoc.headered.length;
+    out.colMajor = palDoc.headered.major;
+    out.colMinor = palDoc.headered.minor;
   }
-
-  bool sixBit = true;
-  for (qsizetype i = 0; i < 768; ++i) {
-    if (static_cast<quint8>(data.at(base + i)) > 63) {
-      sixBit = false;
-      break;
+  out.colors = palDoc.palette.colors;
+  if (out.colors.size() > 0) {
+    out.colors[0].setAlpha(0);
+    for (int i = 1; i < out.colors.size(); ++i) {
+      out.colors[i].setAlpha(255);
     }
-  }
-
-  out.colors.reserve(256);
-  for (int i = 0; i < 256; ++i) {
-    int r = static_cast<quint8>(data.at(base + i * 3 + 0));
-    int g = static_cast<quint8>(data.at(base + i * 3 + 1));
-    int b = static_cast<quint8>(data.at(base + i * 3 + 2));
-    if (sixBit) {
-      r = (r * 255) / 63;
-      g = (g * 255) / 63;
-      b = (b * 255) / 63;
-    }
-    out.colors.push_back(QColor(r, g, b, i == 0 ? 0 : 255));
   }
   return true;
 }
@@ -313,35 +293,26 @@ bool loadSkyFile(const QString& path, SkyFile& out, QString* errorMessage)
     PaletteFile pal;
     QByteArray palBytes = data.mid(p, kPalBytes);
     p += kPalBytes;
-    QString perr;
-    const QString tmpPath = QString();  // not used
-    Q_UNUSED(tmpPath);
-    // Parse palette bytes directly.
-    pal.isColFile = true;
-    readLE32U(palBytes, 0, pal.colLength);
-    readLE16U(palBytes, 4, pal.colMajor);
-    readLE16U(palBytes, 6, pal.colMinor);
-    pal.colors.reserve(256);
-    bool sixBit = true;
-    for (int j = 8; j < 8 + 768; ++j) {
-      if (static_cast<quint8>(palBytes.at(j)) > 63) {
-        sixBit = false;
-        break;
-      }
+    XnginePaletteFormat::Document palDoc;
+    XnginePaletteFormat::Traits palTraits;
+    palTraits.variant = XnginePaletteFormat::Variant::HeaderedRgb256;
+    palTraits.strictValidation = false;
+    palTraits.allowTrailingPaletteData = false;
+    if (!XnginePaletteFormat::parseBytes(palBytes, palDoc, errorMessage, palTraits)) {
+      return false;
     }
-    for (int c = 0; c < 256; ++c) {
-      int r = static_cast<quint8>(palBytes.at(8 + c * 3 + 0));
-      int g = static_cast<quint8>(palBytes.at(8 + c * 3 + 1));
-      int b = static_cast<quint8>(palBytes.at(8 + c * 3 + 2));
-      if (sixBit) {
-        r = (r * 255) / 63;
-        g = (g * 255) / 63;
-        b = (b * 255) / 63;
+    pal.isColFile = (palDoc.variant == XnginePaletteFormat::Variant::HeaderedRgb256);
+    pal.colLength = palDoc.headered.length;
+    pal.colMajor = palDoc.headered.major;
+    pal.colMinor = palDoc.headered.minor;
+    pal.colors = palDoc.palette.colors;
+    if (pal.colors.size() > 0) {
+      pal.colors[0].setAlpha(0);
+      for (int c = 1; c < pal.colors.size(); ++c) {
+        pal.colors[c].setAlpha(255);
       }
-      pal.colors.push_back(QColor(r, g, b, c == 0 ? 0 : 255));
     }
     out.palettes.push_back(pal);
-    Q_UNUSED(perr);
   }
 
   out.translations.reserve(kXlatCount);

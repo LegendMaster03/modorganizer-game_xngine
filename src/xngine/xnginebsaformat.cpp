@@ -64,6 +64,14 @@ bool setError(QString* errorMessage, const QString& error)
   return false;
 }
 
+bool startsWithRiffWave(const QByteArray& data)
+{
+  if (data.size() < 12) {
+    return false;
+  }
+  return data.startsWith("RIFF") && data.mid(8, 4) == "WAVE";
+}
+
 int descriptorSizeForType(XngineBSAFormat::IndexType type)
 {
   return (type == XngineBSAFormat::IndexType::NameRecord) ? 18 : 8;
@@ -214,6 +222,7 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
   }
 
   outArchive.type = type;
+  outArchive.variant = ArchiveVariant::Standard;
   outArchive.entries.clear();
   outArchive.entries.reserve(recordCount);
 
@@ -267,6 +276,12 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
     return setError(errorMessage, "Record data area does not match footer offset");
   }
 
+  if (traits.variantHint != ArchiveVariant::Standard) {
+    outArchive.variant = traits.variantHint;
+  } else {
+    outArchive.variant = detectArchiveVariant(filePath, outArchive);
+  }
+
   return true;
 }
 
@@ -275,6 +290,14 @@ bool XngineBSAFormat::writeArchive(const QString& filePath, const Archive& archi
 {
   if (archive.entries.size() > std::numeric_limits<quint16>::max()) {
     return setError(errorMessage, "BSA entry count exceeds UInt16 limit");
+  }
+
+  const ArchiveVariant variant =
+      (traits.variantHint != ArchiveVariant::Standard) ? traits.variantHint : archive.variant;
+  if (variant == ArchiveVariant::DaggerfallSnd || variant == ArchiveVariant::BattlespireSnd) {
+    if (archive.type != IndexType::NumberRecord) {
+      return setError(errorMessage, "SND BSA variants require NumberRecord index type");
+    }
   }
 
   QFile file(filePath);
@@ -352,6 +375,24 @@ bool XngineBSAFormat::writeArchive(const QString& filePath, const Archive& archi
   }
 
   return true;
+}
+
+XngineBSAFormat::ArchiveVariant XngineBSAFormat::detectArchiveVariant(const QString& filePath,
+                                                                      const Archive& archive)
+{
+  const QString base = QFileInfo(filePath).fileName();
+  if (!base.endsWith(".SND", Qt::CaseInsensitive)) {
+    return ArchiveVariant::Standard;
+  }
+  if (archive.type != IndexType::NumberRecord || archive.entries.isEmpty()) {
+    return ArchiveVariant::Standard;
+  }
+
+  // Battlespire SPIRE.SND stores RIFF/WAVE payloads. Daggerfall DAGGER.SND stores raw PCM payloads.
+  if (startsWithRiffWave(archive.entries.first().data)) {
+    return ArchiveVariant::BattlespireSnd;
+  }
+  return ArchiveVariant::DaggerfallSnd;
 }
 
 bool XngineBSAFormat::unpackToDirectory(const QString& filePath,

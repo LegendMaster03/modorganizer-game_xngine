@@ -128,6 +128,28 @@ QHash<int, QString> locationTypes()
   };
 }
 
+QHash<int, int> locationTypePaletteIndices()
+{
+  // FMAP_PAL.COL mapping for world-map location type colors.
+  return {
+      {0, 33},   // Large Town
+      {1, 35},   // Medium Town
+      {2, 37},   // Small Town
+      {3, 53},   // Farmstead
+      {4, 237},  // Large Dungeon
+      {5, 96},   // Temple
+      {6, 39},   // Tavern
+      {7, 240},  // Medium Dungeon
+      {8, 51},   // Manor
+      {9, 101},  // Shrine
+      {10, 243}, // Small Dungeon
+      {11, 55},  // Shack
+      {12, 246}, // Cemetery
+      {13, 0},   // Coven
+      {14, -1},  // Ship (player ship; invisible / do not draw)
+  };
+}
+
 QHash<int, QString> buildingTypes()
 {
   // BLOCKS.BSA block-prefix categories (index-based).
@@ -259,6 +281,11 @@ QString regionName(int regionIndex)
 QString locationTypeName(int locationType)
 {
   return locationTypes().value(locationType);
+}
+
+int locationTypePaletteIndex(int locationType)
+{
+  return locationTypePaletteIndices().value(locationType, -1);
 }
 
 QString buildingTypeName(int buildingType)

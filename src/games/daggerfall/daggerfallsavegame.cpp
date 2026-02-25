@@ -1,7 +1,9 @@
 #include "daggerfallsavegame.h"
 
+#include "daggerfallcommon.h"
 #include "gamedaggerfall.h"
 #include "daggerfallmapsbsa.h"
+#include "xnginepaletteformat.h"
 
 #include <QDir>
 #include <QFile>
@@ -24,6 +26,8 @@ constexpr qsizetype kRecordBaseSize = 71;
 constexpr qsizetype kHeaderSize = 0x13;
 constexpr qsizetype kCharacterRecordNameOffset = 0x00;
 constexpr qsizetype kCharacterRecordNameLength = 0x20;
+constexpr qsizetype kCharacterRecordClassOffset = 0x24c;
+constexpr qsizetype kCharacterRecordClassLength = 0x12;
 constexpr qsizetype kCharacterRecordLevelOffset = 0x81;
 constexpr qsizetype kCharacterRecordRaceOffset = 0x43;
 constexpr qsizetype kCharacterRecordHealthOffset = 0x7c;
@@ -41,34 +45,21 @@ constexpr qsizetype kImageRawSize15 = kImageWidth * kImageHeight * kImageBytesPe
 
 bool loadPaletteFromFile(const QString& path, std::array<QColor, 256>& palette)
 {
-  QFile f(path);
-  if (!f.open(QIODevice::ReadOnly)) {
+  XnginePaletteFormat::Document doc;
+  XnginePaletteFormat::Traits traits;
+  traits.variant = XnginePaletteFormat::Variant::Auto;
+  traits.allowTrailingPaletteData = true;
+  traits.strictValidation = false;
+  if (!XnginePaletteFormat::readFile(path, doc, nullptr, traits)) {
     return false;
   }
-  const QByteArray bytes = f.readAll();
-  if (bytes.size() < 768) {
+  if (doc.palette.colors.size() < 256) {
     return false;
   }
-
-  // Several DF palette files have 8-byte headers (size 776). Use trailing 768 bytes.
-  const qsizetype base = bytes.size() - 768;
-  bool sixBitRange = true;
-  for (qsizetype i = 0; i < 768; ++i) {
-    if (static_cast<unsigned char>(bytes.at(base + i)) > 63) {
-      sixBitRange = false;
-      break;
-    }
-  }
-
   for (int i = 0; i < 256; ++i) {
-    const int rRaw = static_cast<unsigned char>(bytes.at(base + i * 3 + 0));
-    const int gRaw = static_cast<unsigned char>(bytes.at(base + i * 3 + 1));
-    const int bRaw = static_cast<unsigned char>(bytes.at(base + i * 3 + 2));
-    const int r = sixBitRange ? (rRaw * 255 / 63) : rRaw;
-    const int g = sixBitRange ? (gRaw * 255 / 63) : gRaw;
-    const int b = sixBitRange ? (bRaw * 255 / 63) : bRaw;
-    palette[static_cast<size_t>(i)] = QColor(r, g, b);
+    palette[static_cast<size_t>(i)] = doc.palette.colors.at(i);
   }
+  palette[0].setAlpha(255); // save screenshot uses color 0 as a normal pixel, not transparency
 
   return true;
 }
@@ -95,6 +86,33 @@ bool loadDaggerfallPalette(const GameDaggerfall* game, std::array<QColor, 256>& 
     }
   }
   return false;
+}
+
+bool loadDaggerfallFmapPalette(const GameDaggerfall* game, std::array<QColor, 256>& palette)
+{
+  if (game == nullptr) {
+    return false;
+  }
+
+  const QDir arena2(game->gameDirectory().filePath("arena2"));
+  return loadPaletteFromFile(arena2.filePath("FMAP_PAL.COL"), palette);
+}
+
+bool tryGetDaggerfallLocationTypeColor(const GameDaggerfall* game, int locationType,
+                                       QColor& outColor)
+{
+  const int paletteIndex = Daggerfall::Data::locationTypePaletteIndex(locationType);
+  if (paletteIndex < 0 || paletteIndex > 255) {
+    return false;
+  }
+
+  std::array<QColor, 256> palette{};
+  if (!loadDaggerfallFmapPalette(game, palette)) {
+    return false;
+  }
+
+  outColor = palette[static_cast<size_t>(paletteIndex)];
+  return outColor.isValid();
 }
 }  // namespace
 
@@ -205,20 +223,51 @@ QString DaggerfallsSaveGame::getName() const
   return XngineSaveGame::getName();
 }
 
+QString DaggerfallsSaveGame::getPCLocation() const
+{
+  if (m_LocationNameDetail.isEmpty()) {
+    return m_PCLocation;
+  }
+
+  QStringList locationParts;
+  if (!m_LocationTypeNameDetail.isEmpty()) {
+    locationParts.push_back(m_LocationTypeNameDetail.toHtmlEscaped());
+  }
+  if (!m_LocationRegionNameDetail.isEmpty()) {
+    locationParts.push_back(m_LocationRegionNameDetail.toHtmlEscaped());
+  }
+
+  QString locationName = m_LocationNameDetail.toHtmlEscaped();
+  if (m_LocationTypeColorDetail.isValid()) {
+    locationName = QString("<span style=\"color:%1; font-weight:600;\">%2</span>")
+                       .arg(m_LocationTypeColorDetail.name(QColor::HexRgb), locationName);
+  }
+
+  if (locationParts.isEmpty()) {
+    return locationName;
+  }
+
+  return QString("%1 (%2)").arg(locationName, locationParts.join(", "));
+}
+
 QString DaggerfallsSaveGame::getGameDetails() const
 {
   QStringList lines;
+  auto appendPlain = [&lines](const QString& label, const QString& value) {
+    if (value.isEmpty()) {
+      return;
+    }
+    lines.push_back(QString("%1: %2").arg(label.toHtmlEscaped(), value.toHtmlEscaped()));
+  };
+
   if (!m_InGameDate.isEmpty()) {
-    lines.push_back(QString("In-game: %1").arg(m_InGameDate));
+    lines.push_back(QString("In-game: %1").arg(m_InGameDate.toHtmlEscaped()));
   }
   const QString race = raceName(m_Race);
-  if (!race.isEmpty()) {
-    lines.push_back(QString("Race: %1").arg(race));
-  }
+  appendPlain("Race", race);
+  appendPlain("Class", m_ClassName);
   const QString reflex = reflexName(m_Reflex);
-  if (!reflex.isEmpty()) {
-    lines.push_back(QString("Reflex: %1").arg(reflex));
-  }
+  appendPlain("Reflex", reflex);
   if (m_HPMax > 0) {
     lines.push_back(QString("HP: %1/%2").arg(m_HP).arg(m_HPMax));
   }
@@ -228,7 +277,7 @@ QString DaggerfallsSaveGame::getGameDetails() const
   if (m_Gold > 0) {
     lines.push_back(QString("Gold: %1").arg(m_Gold));
   }
-  return lines.join('\n');
+  return lines.join("<br/>");
 }
 
 bool DaggerfallsSaveGame::parseSaveTree()
@@ -302,6 +351,13 @@ bool DaggerfallsSaveGame::parseSaveTree()
                         kCharacterRecordNameLength);
     if (!characterName.isEmpty()) {
       m_PCName = characterName;
+    }
+
+    const QString className =
+        readFixedString(data, recordDataOffset + kCharacterRecordClassOffset,
+                        kCharacterRecordClassLength);
+    if (isLikelyClassName(className)) {
+      m_ClassName = className;
     }
 
     quint8 level = 0;
@@ -520,13 +576,20 @@ QString DaggerfallsSaveGame::formatPositionText(qint32 x, quint16 yOffset, quint
 }
 
 QString DaggerfallsSaveGame::formatHeaderLocationText(quint16 locationCode, quint8 zoneType,
-                                                      qint32 x, qint32 y, qint32 z) const
+                                                      qint32 x, qint32 y, qint32 z)
 {
   Q_UNUSED(y);
   const auto nearest = DaggerfallMapsBsa::resolveNearestLocation(m_Game, x, z);
   const auto info = nearest.isValid() ? nearest
                                       : DaggerfallMapsBsa::resolveLocationInfo(m_Game, locationCode);
   if (info.isValid()) {
+    m_LocationNameDetail = info.name;
+    m_LocationTypeIndexDetail = info.locationType;
+    m_LocationTypeNameDetail = DaggerfallMapsBsa::locationTypeName(info.locationType);
+    m_LocationRegionNameDetail = DaggerfallMapsBsa::regionName(info.regionIndex);
+    m_LocationTypeColorDetail = QColor();
+    tryGetDaggerfallLocationTypeColor(m_Game, info.locationType, m_LocationTypeColorDetail);
+
     const QString typeName = DaggerfallMapsBsa::locationTypeName(info.locationType);
     const QString regionName = DaggerfallMapsBsa::regionName(info.regionIndex);
     if (!typeName.isEmpty() && !regionName.isEmpty()) {
@@ -542,6 +605,13 @@ QString DaggerfallsSaveGame::formatHeaderLocationText(quint16 locationCode, quin
     }
     return info.name;
   }
+
+  m_LocationNameDetail.clear();
+  m_LocationTypeNameDetail.clear();
+  m_LocationRegionNameDetail.clear();
+  m_LocationTypeIndexDetail = -1;
+  m_LocationTypeColorDetail = QColor();
+
   return QString("Location 0x%1 (Zone %2)")
       .arg(locationCode, 4, 16, QChar('0'))
       .arg(zoneType);
@@ -596,6 +666,28 @@ QString DaggerfallsSaveGame::raceName(quint8 race)
     case 10: return "Wereboar";
     default: return {};
   }
+}
+
+bool DaggerfallsSaveGame::isLikelyClassName(const QString& value)
+{
+  const QString trimmed = value.trimmed();
+  if (trimmed.isEmpty() || trimmed.size() > 32) {
+    return false;
+  }
+
+  bool hasLetter = false;
+  for (const QChar c : trimmed) {
+    if (c.isLetter()) {
+      hasLetter = true;
+      continue;
+    }
+    if (c == ' ' || c == '\'' || c == '-') {
+      continue;
+    }
+    return false;
+  }
+
+  return hasLetter;
 }
 
 QString DaggerfallsSaveGame::reflexName(quint8 reflex)
