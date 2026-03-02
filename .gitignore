@@ -68,3 +68,7 @@ tools/local_backup/
 src/games/battlespire/LEVELS_FORMAT.md
 src/games/battlespire/LEVELS.TXT
 *.md
+
+# Temporary extractor tooling and outputs
+src/temp_bsa_extract/
+temp_bsa_extract_outputs/

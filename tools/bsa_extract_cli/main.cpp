@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
   auto traits = battlespireTraits();
   const QString fileName = inInfo.fileName().toUpper();
   if (fileName == "SPIRE.SND") {
-    traits.variantHint = XngineBSAFormat::ArchiveVariant::BattlespireSnd;
+    traits.variantHint = XngineBSAFormat::ArchiveVariant::Snd;
   }
 
   QString error;

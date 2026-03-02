@@ -24,8 +24,8 @@ public:
   enum class ArchiveVariant
   {
     Standard,
-    DaggerfallSnd,
-    BattlespireSnd
+    Snd,
+    Sav
   };
 
   struct Traits
@@ -89,6 +89,7 @@ public:
                                    const Traits& traits = Traits{});
 
   static ArchiveVariant detectArchiveVariant(const QString& filePath, const Archive& archive);
+
 };
 
 #endif  // XNGINEBSAFORMAT_H

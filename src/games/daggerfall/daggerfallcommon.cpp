@@ -1,5 +1,7 @@
 #include "daggerfallcommon.h"
 
+#include <QFileInfo>
+#include <QRegularExpression>
 #include <QtMath>
 
 namespace Daggerfall
@@ -315,6 +317,27 @@ bool isTownBuildingTypeShownOnAutomap(int buildingTypeCode)
     default:
       return true;
   }
+}
+
+bool isLocationTypeKnownOnWorldMap(int locationType)
+{
+  return locationType == (0xAF & locationType);
+}
+
+bool isLocationTypeUnknownOnWorldMap(int locationType)
+{
+  return locationType == (0x8F & locationType);
+}
+
+bool isMapsaveArchiveName(const QString& archiveName)
+{
+  return QFileInfo(archiveName).fileName().compare("MAPSAVE.SAV", Qt::CaseInsensitive) == 0;
+}
+
+bool isMapsaveRecordName(const QString& recordName)
+{
+  static const QRegularExpression rowRe("(?i)^MAPSAVE\\.0\\d\\d$");
+  return rowRe.match(recordName).hasMatch();
 }
 
 QString rmbPrefixForBlockIndex(quint8 blockIndex)

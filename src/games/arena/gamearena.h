@@ -39,6 +39,7 @@ public:  // IPluginGame interface
   virtual QStringList iniFiles() const override;
   virtual int nexusModOrganizerID() const override;
   virtual int nexusGameID() const override;
+  virtual QString gameVersion() const override;
   virtual QIcon gameIcon() const override;
   virtual QDir dataDirectory() const override;
 
@@ -62,6 +63,7 @@ protected:
   virtual SaveLayout saveLayout() const override;
   virtual QString saveGameId() const override;
   virtual QString saveSlotPrefix() const override;
+  virtual QVector<XngineBSAFormat::FileSpec> bsaFileSpecs() const override;
 
 private:
   QString findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const;

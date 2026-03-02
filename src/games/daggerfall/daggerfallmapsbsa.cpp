@@ -211,7 +211,9 @@ void populateLocationNumIndex(const XngineBSAFormat::Archive& archive,
           const auto& mt = table.at(static_cast<int>(i));
           info.mapId = mt.mapId;
           info.locationType = static_cast<int>((mt.latitudeType >> 25) & 0x1f);
-          info.discovered = (mt.latitudeType & 0x40000000u) != 0;
+          const bool discoveredBit = (mt.latitudeType & 0x40000000u) != 0;
+          info.discovered = discoveredBit ||
+                            Daggerfall::Data::isLocationTypeKnownOnWorldMap(info.locationType);
           info.hidden = (mt.latitudeType & 0x80000000u) != 0;
         }
         outIndex.insert(locationNum, info);
@@ -228,7 +230,9 @@ void populateLocationNumIndex(const XngineBSAFormat::Archive& archive,
           info.regionIndex = region;
           info.mapId = mt.mapId;
           info.locationType = static_cast<int>((mt.latitudeType >> 25) & 0x1f);
-          info.discovered = (mt.latitudeType & 0x40000000u) != 0;
+          const bool discoveredBit = (mt.latitudeType & 0x40000000u) != 0;
+          info.discovered = discoveredBit ||
+                            Daggerfall::Data::isLocationTypeKnownOnWorldMap(info.locationType);
           info.hidden = (mt.latitudeType & 0x80000000u) != 0;
           outIndex.insert(headerCode, info);
         }
@@ -356,7 +360,10 @@ DaggerfallMapsBsa::LocationInfo DaggerfallMapsBsa::resolveNearestLocation(
           ce.info.name = name;
           ce.info.regionIndex = region;
           ce.info.locationType = static_cast<int>((mt.latitudeType >> 25) & 0x1f);
-          ce.info.discovered = (mt.latitudeType & 0x40000000u) != 0;
+          const bool discoveredBit = (mt.latitudeType & 0x40000000u) != 0;
+          ce.info.discovered = discoveredBit ||
+                               Daggerfall::Data::isLocationTypeKnownOnWorldMap(
+                                   ce.info.locationType);
           ce.info.hidden = (mt.latitudeType & 0x80000000u) != 0;
           ce.info.mapId = mt.mapId;
           entries.push_back(ce);

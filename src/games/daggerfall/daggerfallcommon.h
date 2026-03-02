@@ -31,6 +31,10 @@ QString buildingTypeName(int buildingType);
 QString townBuildingTypeName(int buildingTypeCode);
 QString rulerTitleName(int rulerCode);
 bool isTownBuildingTypeShownOnAutomap(int buildingTypeCode);
+bool isLocationTypeKnownOnWorldMap(int locationType);
+bool isLocationTypeUnknownOnWorldMap(int locationType);
+bool isMapsaveArchiveName(const QString& archiveName);
+bool isMapsaveRecordName(const QString& recordName);
 
 QString rmbPrefixForBlockIndex(quint8 blockIndex);
 QString rdbPrefixForBlockIndex(quint8 blockIndex);

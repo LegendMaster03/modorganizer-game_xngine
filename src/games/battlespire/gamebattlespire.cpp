@@ -34,6 +34,35 @@
 
 using namespace MOBase;
 
+namespace
+{
+QString detectDosGameVersionFromText(const QDir& root,
+                                     const QStringList& candidates,
+                                     const QList<QRegularExpression>& patterns)
+{
+  for (const auto& relPath : candidates) {
+    QFile f(root.filePath(relPath));
+    if (!f.exists() || !f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      continue;
+    }
+
+    int linesRead = 0;
+    while (!f.atEnd() && linesRead < 128) {
+      const QString line = QString::fromLocal8Bit(f.readLine()).trimmed();
+      ++linesRead;
+      for (const auto& pattern : patterns) {
+        const QRegularExpressionMatch match = pattern.match(line);
+        if (match.hasMatch()) {
+          return match.captured(1);
+        }
+      }
+    }
+  }
+
+  return {};
+}
+}  // namespace
+
 GameBattlespire::GameBattlespire()
 {
   qInfo().noquote() << "[GameBattlespire] Constructor ENTRY";
@@ -283,12 +312,18 @@ QStringList GameBattlespire::iniFiles() const
 QVector<XngineBSAFormat::FileSpec> GameBattlespire::bsaFileSpecs() const
 {
     return {
+        {"3D.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
+         "3D asset archive used by Battlespire."},
+        {"BS6.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
+         "BS6 level/model data archive."},
+        {"BSI.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
+         "Battlespire support data archive (exact record schema varies)."},
         {"TXT.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
          "Text payloads used by game systems (e.g. magical items list)."},
         {"FLC.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
          "Conversation animation frames (some files may contain two leading unknown bytes)."},
         {"SPIRE.SND", true, XngineBSAFormat::IndexType::NumberRecord, false,
-         "RIFF/WAVE audio records.", XngineBSAFormat::ArchiveVariant::BattlespireSnd},
+         "RIFF/WAVE audio records.", XngineBSAFormat::ArchiveVariant::Snd},
         {"WAVES.BSA", false, XngineBSAFormat::IndexType::NameRecord, true,
          "CD-only headerless 8-bit mono PCM at 11025 Hz; absent from GOG release."},
     };
@@ -328,9 +363,28 @@ bool GameBattlespire::looksValid(QDir const& path) const
 
 QString GameBattlespire::gameVersion() const
 {
-  qInfo().noquote() << "[GameBattlespire] gameVersion() called - returning fallback";
-  OutputDebugStringA("[GameBattlespire] gameVersion() called - returning fallback\n");
-  return "1.0.0";
+  const QString version = detectDosGameVersionFromText(
+      gameDirectory(),
+      {
+          "patch.txt",
+          "PATCH.TXT",
+          "README.TXT",
+          "GAMEDATA/README.TXT",
+      },
+      {
+          QRegularExpression(R"(\bv([0-9]+(?:\.[0-9]+){1,3})\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+          QRegularExpression(R"(\bversion\s+([0-9]+(?:\.[0-9]+){1,3})\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+      });
+
+  if (!version.isEmpty()) {
+    qInfo().noquote() << "[GameBattlespire] gameVersion() detected" << version;
+    return version;
+  }
+
+  qInfo().noquote() << "[GameBattlespire] gameVersion() using fallback";
+  return GameXngine::gameVersion();
 }
 
 QIcon GameBattlespire::gameIcon() const

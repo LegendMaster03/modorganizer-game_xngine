@@ -64,14 +64,6 @@ bool setError(QString* errorMessage, const QString& error)
   return false;
 }
 
-bool startsWithRiffWave(const QByteArray& data)
-{
-  if (data.size() < 12) {
-    return false;
-  }
-  return data.startsWith("RIFF") && data.mid(8, 4) == "WAVE";
-}
-
 int descriptorSizeForType(XngineBSAFormat::IndexType type)
 {
   return (type == XngineBSAFormat::IndexType::NameRecord) ? 18 : 8;
@@ -294,9 +286,13 @@ bool XngineBSAFormat::writeArchive(const QString& filePath, const Archive& archi
 
   const ArchiveVariant variant =
       (traits.variantHint != ArchiveVariant::Standard) ? traits.variantHint : archive.variant;
-  if (variant == ArchiveVariant::DaggerfallSnd || variant == ArchiveVariant::BattlespireSnd) {
+  if (variant == ArchiveVariant::Snd) {
     if (archive.type != IndexType::NumberRecord) {
       return setError(errorMessage, "SND BSA variants require NumberRecord index type");
+    }
+  } else if (variant == ArchiveVariant::Sav) {
+    if (archive.type != IndexType::NameRecord) {
+      return setError(errorMessage, "SAV BSA variants require NameRecord index type");
     }
   }
 
@@ -382,17 +378,19 @@ XngineBSAFormat::ArchiveVariant XngineBSAFormat::detectArchiveVariant(const QStr
 {
   const QString base = QFileInfo(filePath).fileName();
   if (!base.endsWith(".SND", Qt::CaseInsensitive)) {
+    if (base.endsWith(".SAV", Qt::CaseInsensitive) &&
+        archive.type == IndexType::NameRecord) {
+      return ArchiveVariant::Sav;
+    }
     return ArchiveVariant::Standard;
   }
-  if (archive.type != IndexType::NumberRecord || archive.entries.isEmpty()) {
+  if (archive.type != IndexType::NumberRecord) {
     return ArchiveVariant::Standard;
   }
 
-  // Battlespire SPIRE.SND stores RIFF/WAVE payloads. Daggerfall DAGGER.SND stores raw PCM payloads.
-  if (startsWithRiffWave(archive.entries.first().data)) {
-    return ArchiveVariant::BattlespireSnd;
-  }
-  return ArchiveVariant::DaggerfallSnd;
+  // Shared SND container variant. Game-specific payload behavior should be
+  // handled by game traits/consumers, not split in core.
+  return ArchiveVariant::Snd;
 }
 
 bool XngineBSAFormat::unpackToDirectory(const QString& filePath,

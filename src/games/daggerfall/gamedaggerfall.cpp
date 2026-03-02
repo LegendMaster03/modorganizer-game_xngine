@@ -41,6 +41,35 @@
 
 using namespace MOBase;
 
+namespace
+{
+QString detectDosGameVersionFromText(const QDir& root,
+                                     const QStringList& candidates,
+                                     const QList<QRegularExpression>& patterns)
+{
+  for (const auto& relPath : candidates) {
+    QFile f(root.filePath(relPath));
+    if (!f.exists() || !f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      continue;
+    }
+
+    int linesRead = 0;
+    while (!f.atEnd() && linesRead < 128) {
+      const QString line = QString::fromLocal8Bit(f.readLine()).trimmed();
+      ++linesRead;
+      for (const auto& pattern : patterns) {
+        const QRegularExpressionMatch match = pattern.match(line);
+        if (match.hasMatch()) {
+          return match.captured(1);
+        }
+      }
+    }
+  }
+
+  return {};
+}
+}  // namespace
+
 #if defined(XNGINE_DAGGERFALL_EXE_PATCHING)
 namespace
 {
@@ -253,6 +282,28 @@ int GameDaggerfall::nexusGameID() const
   return 232;  // Nexus Game ID for Daggerfall
 }
 
+QString GameDaggerfall::gameVersion() const
+{
+  const QString version = detectDosGameVersionFromText(
+      gameDirectory(),
+      {
+          "PATCHED.TXT",
+          "DF/DAGGER/PATCHED.TXT",
+          "README.TXT",
+          "DF/DAGGER/README.TXT",
+      },
+      {
+          QRegularExpression(R"(\bversion\s+([0-9]+(?:\.[0-9]+){1,3})\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+      });
+
+  if (!version.isEmpty()) {
+    return version;
+  }
+
+  return GameXngine::gameVersion();
+}
+
 QString GameDaggerfall::name() const
 {
   return "The Elder Scrolls Adventures: Daggerfall Support Plugin";
@@ -417,9 +468,10 @@ QVector<XngineBSAFormat::FileSpec> GameDaggerfall::bsaFileSpecs() const
       {"MIDI.BSA", true, XngineBSAFormat::IndexType::NameRecord, false,
        "Music records."},
       {"DAGGER.SND", true, XngineBSAFormat::IndexType::NumberRecord, false,
-       "Raw PCM audio records.", XngineBSAFormat::ArchiveVariant::DaggerfallSnd},
+       "Raw PCM audio records.", XngineBSAFormat::ArchiveVariant::Snd},
       {"MAPSAVE.SAV", true, XngineBSAFormat::IndexType::NameRecord, true,
-       "Automap save data records."},
+       "Automap archive (NameRecord 0x0100; MAPSAVE.0## regional records).",
+       XngineBSAFormat::ArchiveVariant::Sav},
   };
 }
 

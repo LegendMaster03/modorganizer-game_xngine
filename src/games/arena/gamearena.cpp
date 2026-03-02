@@ -86,6 +86,32 @@ QString relativeToDir(const QDir& baseDir, const QString& targetPath)
 {
   return QDir::cleanPath(baseDir.relativeFilePath(targetPath));
 }
+
+QString detectDosGameVersionFromText(const QDir& root,
+                                     const QStringList& candidates,
+                                     const QList<QRegularExpression>& patterns)
+{
+  for (const auto& relPath : candidates) {
+    QFile f(root.filePath(relPath));
+    if (!f.exists() || !f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      continue;
+    }
+
+    int linesRead = 0;
+    while (!f.atEnd() && linesRead < 128) {
+      const QString line = QString::fromLocal8Bit(f.readLine()).trimmed();
+      ++linesRead;
+      for (const auto& pattern : patterns) {
+        const QRegularExpressionMatch match = pattern.match(line);
+        if (match.hasMatch()) {
+          return match.captured(1);
+        }
+      }
+    }
+  }
+
+  return {};
+}
 }
 
 GameArena::GameArena() = default;
@@ -283,6 +309,27 @@ int GameArena::nexusModOrganizerID() const
 int GameArena::nexusGameID() const
 {
   return 0;
+}
+
+QString GameArena::gameVersion() const
+{
+  const QString version = detectDosGameVersionFromText(
+      gameDirectory(),
+      {
+          "README.TXT",
+          "READ.ME",
+          "README",
+      },
+      {
+          QRegularExpression(R"(\bVersion\s+([0-9]+(?:\.[0-9]+){1,3})\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+      });
+
+  if (!version.isEmpty()) {
+    return version;
+  }
+
+  return GameXngine::gameVersion();
 }
 
 QDir GameArena::dataDirectory() const
@@ -494,6 +541,14 @@ QString GameArena::saveGameId() const
 QString GameArena::saveSlotPrefix() const
 {
   return "SAVE";
+}
+
+QVector<XngineBSAFormat::FileSpec> GameArena::bsaFileSpecs() const
+{
+  return {
+      {"GLOBAL.BSA", false, XngineBSAFormat::IndexType::NameRecord, false,
+       "Primary Arena data archive (record type varies by build)."},
+  };
 }
 
 QString GameArena::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const
