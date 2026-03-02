@@ -18,7 +18,6 @@ XngineModDataContent::XngineModDataContent(
 std::vector<XngineModDataContent::Content>
 XngineModDataContent::getAllContents() const
 {
-  qInfo().noquote() << "[XngineModDataContent] getAllContents() ENTRY";
   static std::vector<Content> XNGINE_CONTENTS{
     {CONTENT_FILE_OVERRIDES, QT_TR_NOOP("File Overrides"),
      ":/MO/gui/content/mesh"},
@@ -40,7 +39,6 @@ XngineModDataContent::getAllContents() const
 std::vector<int> XngineModDataContent::getContentsFor(
     std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {
-  qInfo().noquote() << "[XngineModDataContent] getContentsFor() ENTRY";
   std::vector<int> contents;
 
   for (auto e : *fileTree) {

@@ -43,7 +43,6 @@ XngineModDataChecker::XngineModDataChecker(const GameXngine* game) : m_Game(game
 XngineModDataChecker::CheckReturn XngineModDataChecker::dataLooksValid(
     std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {
-  qInfo().noquote() << "[XngineModDataChecker] dataLooksValid() ENTRY";
   if (!fileTree) {
     qDebug() << "[XnGine] ModDataChecker: fileTree is null";
     return CheckReturn::INVALID;

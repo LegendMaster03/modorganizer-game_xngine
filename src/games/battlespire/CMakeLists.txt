@@ -9,6 +9,8 @@ target_sources(game_battlespire PRIVATE
   battlespiretextrsc.cpp
   battlespirewatertbl.h
   battlespirewatertbl.cpp
+  battlespire3dbsa.h
+  battlespire3dbsa.cpp
   # Game-specific feature classes disabled
   # battlespiredatachecker.h
   # battlespiremodatacontent.h

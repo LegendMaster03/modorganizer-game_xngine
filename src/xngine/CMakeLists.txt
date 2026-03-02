@@ -11,6 +11,8 @@ add_library(xngine STATIC
 	xnginearchiveextractorfeature.h
 	xnginebsaformat.cpp
 	xnginebsaformat.h
+	xngine3dformat.cpp
+	xngine3dformat.h
 	xnginepaletteformat.cpp
 	xnginepaletteformat.h
 	xnginebsainvalidation.cpp

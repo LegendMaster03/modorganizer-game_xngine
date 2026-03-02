@@ -13,6 +13,7 @@ class XngineUnmanagedMods;
 
 #include <QObject>
 #include <QtPlugin>
+#include <QRegularExpression>
 #include <QString>
 #include <ShlObj.h>
 #include <dbghelp.h>
@@ -163,6 +164,20 @@ protected:
   static QString getSpecialPath(const QString& name);
 
   static QString determineMyGamesPath(const QString& gameName);
+  static QString detectDosVersionFromText(const QDir& root,
+                                          const QStringList& candidates,
+                                          const QList<QRegularExpression>& patterns,
+                                          int maxLines = 128);
+  static QString detectDosVersionFromBinaryStrings(
+      const QDir& root,
+      const QStringList& candidates,
+      const QList<QRegularExpression>& patterns,
+      int minStringLength = 6);
+  bool shouldLogForCurrentProfile() const;
+  QString detectGameVersion(const QStringList& executableCandidates,
+                            const QStringList& textCandidates,
+                            const QList<QRegularExpression>& patterns,
+                            int maxLines = 128) const;
 
   static QString parseEpicGamesLocation(const QStringList& manifests);
 
@@ -179,7 +194,8 @@ protected:
   QString m_GamePath;
   QString m_MyGamesPath;
   QString m_GameVariant;
-  MOBase::IOrganizer* m_Organizer;
+  MOBase::IOrganizer* m_Organizer = nullptr;
+  mutable bool m_LoggedResolvedVersion = false;
 };
 
 #endif  // GAMEXNGINE_H

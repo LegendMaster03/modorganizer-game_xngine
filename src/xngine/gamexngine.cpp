@@ -54,28 +54,53 @@ static bool isPeExecutable(const QString& path)
          peSig[3] == '\0';
 }
 
+static QString normalizeVersionString(const QString& raw)
+{
+  const QString input = raw.trimmed();
+  static const QRegularExpression commaQuad(
+      R"(^\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*$)");
+  const QRegularExpressionMatch match = commaQuad.match(input);
+  if (!match.hasMatch()) {
+    return input;
+  }
+  return QString("%1.%2.%3.%4")
+      .arg(match.captured(1), match.captured(2), match.captured(3), match.captured(4));
+}
+
 GameXngine::GameXngine() {
-  qInfo().noquote() << "[GameXngine] Constructor ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] Constructor ENTRY";
   OutputDebugStringA("[GameXngine] Constructor ENTRY\n");
   OutputDebugStringA("[GameXngine] Constructor EXIT\n");
-  qInfo().noquote() << "[GameXngine] Constructor EXIT";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] Constructor EXIT";
+}
+
+bool GameXngine::shouldLogForCurrentProfile() const
+{
+  if (!m_Organizer) {
+    return false;
+  }
+  const auto* managedGame = m_Organizer->managedGame();
+  if (!managedGame) {
+    return false;
+  }
+  return managedGame == this;
 }
 
 void GameXngine::detectGame()
 {
-  qInfo().noquote() << "[GameXngine] detectGame() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] detectGame() ENTRY";
   OutputDebugStringA(("[GameXngine] detectGame() ENTRY - gameName='" + gameName().toStdString() + "'\n").c_str());
   m_GamePath    = identifyGamePath();
-  qInfo().noquote() << "[GameXngine] detectGame() m_GamePath=" << m_GamePath;
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] detectGame() m_GamePath=" << m_GamePath;
   OutputDebugStringA(("[GameXngine] detectGame() m_GamePath = '" + m_GamePath.toStdString() + "'\n").c_str());
   m_MyGamesPath = determineMyGamesPath(gameName());
-  qInfo().noquote() << "[GameXngine] detectGame() EXIT";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] detectGame() EXIT";
   OutputDebugStringA("[GameXngine] detectGame() EXIT\n");
 }
 
 bool GameXngine::init(MOBase::IOrganizer* moInfo)
 {
-  qInfo().noquote() << "[GameXngine] init() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] init() ENTRY";
   OutputDebugStringA(("[GameXngine] init() ENTRY - gameName='" + gameName().toStdString() + "'\n").c_str());
   m_Organizer = moInfo;
   if (!m_Organizer) {
@@ -93,14 +118,17 @@ bool GameXngine::init(MOBase::IOrganizer* moInfo)
     return prepareIni(binary);
   });
   registerFeature(std::make_shared<XngineArchiveExtractorFeature>(this));
-  qInfo().noquote() << "[GameXngine] init() EXIT";
+  const QString resolvedVersion = gameVersion();
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] init() resolved game version for"
+                    << gameName() << ":" << resolvedVersion;
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] init() EXIT";
   OutputDebugStringA("[GameXngine] init() EXIT\n");
   return true;
 }
 
 bool GameXngine::isInstalled() const
 {
-  qInfo().noquote() << "[GameXngine] isInstalled() called";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] isInstalled() called";
   OutputDebugStringA(("[GameXngine] isInstalled() called - gameName='" + gameName().toStdString() + "'\n").c_str());
   OutputDebugStringA(("[GameXngine] m_GamePath = '" + m_GamePath.toStdString() + "'\n").c_str());
   return !m_GamePath.isEmpty();
@@ -109,14 +137,14 @@ bool GameXngine::isInstalled() const
 void GameXngine::initializeProfile(const QDir& profile,
                                    MOBase::IPluginGame::ProfileSettings settings) const
 {
-  qInfo().noquote() << "[GameXngine] initializeProfile() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] initializeProfile() ENTRY";
   // Stub implementation - XnGine games typically don't need special profile initialization
   // Override in derived classes if needed
 }
 
 QList<MOBase::ExecutableForcedLoadSetting> GameXngine::executableForcedLoads() const
 {
-  qInfo().noquote() << "[GameXngine] executableForcedLoads() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] executableForcedLoads() ENTRY";
   // Stub implementation - XnGine games typically don't use forced loads
   // Override in derived classes if needed
   return QList<MOBase::ExecutableForcedLoadSetting>();
@@ -124,7 +152,7 @@ QList<MOBase::ExecutableForcedLoadSetting> GameXngine::executableForcedLoads() c
 
 QIcon GameXngine::gameIcon() const
 {
-  qInfo().noquote() << "[GameXngine] gameIcon() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] gameIcon() ENTRY";
   OutputDebugStringA("[GameXngine] gameIcon() ENTRY\n");
   if (m_GamePath.isEmpty()) {
     qWarning().noquote() << "[GameXngine] gameIcon() - m_GamePath is EMPTY, returning default icon";
@@ -137,17 +165,22 @@ QIcon GameXngine::gameIcon() const
     OutputDebugStringA("[GameXngine] gameIcon() - non-PE binary, returning default icon\n");
     return QIcon();
   }
-  qInfo().noquote() << "[GameXngine] gameIcon() - calling iconForExecutable:" << binPath;
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] gameIcon() - calling iconForExecutable:" << binPath;
   OutputDebugStringA("[GameXngine] gameIcon() - calling iconForExecutable\n");
   QIcon icon = MOBase::iconForExecutable(binPath);
-  qInfo().noquote() << "[GameXngine] gameIcon() EXIT";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] gameIcon() EXIT";
   OutputDebugStringA("[GameXngine] gameIcon() EXIT\n");
   return icon;
 }
 
 QDir GameXngine::gameDirectory() const
 {
-  qInfo().noquote() << "[GameXngine] gameDirectory() called m_GamePath=" << m_GamePath;
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] gameDirectory() called m_GamePath=" << m_GamePath;
+  if (shouldLogForCurrentProfile() && !m_LoggedResolvedVersion) {
+    m_LoggedResolvedVersion = true;
+    qInfo().noquote() << "[GameXngine] resolved game version for" << gameName() << ":"
+                      << gameVersion();
+  }
   OutputDebugStringA(("[GameXngine] gameDirectory() called - gameName='" + gameName().toStdString() + "'\n").c_str());
   OutputDebugStringA(("[GameXngine] m_GamePath = '" + m_GamePath.toStdString() + "'\n").c_str());
   return QDir(m_GamePath);
@@ -155,24 +188,25 @@ QDir GameXngine::gameDirectory() const
 
 QDir GameXngine::dataDirectory() const
 {
-  qInfo().noquote() << "[GameXngine] dataDirectory() called";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] dataDirectory() called";
   OutputDebugStringA("[GameXngine] dataDirectory() called\n");
   QDir dir = gameDirectory();
   QDir dataDir = dir.absoluteFilePath("data");
-  qInfo().noquote() << "[GameXngine] dataDirectory() path=" << dataDir.absolutePath();
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] dataDirectory() path=" << dataDir.absolutePath();
   OutputDebugStringA("[GameXngine] dataDirectory() computed\n");
   return dataDir;
 }
 
 void GameXngine::setGamePath(const QString& path)
 {
-  qInfo().noquote() << "[GameXngine] setGamePath() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] setGamePath() ENTRY";
   m_GamePath = path;
+  m_LoggedResolvedVersion = false;
 }
 
 QDir GameXngine::documentsDirectory() const
 {
-  qInfo().noquote() << "[GameXngine] documentsDirectory() called path=" << m_GamePath;
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] documentsDirectory() called path=" << m_GamePath;
   OutputDebugStringA("[GameXngine] documentsDirectory() called\n");
   return gameDirectory();
 }
@@ -208,7 +242,7 @@ QDir GameXngine::savesDirectory() const
 std::vector<std::shared_ptr<const MOBase::ISaveGame>>
 GameXngine::listSaves(QDir folder) const
 {
-  qInfo().noquote() << "[GameXngine] listSaves() ENTRY folder=" << folder.absolutePath();
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] listSaves() ENTRY folder=" << folder.absolutePath();
   OutputDebugStringA(("[GameXngine] listSaves() ENTRY - gameName='" + gameName().toStdString() + "'\n").c_str());
   OutputDebugStringA(("[GameXngine] listSaves() folder='" + folder.absolutePath().toStdString() + "'\n").c_str());
   const auto layout = saveLayout();
@@ -225,7 +259,7 @@ GameXngine::listSaves(QDir folder) const
   } else {
     const auto profile = profilePath();
     if (profile.isEmpty()) {
-      qInfo().noquote() << "[GameXngine] listSaves() - no valid folder and profile path not available";
+      if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] listSaves() - no valid folder and profile path not available";
       return {};
     }
     paths = resolveSaveStorage(profile, saveGameId());
@@ -398,7 +432,7 @@ GameXngine::listSaves(QDir folder) const
         return a.lastModified > b.lastModified;
       });
     }
-    qInfo().noquote() << "[GameXngine] listSaves() - slots found:" << saveSlots.size()
+    if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] listSaves() - slots found:" << saveSlots.size()
                       << "root:" << paths.gameSavesRoot;
     for (const auto& slot : saveSlots) {
       if (layout.oneSavePerSlot) {
@@ -446,42 +480,42 @@ GameXngine::listSaves(QDir folder) const
     return {};
   }
 
-  qInfo().noquote() << "[GameXngine] listSaves() - total saves returned:" << saves.size();
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] listSaves() - total saves returned:" << saves.size();
   return saves;
 }
 
 void GameXngine::setGameVariant(const QString& variant)
 {
-  qInfo().noquote() << "[GameXngine] setGameVariant() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] setGameVariant() ENTRY";
   m_GameVariant = variant;
 }
 
 QString GameXngine::binaryName() const
 {
-  qInfo().noquote() << "[GameXngine] binaryName() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] binaryName() ENTRY";
   return gameShortName() + ".exe";
 }
 
 MOBase::IPluginGame::LoadOrderMechanism GameXngine::loadOrderMechanism() const
 {
-  qInfo().noquote() << "[GameXngine] loadOrderMechanism() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] loadOrderMechanism() ENTRY";
   return LoadOrderMechanism::FileTime;
 }
 
 MOBase::IPluginGame::SortMechanism GameXngine::sortMechanism() const
 {
-  qInfo().noquote() << "[GameXngine] sortMechanism() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] sortMechanism() ENTRY";
   return SortMechanism::LOOT;
 }
 
 bool GameXngine::looksValid(QDir const& path) const
 {
-  qInfo().noquote() << "[GameXngine] looksValid() ENTRY path=" << path.absolutePath();
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] looksValid() ENTRY path=" << path.absolutePath();
   // Check for <prog>.exe for now.
   OutputDebugStringA(("[GameXngine] looksValid() ENTRY - gameName='" + gameName().toStdString() + "'\n").c_str());
   OutputDebugStringA(("[GameXngine] looksValid() path='" + path.absolutePath().toStdString() + "'\n").c_str());
   const auto exists = path.exists(binaryName());
-  qInfo().noquote() << "[GameXngine] looksValid() binary=" << binaryName() << " exists=" << (exists ? "true" : "false");
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] looksValid() binary=" << binaryName() << " exists=" << (exists ? "true" : "false");
   OutputDebugStringA(("[GameXngine] looksValid() binary='" + binaryName().toStdString() + "' exists=" + (exists ? "true" : "false") + "\n").c_str());
   return exists;
 }
@@ -492,7 +526,7 @@ QString GameXngine::gameVersion() const
   // version), we look the product version instead. If the product version is
   // not empty, we use it.
   QString binaryAbsPath = gameDirectory().absoluteFilePath(binaryName());
-  qInfo().noquote() << "[GameXngine] gameVersion() ENTRY binary=" << binaryAbsPath;
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] gameVersion() ENTRY binary=" << binaryAbsPath;
   OutputDebugStringA("[GameXngine] gameVersion() ENTRY\n");
   QFileInfo binaryInfo(binaryAbsPath);
   if (!binaryInfo.exists()) {
@@ -518,18 +552,18 @@ QString GameXngine::gameVersion() const
 
 QString GameXngine::getLauncherName() const
 {
-  qInfo().noquote() << "[GameXngine] getLauncherName() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] getLauncherName() ENTRY";
   return gameShortName() + "Launcher.exe";
 }
 
 WORD GameXngine::getArch(QString const& program) const
 {
-  qInfo().noquote() << "[GameXngine] getArch() ENTRY program=" << program;
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] getArch() ENTRY program=" << program;
   OutputDebugStringA(("[GameXngine] getArch() ENTRY - program='" + program.toStdString() + "'\n").c_str());
   WORD arch = 0;
   // This *really* needs to be factored out
   QString absPath = this->gameDirectory().absoluteFilePath(program);
-  qInfo().noquote() << "[GameXngine] getArch() absPath=" << absPath;
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] getArch() absPath=" << absPath;
   OutputDebugStringA(("[GameXngine] getArch() absPath='" + absPath.toStdString() + "'\n").c_str());
   if (program.isEmpty()) {
     qWarning().noquote() << "[GameXngine] getArch() - empty program, returning 0";
@@ -586,31 +620,31 @@ cleanup:  // release all of our handles
 
 QFileInfo GameXngine::findInGameFolder(const QString& relativePath) const
 {
-  qInfo().noquote() << "[GameXngine] findInGameFolder() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] findInGameFolder() ENTRY";
   return QFileInfo(m_GamePath + "/" + relativePath);
 }
 
 QString GameXngine::identifyGamePath() const
 {
-  qInfo().noquote() << "[GameXngine] identifyGamePath() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] identifyGamePath() ENTRY";
   return QString();
 }
 
 bool GameXngine::prepareIni(const QString&)
 {
-  qInfo().noquote() << "[GameXngine] prepareIni() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] prepareIni() ENTRY";
   return true;
 }
 
 QString GameXngine::selectedVariant() const
 {
-  qInfo().noquote() << "[GameXngine] selectedVariant() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] selectedVariant() ENTRY";
   return m_GameVariant;
 }
 
 QString GameXngine::myGamesPath() const
 {
-  qInfo().noquote() << "[GameXngine] myGamesPath() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] myGamesPath() ENTRY";
   return m_MyGamesPath;
 }
 
@@ -729,14 +763,12 @@ QVector<XngineBSAFormat::FileSpec> GameXngine::bsaFileSpecs() const
 
 /*static*/ QString GameXngine::getLootPath()
 {
-  qInfo().noquote() << "[GameXngine] getLootPath() ENTRY";
   return findInRegistry(HKEY_LOCAL_MACHINE, L"Software\\LOOT", L"Installed Path") +
          "/Loot.exe";
 }
 
 QString GameXngine::localAppFolder()
 {
-  qInfo().noquote() << "[GameXngine] localAppFolder() ENTRY";
   QString result = getKnownFolderPath(FOLDERID_LocalAppData, false);
   if (result.isEmpty()) {
     // fallback: try the registry
@@ -749,7 +781,6 @@ void GameXngine::copyToProfile(QString const& sourcePath,
                                  QDir const& destinationDirectory,
                                  QString const& sourceFileName)
 {
-  qInfo().noquote() << "[GameXngine] copyToProfile() ENTRY (3 args)";
   copyToProfile(sourcePath, destinationDirectory, sourceFileName, sourceFileName);
 }
 
@@ -758,7 +789,6 @@ void GameXngine::copyToProfile(QString const& sourcePath,
                                  QString const& sourceFileName,
                                  QString const& destinationFileName)
 {
-  qInfo().noquote() << "[GameXngine] copyToProfile() ENTRY (4 args)";
   QString filePath = destinationDirectory.absoluteFilePath(destinationFileName);
   if (!QFileInfo(filePath).exists()) {
     if (!MOBase::shellCopy(sourcePath + "/" + sourceFileName, filePath)) {
@@ -771,7 +801,7 @@ void GameXngine::copyToProfile(QString const& sourcePath,
 MappingType GameXngine::mappings() const
 {
   try {
-    qInfo().noquote() << "[GameXngine] mappings() ENTRY";
+    if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] mappings() ENTRY";
     const auto profile = profilePath();
     if (profile.isEmpty()) {
       return {};
@@ -1032,6 +1062,146 @@ QString GameXngine::determineMyGamesPath(const QString& gameName)
   return {};
 }
 
+QString GameXngine::detectDosVersionFromText(const QDir& root,
+                                             const QStringList& candidates,
+                                             const QList<QRegularExpression>& patterns,
+                                             int maxLines)
+{
+  for (const auto& relPath : candidates) {
+    QFile f(root.filePath(relPath));
+    if (!f.exists() || !f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      continue;
+    }
+
+    int linesRead = 0;
+    while (!f.atEnd() && linesRead < maxLines) {
+      const QString line = QString::fromLocal8Bit(f.readLine()).trimmed();
+      ++linesRead;
+      for (const auto& pattern : patterns) {
+        const QRegularExpressionMatch match = pattern.match(line);
+        if (match.hasMatch()) {
+          return match.captured(1);
+        }
+      }
+    }
+  }
+
+  return {};
+}
+
+QString GameXngine::detectDosVersionFromBinaryStrings(
+    const QDir& root,
+    const QStringList& candidates,
+    const QList<QRegularExpression>& patterns,
+    int minStringLength)
+{
+  for (const auto& relPath : candidates) {
+    QFile f(root.filePath(relPath));
+    if (!f.exists() || !f.open(QIODevice::ReadOnly)) {
+      continue;
+    }
+
+    const QByteArray data = f.readAll();
+    QByteArray token;
+    token.reserve(128);
+
+    auto scanToken = [&patterns](const QByteArray& bytes) -> QString {
+      if (bytes.isEmpty()) {
+        return {};
+      }
+      const QString s = QString::fromLatin1(bytes).trimmed();
+      for (const auto& pattern : patterns) {
+        const QRegularExpressionMatch match = pattern.match(s);
+        if (match.hasMatch()) {
+          return match.captured(1);
+        }
+      }
+      return {};
+    };
+
+    for (char c : data) {
+      const unsigned char uc = static_cast<unsigned char>(c);
+      if (uc >= 32 && uc <= 126) {
+        token.append(c);
+        continue;
+      }
+
+      if (token.size() >= minStringLength) {
+        const QString hit = scanToken(token);
+        if (!hit.isEmpty()) {
+          return hit;
+        }
+      }
+      token.clear();
+    }
+
+    if (token.size() >= minStringLength) {
+      const QString hit = scanToken(token);
+      if (!hit.isEmpty()) {
+        return hit;
+      }
+    }
+  }
+
+  return {};
+}
+
+QString GameXngine::detectGameVersion(const QStringList& executableCandidates,
+                                      const QStringList& textCandidates,
+                                      const QList<QRegularExpression>& patterns,
+                                      int maxLines) const
+{
+  const QDir root = gameDirectory();
+  QString fallbackVersion = QString::fromLatin1(FALLBACK_GAME_VERSION);
+
+  for (const auto& relPath : executableCandidates) {
+    const QString exePath = root.filePath(relPath);
+    if (!QFileInfo::exists(exePath) || !isPeExecutable(exePath)) {
+      continue;
+    }
+
+    QString version = MOBase::getFileVersion(exePath);
+    if (version.isEmpty() || version.startsWith(FALLBACK_GAME_VERSION)) {
+      const QString productVersion = MOBase::getProductVersion(exePath);
+      if (!productVersion.isEmpty()) {
+        version = productVersion;
+      }
+    }
+
+    if (version.isEmpty()) {
+      continue;
+    }
+    if (!version.startsWith(FALLBACK_GAME_VERSION)) {
+      version = normalizeVersionString(version);
+      if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] detectGameVersion()"
+                        << gameName()
+                        << "source=exe"
+                        << "path=" << exePath
+                        << "version=" << version;
+      return version;
+    }
+    fallbackVersion = version;
+  }
+
+  const QString textVersion =
+      detectDosVersionFromText(root, textCandidates, patterns, maxLines);
+  if (!textVersion.isEmpty()) {
+    const QString normalizedTextVersion = normalizeVersionString(textVersion);
+    if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] detectGameVersion()"
+                      << gameName()
+                      << "source=text"
+                      << "version=" << normalizedTextVersion;
+    return normalizedTextVersion;
+  }
+
+  fallbackVersion = normalizeVersionString(fallbackVersion);
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] detectGameVersion()"
+                    << gameName()
+                    << "source=fallback"
+                    << "version=" << fallbackVersion;
+  return fallbackVersion;
+}
+
 QString GameXngine::parseEpicGamesLocation(const QStringList& manifests)
 {
   // Use the registry entry to find the EGL Data dir first, just in case something
@@ -1107,7 +1277,7 @@ void GameXngine::registerFeature(std::shared_ptr<MOBase::GameFeature> feature)
     OutputDebugStringA("[GameXngine] registerFeature() called with null organizer\n");
     return;
   }
-  qInfo().noquote() << "[GameXngine] registerFeature() ENTRY";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] registerFeature() ENTRY";
   m_Organizer->gameFeatures()->registerFeature(this, feature, 0, true);
-  qInfo().noquote() << "[GameXngine] registerFeature() EXIT";
+  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] registerFeature() EXIT";
 }

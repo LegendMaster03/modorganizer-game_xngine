@@ -21,6 +21,7 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFileInfo>
+#include <QByteArray>
 #include <QStandardPaths>
 #include <QSettings>
 #include <QFile>
@@ -168,6 +169,83 @@ QString findMapsRoot(const QString& gameDir)
     }
   }
   return QString();
+}
+
+QString firstExistingFile(const QDir& root, const QStringList& candidates)
+{
+  for (const auto& relPath : candidates) {
+    const QString fullPath = root.filePath(relPath);
+    if (QFileInfo::exists(fullPath)) {
+      return fullPath;
+    }
+  }
+  return {};
+}
+
+QString detectRedguardVersionFromExeMarker(const QString& exePath)
+{
+  QFile f(exePath);
+  if (!f.exists() || !f.open(QIODevice::ReadOnly)) {
+    return {};
+  }
+
+  const QByteArray data = f.readAll();
+  static const QByteArray marker("SOFTWARE\\Bethesda\\Redguard\\");
+  int index = data.indexOf(marker);
+  while (index >= 0) {
+    const int start = index + marker.size();
+    int end = start;
+    while (end < data.size()) {
+      const char c = data[end];
+      if ((c >= '0' && c <= '9') || c == '.') {
+        ++end;
+      } else {
+        break;
+      }
+    }
+
+    const QByteArray rawVersion = data.mid(start, end - start);
+    const QString version = QString::fromLatin1(rawVersion).trimmed();
+    static const QRegularExpression versionPattern(R"(^\d+\.\d+\.\d+$)");
+    if (versionPattern.match(version).hasMatch()) {
+      return version;
+    }
+
+    index = data.indexOf(marker, index + 1);
+  }
+
+  return {};
+}
+
+QString detectRedguardVersionFromText(const QDir& root, const QStringList& candidates)
+{
+  static const QList<QRegularExpression> patterns = {
+      QRegularExpression(R"(\bVersion\s*=\s*([0-9]+(?:\.[0-9]+){1,3})\b)",
+                         QRegularExpression::CaseInsensitiveOption),
+      QRegularExpression(R"(\bVersion\s+([0-9]+(?:\.[0-9]+){1,3})\b)",
+                         QRegularExpression::CaseInsensitiveOption),
+  };
+
+  for (const auto& relPath : candidates) {
+    QFile f(root.filePath(relPath));
+    if (!f.exists() || !f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      continue;
+    }
+
+    int linesRead = 0;
+    while (!f.atEnd() && linesRead < 128) {
+      const QString line = QString::fromLocal8Bit(f.readLine()).trimmed();
+      ++linesRead;
+      for (const auto& pattern : patterns) {
+        const QRegularExpressionMatch match = pattern.match(line);
+        if (match.hasMatch()) {
+          return match.captured(1);
+        }
+      }
+    }
+  }
+
+  return {};
 }
 
 QMap<QString, QMap<QString, QMap<QString, QString>>> parseIniChanges(
@@ -632,7 +710,6 @@ QString GameRedguard::gameName() const
 
 QString GameRedguard::displayGameName() const
 {
-  qInfo().noquote() << "[GameRedguard] displayGameName() called";
   return "The Elder Scrolls Adventures: Redguard";
 }
 
@@ -675,14 +752,12 @@ QList<ExecutableInfo> GameRedguard::executables() const
 
 QString GameRedguard::steamAPPId() const
 {
-  qInfo().noquote() << "[GameRedguard] steamAPPId() called";
   OutputDebugStringA("[GameRedguard] steamAPPId() called\n");
   return "1812410";
 }
 
 QString GameRedguard::gogAPPId() const
 {
-  qInfo().noquote() << "[GameRedguard] gogAPPId() called";
   OutputDebugStringA("[GameRedguard] gogAPPId() called\n");
   return "1435829617";
 }
@@ -766,9 +841,56 @@ int GameRedguard::nexusGameID() const
   return 4462;  // Nexus Game ID for Redguard
 }
 
+QString GameRedguard::gameVersion() const
+{
+  const QDir root = gameDirectory();
+
+  // Prefer PE metadata for accuracy across releases/editions.
+  const QString metadataVersion = detectGameVersion(
+      {
+          "Redguard/REDGUARD.EXE",
+          "REDGUARD.EXE",
+      },
+      {
+          "README.TXT",
+          "Redguard/README.TXT",
+          "PATCH.TXT",
+          "Redguard/PATCH.TXT",
+      },
+      {
+          QRegularExpression(R"(\bv([0-9]+(?:\.[0-9]+){1,3})\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+          QRegularExpression(R"(\bversion\s+([0-9]+(?:\.[0-9]+){1,3})\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+      });
+  if (!metadataVersion.isEmpty() && metadataVersion != QString::fromLatin1(FALLBACK_GAME_VERSION)) {
+    return metadataVersion;
+  }
+
+  // Fallback to any explicit .VER/text hint if present.
+  const QString textVersion = detectRedguardVersionFromText(
+      root,
+      {"REDGUARD.VER", "Redguard/REDGUARD.VER", "README.TXT", "Redguard/README.TXT",
+       "PATCH.TXT", "Redguard/PATCH.TXT"});
+  if (!textVersion.isEmpty()) {
+    return textVersion;
+  }
+
+  // Last-resort fallback: executable embedded engine marker.
+  const QString redguardExe = firstExistingFile(
+      root, {"Redguard/REDGUARD.EXE", "REDGUARD.EXE"});
+  if (!redguardExe.isEmpty()) {
+    const QString exeMarkerVersion = detectRedguardVersionFromExeMarker(redguardExe);
+    if (!exeMarkerVersion.isEmpty()) {
+      return exeMarkerVersion;
+    }
+  }
+
+  return metadataVersion;
+}
+
 QString GameRedguard::name() const
 {
-  qInfo().noquote() << "[GameRedguard] name() called";
   return "The Elder Scrolls Adventures: Redguard Support Plugin";
 }
 

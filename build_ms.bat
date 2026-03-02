@@ -8,14 +8,38 @@ set "LOCAL_ENV=%SCRIPT_DIR%\config\local.env.bat"
 if exist "%LOCAL_ENV%" call "%LOCAL_ENV%"
 
 if "%CMAKE_EXE%"=="" set "CMAKE_EXE=cmake"
+if /I "%CMAKE_EXE%"=="cmake" (
+    if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" (
+        set "CMAKE_EXE=C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+    ) else if exist "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" (
+        set "CMAKE_EXE=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+    )
+)
+if "%NINJA_EXE%"=="" set "NINJA_EXE=ninja"
+if /I "%NINJA_EXE%"=="ninja" (
+    if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe" (
+        set "NINJA_EXE=C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"
+    ) else if exist "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe" (
+        set "NINJA_EXE=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"
+    )
+)
+if "%VCPKG_ROOT%"=="" if exist "C:\vcpkg" set "VCPKG_ROOT=C:\vcpkg"
 if "%VCPKG_ROOT%"=="" (
     set "VCPKG_TOOLCHAIN="
 ) else (
     set "VCPKG_TOOLCHAIN=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake"
 )
 
+if "%VCVARS_BAT%"=="" (
+    if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat" (
+        set "VCVARS_BAT=C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
+    ) else if exist "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" (
+        set "VCVARS_BAT=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
+    )
+)
+
 if not "%VCVARS_BAT%"=="" (
-    call "%VCVARS_BAT%"
+    call "%VCVARS_BAT%" -arch=x64
     if errorlevel 1 goto error_vcvars
 )
 
@@ -35,7 +59,6 @@ echo ==========================================
 echo Configuring with CMake...
 echo ==========================================
 set "CMAKE_ARGS=-G Ninja -DCMAKE_BUILD_TYPE=Release"
-if not "%NINJA_EXE%"=="" set "CMAKE_ARGS=%CMAKE_ARGS% -DCMAKE_MAKE_PROGRAM=""%NINJA_EXE%"""
 if not "%VCPKG_TOOLCHAIN%"=="" set "CMAKE_ARGS=%CMAKE_ARGS% -DCMAKE_TOOLCHAIN_FILE=""%VCPKG_TOOLCHAIN%"""
 if not "%MO2_UIBASE_PATH%"=="" set "CMAKE_ARGS=%CMAKE_ARGS% -DMO2_UIBASE_PATH=""%MO2_UIBASE_PATH%"""
 if not "%MO2_UIBASE_LIB%"=="" set "CMAKE_ARGS=%CMAKE_ARGS% -DMO2_UIBASE_LIB=""%MO2_UIBASE_LIB%"""
@@ -48,7 +71,7 @@ echo.
 echo ==========================================
 echo Building with Ninja...
 echo ==========================================
-"%NINJA_EXE%"
+"%CMAKE_EXE%" --build . --config Release --parallel
 if errorlevel 1 goto error_ninja
 
 echo.

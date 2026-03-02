@@ -43,31 +43,6 @@ using namespace MOBase;
 
 namespace
 {
-QString detectDosGameVersionFromText(const QDir& root,
-                                     const QStringList& candidates,
-                                     const QList<QRegularExpression>& patterns)
-{
-  for (const auto& relPath : candidates) {
-    QFile f(root.filePath(relPath));
-    if (!f.exists() || !f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-      continue;
-    }
-
-    int linesRead = 0;
-    while (!f.atEnd() && linesRead < 128) {
-      const QString line = QString::fromLocal8Bit(f.readLine()).trimmed();
-      ++linesRead;
-      for (const auto& pattern : patterns) {
-        const QRegularExpressionMatch match = pattern.match(line);
-        if (match.hasMatch()) {
-          return match.captured(1);
-        }
-      }
-    }
-  }
-
-  return {};
-}
 }  // namespace
 
 #if defined(XNGINE_DAGGERFALL_EXE_PATCHING)
@@ -284,8 +259,29 @@ int GameDaggerfall::nexusGameID() const
 
 QString GameDaggerfall::gameVersion() const
 {
-  const QString version = detectDosGameVersionFromText(
+  const QString binaryVersion = detectDosVersionFromBinaryStrings(
       gameDirectory(),
+      {
+          "FALL.EXE",
+          "DF/DAGGER/FALL.EXE",
+          "DAGGER.EXE",
+          "DF/DAGGER/DAGGER.EXE",
+      },
+      {
+          QRegularExpression(R"(\bTES:\s*Daggerfall\s+v([0-9]+(?:\.[0-9]+){1,3})\.?\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+          QRegularExpression(R"(\bDaggerfall\s+v([0-9]+(?:\.[0-9]+){1,3})\.?\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+      });
+  if (!binaryVersion.isEmpty()) {
+    return binaryVersion;
+  }
+
+  return detectGameVersion(
+      {
+          "DF/DAGGER/DAGGER.EXE",
+          "DAGGER.EXE",
+      },
       {
           "PATCHED.TXT",
           "DF/DAGGER/PATCHED.TXT",
@@ -296,12 +292,6 @@ QString GameDaggerfall::gameVersion() const
           QRegularExpression(R"(\bversion\s+([0-9]+(?:\.[0-9]+){1,3})\b)",
                              QRegularExpression::CaseInsensitiveOption),
       });
-
-  if (!version.isEmpty()) {
-    return version;
-  }
-
-  return GameXngine::gameVersion();
 }
 
 QString GameDaggerfall::name() const

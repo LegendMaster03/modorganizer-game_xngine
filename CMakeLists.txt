@@ -50,4 +50,6 @@ add_subdirectory(src/games/redguard)
 add_subdirectory(src/games/daggerfall)
 add_subdirectory(src/games/battlespire)
 add_subdirectory(src/games/arena)
-add_subdirectory(tools/bsa_extract_cli)
+
+# Temporary extraction tooling is intentionally kept out of the main build.
+# Build it separately from src/temp_bsa_extract when needed.

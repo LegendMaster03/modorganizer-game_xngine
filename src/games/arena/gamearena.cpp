@@ -87,31 +87,6 @@ QString relativeToDir(const QDir& baseDir, const QString& targetPath)
   return QDir::cleanPath(baseDir.relativeFilePath(targetPath));
 }
 
-QString detectDosGameVersionFromText(const QDir& root,
-                                     const QStringList& candidates,
-                                     const QList<QRegularExpression>& patterns)
-{
-  for (const auto& relPath : candidates) {
-    QFile f(root.filePath(relPath));
-    if (!f.exists() || !f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-      continue;
-    }
-
-    int linesRead = 0;
-    while (!f.atEnd() && linesRead < 128) {
-      const QString line = QString::fromLocal8Bit(f.readLine()).trimmed();
-      ++linesRead;
-      for (const auto& pattern : patterns) {
-        const QRegularExpressionMatch match = pattern.match(line);
-        if (match.hasMatch()) {
-          return match.captured(1);
-        }
-      }
-    }
-  }
-
-  return {};
-}
 }
 
 GameArena::GameArena() = default;
@@ -313,23 +288,48 @@ int GameArena::nexusGameID() const
 
 QString GameArena::gameVersion() const
 {
-  const QString version = detectDosGameVersionFromText(
+  const QString binaryVersion = detectDosVersionFromBinaryStrings(
       gameDirectory(),
       {
+          "Arena/ARENA.EXE",
+          "ARENA/ARENA.EXE",
+          "ARENA.EXE",
+          "ARENA/A.EXE",
+          "Arena/A.EXE",
+          "A.EXE",
+      },
+      {
+          QRegularExpression(R"(\bTES:\s*Arena\s+v([0-9]+(?:\.[0-9]+){1,3})\.?\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+          QRegularExpression(R"(\bArena\s+v([0-9]+(?:\.[0-9]+){1,3})\.?\b)",
+                             QRegularExpression::CaseInsensitiveOption),
+      });
+  if (!binaryVersion.isEmpty()) {
+    return binaryVersion;
+  }
+
+  return detectGameVersion(
+      {
+          "Arena/ARENA.EXE",
+          "ARENA/ARENA.EXE",
+          "ARENA.EXE",
+          "A.EXE",
+      },
+      {
+          "ARENA/README.TXT",
+          "Arena/README.TXT",
           "README.TXT",
+          "ARENA/READ.ME",
+          "Arena/READ.ME",
           "READ.ME",
+          "ARENA/README",
+          "Arena/README",
           "README",
       },
       {
           QRegularExpression(R"(\bVersion\s+([0-9]+(?:\.[0-9]+){1,3})\b)",
                              QRegularExpression::CaseInsensitiveOption),
       });
-
-  if (!version.isEmpty()) {
-    return version;
-  }
-
-  return GameXngine::gameVersion();
 }
 
 QDir GameArena::dataDirectory() const
