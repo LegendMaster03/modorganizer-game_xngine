@@ -1,5 +1,7 @@
 #include "gamearena.h"
 #include "arenasavegame.h"
+#include "arenadatachecker.h"
+#include "arenamodatacontent.h"
 
 #include <executableinfo.h>
 #include <pluginsetting.h>
@@ -98,6 +100,8 @@ bool GameArena::init(IOrganizer* moInfo)
   }
 
   const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
+  registerFeature(std::make_shared<ArenaModDataChecker>(this));
+  registerFeature(std::make_shared<ArenaModDataContent>(m_Organizer->gameFeatures()));
   registerFeature(std::make_shared<XngineSaveGameInfo>(this));
   registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
   registerFeature(std::make_shared<XngineUnmanagedMods>(this));
@@ -215,7 +219,9 @@ QString GameArena::gameShortName() const
 
 QString GameArena::gameNexusName() const
 {
-  return {};
+  // Nexus game domain for Arena NXM links:
+  // https://www.nexusmods.com/games/tesarena
+  return "tesarena";
 }
 
 QStringList GameArena::validShortNames() const
@@ -283,7 +289,8 @@ int GameArena::nexusModOrganizerID() const
 
 int GameArena::nexusGameID() const
 {
-  return 0;
+  // Nexus "games.json" id for "The Elder Scrolls: Arena".
+  return 940;
 }
 
 QString GameArena::gameVersion() const
@@ -377,7 +384,18 @@ VersionInfo GameArena::version() const
 
 QList<PluginSetting> GameArena::settings() const
 {
-  return {};
+  return {PluginSetting(
+      "show_developer_save_details",
+      tr("Show internal Arena save debug details (quest flags, raw values) in save info."),
+      false)};
+}
+
+bool GameArena::showDeveloperSaveDetails() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  return m_Organizer->pluginSetting(name(), "show_developer_save_details").toBool();
 }
 
 QString GameArena::identifyGamePath() const

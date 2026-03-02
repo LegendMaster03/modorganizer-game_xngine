@@ -498,7 +498,13 @@ QString GameXngine::binaryName() const
 
 MOBase::IPluginGame::LoadOrderMechanism GameXngine::loadOrderMechanism() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] loadOrderMechanism() ENTRY";
+  if (shouldLogForCurrentProfile()) {
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if ((now - m_LastLoadOrderLogMs) > 250) {
+      qInfo().noquote() << "[GameXngine] loadOrderMechanism() ENTRY";
+      m_LastLoadOrderLogMs = now;
+    }
+  }
   return LoadOrderMechanism::FileTime;
 }
 

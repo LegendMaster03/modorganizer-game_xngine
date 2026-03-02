@@ -843,6 +843,7 @@ int GameRedguard::nexusGameID() const
 
 QString GameRedguard::gameVersion() const
 {
+  static const QString kFallbackGameVersion = QStringLiteral("1.0.0");
   const QDir root = gameDirectory();
 
   // Prefer PE metadata for accuracy across releases/editions.
@@ -863,7 +864,7 @@ QString GameRedguard::gameVersion() const
           QRegularExpression(R"(\bversion\s+([0-9]+(?:\.[0-9]+){1,3})\b)",
                              QRegularExpression::CaseInsensitiveOption),
       });
-  if (!metadataVersion.isEmpty() && metadataVersion != QString::fromLatin1(FALLBACK_GAME_VERSION)) {
+  if (!metadataVersion.isEmpty() && metadataVersion != kFallbackGameVersion) {
     return metadataVersion;
   }
 

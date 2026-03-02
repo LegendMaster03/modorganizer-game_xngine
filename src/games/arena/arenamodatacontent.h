@@ -13,6 +13,9 @@ public:
       : XngineModDataContent(gameFeatures)
   {
   }
+
+  virtual std::vector<int>
+  getContentsFor(std::shared_ptr<const MOBase::IFileTree> fileTree) const override;
 };
 
 #endif  // ARENAMODATACONTENT_H

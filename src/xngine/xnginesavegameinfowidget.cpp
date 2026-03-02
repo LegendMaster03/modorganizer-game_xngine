@@ -20,6 +20,7 @@
 #include <QStyle>
 #include <QTime>
 #include <QVBoxLayout>
+#include <QSizePolicy>
 
 #include <Qt>
 #include <QtGlobal>
@@ -40,6 +41,7 @@ XngineSaveGameInfoWidget::XngineSaveGameInfoWidget(XngineSaveGameInfo const* inf
   QVBoxLayout* gameLayout = new QVBoxLayout();
   gameLayout->setContentsMargins(0, 0, 0, 0);
   gameLayout->setSpacing(2);
+  gameLayout->setAlignment(Qt::AlignTop);
   ui->gameFrame->setLayout(gameLayout);
 }
 
@@ -167,6 +169,8 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
     QLabel* detail = new QLabel(detailText);
     detail->setWordWrap(true);
     detail->setIndent(10);
+    detail->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+    detail->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     layout->addWidget(detail);
   }
 }

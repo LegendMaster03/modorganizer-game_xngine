@@ -14,6 +14,9 @@ include_directories(${CMAKE_SOURCE_DIR}/src/xngine)
 set(ARENA_GAME_SOURCES
     gamearena.cpp
     gamearena.h
+    arenadatachecker.h
+    arenamodatacontent.cpp
+    arenamodatacontent.h
     arenasavegame.cpp
     arenasavegame.h
 )

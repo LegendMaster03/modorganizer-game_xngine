@@ -246,12 +246,9 @@ QString GameBattlespire::gameShortName() const
 
 QString GameBattlespire::gameNexusName() const
 {
-  /*
   if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] gameNexusName() called";
   OutputDebugStringA("[GameBattlespire] gameNexusName() called\n");
   return "anelderscrollslegendbattlespire";
-  */
-  return {};
 }
 
 QStringList GameBattlespire::validShortNames() const
@@ -326,7 +323,7 @@ int GameBattlespire::nexusGameID() const
 {
   if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] nexusGameID() called";
   OutputDebugStringA("[GameBattlespire] nexusGameID() called\n");
-  return 1788;  // Nexus Game ID for Battlespire/An Elder Scrolls Legend: Battlespire
+  return 3495;  // Nexus "games.json" id for An Elder Scrolls Legend: Battlespire
 }
 
 bool GameBattlespire::looksValid(QDir const& path) const

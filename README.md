@@ -4,6 +4,7 @@ This repository provides Mod Organizer 2 (MO2) game plugins for Bethesda XnGine 
 
 ## Supported Games
 
+- The Elder Scrolls: Arena
 - An Elder Scrolls Legend: Battlespire
 - The Elder Scrolls II: Daggerfall
 - The Elder Scrolls Adventures: Redguard

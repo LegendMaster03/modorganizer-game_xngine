@@ -254,7 +254,7 @@ int GameDaggerfall::nexusModOrganizerID() const
 int GameDaggerfall::nexusGameID() const
 {
   DF_TRACE("[GameDaggerfall] nexusGameID() called\n");
-  return 232;  // Nexus Game ID for Daggerfall
+  return 975;  // Nexus "games.json" id for Daggerfall
 }
 
 QString GameDaggerfall::gameVersion() const

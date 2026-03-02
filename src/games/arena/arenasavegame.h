@@ -56,6 +56,7 @@ private:
   QString slotSuffix() const;
   void detectSlotFromFilename();
   void parseQuestFlags();
+  void evaluateDeveloperValidation();
 
 private:
   QString m_SaveFile;
@@ -74,7 +75,11 @@ private:
 
   int m_StaffPieces = -1;
   bool m_RiaVisionEnabled = false;
+  bool m_QuestOfferUnlocked = false;
+  bool m_MainQuestNpcHintDisabled = false;
   bool m_HasMainQuestItem = false;
+  bool m_HasQuestFlagBytes = false;
+  std::array<quint8, 10> m_QuestFlagBytes{};
 
   quint32 m_DetailRaw = 0;
   int m_LogEntryCount = 0;
@@ -84,6 +89,8 @@ private:
   QStringList m_SpellPreview;
   bool m_HasSlotDisplayName = false;
   bool m_IsEmptySlot = false;
+  bool m_ValidationLikelyModified = false;
+  QStringList m_ValidationNotes;
 };
 
 #endif  // ARENA_SAVEGAME_H

@@ -74,6 +74,7 @@ ArenaSaveGame::ArenaSaveGame(const QString& saveFile, const GameArena* game)
   parseCityData();
   parseLog();
   parseSpells();
+  evaluateDeveloperValidation();
 }
 
 QString ArenaSaveGame::getName() const
@@ -101,6 +102,9 @@ QString ArenaSaveGame::getName() const
 
 QString ArenaSaveGame::getGameDetails() const
 {
+  const bool kShowDeveloperDetails =
+      (m_Game != nullptr) ? m_Game->showDeveloperSaveDetails() : false;
+
   QStringList lines;
 
   if (m_Gold > 0) {
@@ -111,31 +115,58 @@ QString ArenaSaveGame::getGameDetails() const
   }
 
   if (m_StaffPieces >= 0) {
-    lines << QString("Main Quest Staff Pieces: %1").arg(m_StaffPieces);
+    lines << QString("Main Quest Progress: %1/8 Staff Pieces").arg(m_StaffPieces);
   }
-  lines << QString("Ria Vision Trigger: %1").arg(m_RiaVisionEnabled ? "enabled" : "disabled");
-  lines << QString("Main Quest Item Flag: %1").arg(m_HasMainQuestItem ? "set" : "clear");
-
+  if (!m_LastQuestTitle.isEmpty()) {
+    lines << QString("Latest Quest: %1").arg(m_LastQuestTitle);
+  }
   if (m_LogEntryCount > 0) {
     lines << QString("Quest Log Entries: %1").arg(m_LogEntryCount);
   }
-  if (!m_LastQuestTitle.isEmpty()) {
-    lines << QString("Latest Log Title: %1").arg(m_LastQuestTitle);
-  }
   if (m_SpellRecordCount > 0) {
-    lines << QString("Spellbook Records: %1").arg(m_SpellRecordCount);
-    lines << QString("Spellbook Active: %1").arg(m_SpellActiveCount);
+    lines << QString("Active Spells: %1").arg(m_SpellActiveCount);
     if (!m_SpellPreview.isEmpty()) {
-      lines << QString("Spells: %1").arg(m_SpellPreview.join(", "));
+      lines << QString("Spellbook Preview: %1").arg(m_SpellPreview.join(", "));
     }
   }
 
-  lines << QString("Blessing: %1 (raw %2)")
-               .arg(QString::number(m_BlessingScaled, 'f', 2))
-               .arg(m_BlessingRaw);
-  if (m_DetailRaw > 0) {
-    lines << QString("Detail Raw: 0x%1")
-                 .arg(m_DetailRaw, 8, 16, QChar('0'));
+  if (m_BlessingScaled > 0.0) {
+    lines << QString("Temple Blessing: %1")
+                 .arg(QString::number(m_BlessingScaled, 'f', 2));
+  }
+
+  // Developer-only details are intentionally hidden by default. Keep this block in
+  // place so it can be exposed later with a plugin setting.
+  if (kShowDeveloperDetails && !m_IsEmptySlot) {
+    lines << "";
+    lines << "[Developer Details]";
+    lines << QString("Save Validation: %1")
+                 .arg(m_ValidationLikelyModified ? "Likely modified" : "No obvious edits detected");
+    for (const auto& note : m_ValidationNotes) {
+      lines << QString(" - %1").arg(note);
+    }
+    lines << QString("Ria Vision Trigger: %1")
+                 .arg(m_RiaVisionEnabled ? "enabled" : "disabled");
+    lines << QString("Main Quest Offer Unlocked: %1")
+                 .arg(m_QuestOfferUnlocked ? "yes" : "no");
+    lines << QString("Main Quest NPC Hint Disabled: %1")
+                 .arg(m_MainQuestNpcHintDisabled ? "yes" : "no");
+    lines << QString("Main Quest Item Flag: %1")
+                 .arg(m_HasMainQuestItem ? "set" : "clear");
+
+    if (m_HasQuestFlagBytes) {
+      QStringList hexFlags;
+      for (const auto b : m_QuestFlagBytes) {
+        hexFlags << QString("%1").arg(b, 2, 16, QChar('0')).toUpper();
+      }
+      lines << QString("Main Quest Flags (0x0DD2-0x0DDB): %1")
+                   .arg(hexFlags.join(' '));
+    }
+
+    lines << QString("Blessing Raw: %1").arg(m_BlessingRaw);
+    if (m_DetailRaw > 0) {
+      lines << QString("Detail Raw: 0x%1").arg(m_DetailRaw, 8, 16, QChar('0'));
+    }
   }
 
   return lines.join('\n');
@@ -633,18 +664,86 @@ void ArenaSaveGame::detectSlotFromFilename()
 
 void ArenaSaveGame::parseQuestFlags()
 {
-  quint8 flag = 0;
-  if (readByte(0x0DD2, flag)) {
-    m_RiaVisionEnabled = (flag == 0xE8 || flag == 0xE9);
+  bool allRead = true;
+  for (qsizetype i = 0; i < static_cast<qsizetype>(m_QuestFlagBytes.size()); ++i) {
+    quint8 b = 0;
+    if (!readByte(0x0DD2 + i, b)) {
+      allRead = false;
+      break;
+    }
+    m_QuestFlagBytes[static_cast<size_t>(i)] = b;
   }
-  if (readByte(0x0DD3, flag)) {
-    const int pieces = static_cast<int>(flag) - 0xC0;
+  m_HasQuestFlagBytes = allRead;
+
+  if (!m_HasQuestFlagBytes) {
+    return;
+  }
+
+  const quint8 flagD2 = m_QuestFlagBytes[0];
+  const quint8 flagD3 = m_QuestFlagBytes[1];
+  const quint8 flagD4 = m_QuestFlagBytes[2];
+  const quint8 flagDB = m_QuestFlagBytes[9];
+
+  m_RiaVisionEnabled = (flagD2 == 0xE8 || flagD2 == 0xE9);
+  m_QuestOfferUnlocked = (flagD2 == 0xE9);
+  m_MainQuestNpcHintDisabled = (flagD4 == 0x61);
+
+  {
+    const int pieces = static_cast<int>(flagD3) - 0xC0;
     if (pieces >= 0 && pieces <= 8) {
       m_StaffPieces = pieces;
     }
   }
-  if (readByte(0x0DDB, flag)) {
-    m_HasMainQuestItem = (flag == 0x06);
+
+  m_HasMainQuestItem = (flagDB == 0x06);
+}
+
+void ArenaSaveGame::evaluateDeveloperValidation()
+{
+  m_ValidationLikelyModified = false;
+  m_ValidationNotes.clear();
+
+  if (m_IsEmptySlot) {
+    return;
+  }
+
+  // Arena docs: normal progression is 1..27; higher levels are possible but typically
+  // indicate edited saves or unusual progression hacks.
+  if (m_Level > 27) {
+    m_ValidationLikelyModified = true;
+    m_ValidationNotes.push_back(QString("Level %1 exceeds typical Arena range (1..27).")
+                                    .arg(m_Level));
+  }
+
+  // Arena docs: practical blessing range is far below full encrypted range.
+  // Very large values are a strong indicator of direct save editing.
+  if (m_BlessingScaled > 2000.0) {
+    m_ValidationLikelyModified = true;
+    m_ValidationNotes.push_back(QString("Blessing value %1 is above practical in-game range.")
+                                    .arg(QString::number(m_BlessingScaled, 'f', 2)));
+  }
+
+  if (m_HasQuestFlagBytes) {
+    const quint8 d3 = m_QuestFlagBytes[1];
+    if (d3 < 0xC0 || d3 > 0xC8) {
+      m_ValidationLikelyModified = true;
+      m_ValidationNotes.push_back(
+          QString("Main quest staff-piece byte 0x0DD3 has unexpected value 0x%1.")
+              .arg(d3, 2, 16, QChar('0')).toUpper());
+    }
+
+    // Daggerfall/Arena docs indicate 0x0DD2 is expected to stay around E8/E9.
+    const quint8 d2 = m_QuestFlagBytes[0];
+    if (d2 != 0xE8 && d2 != 0xE9) {
+      m_ValidationLikelyModified = true;
+      m_ValidationNotes.push_back(
+          QString("Main quest trigger byte 0x0DD2 has unexpected value 0x%1.")
+              .arg(d2, 2, 16, QChar('0')).toUpper());
+    }
+  }
+
+  if (m_ValidationNotes.isEmpty()) {
+    m_ValidationNotes.push_back("Heuristic checks passed.");
   }
 }
 

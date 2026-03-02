@@ -196,6 +196,7 @@ protected:
   QString m_GameVariant;
   MOBase::IOrganizer* m_Organizer = nullptr;
   mutable bool m_LoggedResolvedVersion = false;
+  mutable qint64 m_LastLoadOrderLogMs = 0;
 };
 
 #endif  // GAMEXNGINE_H
