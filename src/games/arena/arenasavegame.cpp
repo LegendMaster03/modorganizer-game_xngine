@@ -5,7 +5,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QCryptographicHash>
 #include <QRegularExpression>
+#include <QSet>
 #include <QStringList>
 
 namespace
@@ -140,6 +142,16 @@ QString ArenaSaveGame::getGameDetails() const
   if (kShowDeveloperDetails && !m_IsEmptySlot) {
     lines << "";
     lines << "[Developer Details]";
+    lines << QString("Save File: %1").arg(QFileInfo(m_SaveFile).fileName());
+    lines << QString("SaveENGN Bytes: %1").arg(m_SaveEngnData.size());
+    lines << QString("Slot Suffix: %1").arg(slotSuffix().isEmpty() ? "(none)" : slotSuffix());
+    if (!m_SaveEngnData.isEmpty()) {
+      const QByteArray sha1 = QCryptographicHash::hash(m_SaveEngnData, QCryptographicHash::Sha1)
+                                  .toHex()
+                                  .left(8)
+                                  .toUpper();
+      lines << QString("Save Fingerprint: %1").arg(QString::fromLatin1(sha1));
+    }
     lines << QString("Save Validation: %1")
                  .arg(m_ValidationLikelyModified ? "Likely modified" : "No obvious edits detected");
     for (const auto& note : m_ValidationNotes) {
@@ -166,6 +178,36 @@ QString ArenaSaveGame::getGameDetails() const
     lines << QString("Blessing Raw: %1").arg(m_BlessingRaw);
     if (m_DetailRaw > 0) {
       lines << QString("Detail Raw: 0x%1").arg(m_DetailRaw, 8, 16, QChar('0'));
+    }
+
+    // Quick integrity snapshot for canonical Arena save bundle companions.
+    const QStringList companions = {"AUTOMAP", "IN", "LOG", "SAVEGAME",
+                                    "SPELLS", "STATES", "WILDPAL"};
+    const QSet<QString> optionalCompanions = {"IN", "WILDPAL"};
+    QStringList present;
+    QStringList missingRequired;
+    QStringList missingOptional;
+    for (const auto& stem : companions) {
+      const QString p = companionPath(stem);
+      if (QFileInfo::exists(p)) {
+        present.push_back(QString("%1(%2b)")
+                              .arg(stem)
+                              .arg(QFileInfo(p).size()));
+      } else {
+        if (optionalCompanions.contains(stem)) {
+          missingOptional.push_back(stem);
+        } else {
+          missingRequired.push_back(stem);
+        }
+      }
+    }
+    lines << QString("Companions Present: %1")
+                 .arg(present.isEmpty() ? "(none)" : present.join(", "));
+    if (!missingRequired.isEmpty()) {
+      lines << QString("Companions Missing: %1").arg(missingRequired.join(", "));
+    }
+    if (!missingOptional.isEmpty()) {
+      lines << QString("Companions Optional Missing: %1").arg(missingOptional.join(", "));
     }
   }
 

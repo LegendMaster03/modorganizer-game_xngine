@@ -609,7 +609,8 @@ MappingType GameArena::mappings() const
   const QString targetRoot = gameDir.absolutePath();
 
   // Flat Arena save bundle files.
-  const QStringList stems = {"SAVEENGN", "LOG", "SPELLS"};
+  const QStringList stems = {"AUTOMAP", "IN", "LOG", "SAVEENGN", "SAVEGAME",
+                             "SPELLS", "STATES", "WILDPAL"};
   for (int slot = 0; slot <= 9; ++slot) {
     const QString suffix2 = QString("%1").arg(slot, 2, 10, QChar('0'));
     const QString suffix1 = QString::number(slot);

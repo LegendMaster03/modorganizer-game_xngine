@@ -89,8 +89,9 @@ protected:
   virtual const FileNameSet& possibleFileExtensions() const override
   {
     static FileNameSet result{
-        "bat", "bsa", "cfg", "cif", "col", "conf", "dat", "exe", "img", "inf",
-        "ini", "lst", "map", "mif", "pal", "raw", "txt", "voc", "xmi", "xdelta",
+        "adv", "asi", "avi", "bat", "bsa", "cfg", "cif", "col", "conf", "dat",
+        "exe", "img", "inf", "ini", "lst", "map", "mif", "pal", "raw", "txt",
+        "voc", "xmi", "xdelta",
     };
     return result;
   }
@@ -136,7 +137,7 @@ private:
     }
 
     static const QRegularExpression kSaveSlotPattern(
-        R"(^(SAVEENGN|SAVEGAME|SPELLS|LOG)\.\d{1,2}$)",
+        R"(^(AUTOMAP|IN|LOG|SAVEENGN|SAVEGAME|SPELLS|STATES|WILDPAL)\.\d{1,2}$)",
         QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression kCityDataPattern(
         R"(^CITYDATA\.\d{1,3}$)", QRegularExpression::CaseInsensitiveOption);
