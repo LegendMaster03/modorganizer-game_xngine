@@ -25,6 +25,9 @@ option(XNGINE_DAGGERFALL_TOOLKIT_ASSETS "Enable image/3D asset toolkit modules" 
 set(DAGGERFALL_CORE_SOURCES
     gamedaggerfall.cpp
     gamedaggerfall.h
+    daggerfallsmoddatachecker.h
+    daggerfallsmoddatacontent.cpp
+    daggerfallsmoddatacontent.h
     daggerfallsavegame.cpp
     daggerfallsavegame.h
     daggerfallmapsbsa.cpp

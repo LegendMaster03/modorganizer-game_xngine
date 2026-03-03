@@ -33,6 +33,7 @@ public:  // IPluginGame interface
   virtual QString binaryName() const override;
   virtual QString gameShortName() const override;
   virtual QString gameNexusName() const override;
+  virtual QStringList primarySources() const override;
   virtual QStringList validShortNames() const override;
   virtual QStringList iniFiles() const override;
   virtual int nexusModOrganizerID() const override;
@@ -48,12 +49,18 @@ public:  // IPlugin interface
   virtual QString description() const override;
   virtual MOBase::VersionInfo version() const override;
   virtual QList<MOBase::PluginSetting> settings() const override;
+  int developerSaveDetailsLevel() const;
+  bool showDeveloperSaveDetails() const;
   bool allowJsonPatchInstall() const;
   bool allowXdeltaPatchInstall() const;
   bool allowExeModInstall() const;
+  bool allowBinaryPatchInstall() const;
+  bool allowSavePackModInstall() const;
+  bool allowUnityModFormats() const;
 
 protected:
   virtual QString identifyGamePath() const override;
+  virtual QDir dataDirectory() const override;
   virtual QDir savesDirectory() const override;
   virtual bool prepareIni(const QString& exec) override;
   virtual QString savegameExtension() const override;

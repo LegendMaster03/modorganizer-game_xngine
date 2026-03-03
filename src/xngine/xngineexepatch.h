@@ -46,6 +46,34 @@ bool applyXdeltaPatchToAnyFileInTree(const QString& xdeltaTool, const QString& p
                                      const QString& baseRoot, const QString& stagedRoot,
                                      QString* matchedRelativePath = nullptr,
                                      QString* errorMessage = nullptr);
+
+bool applyIpsPatch(const QString& sourceFile, const QString& ipsPatchFile, const QString& outputFile,
+                   QString* errorMessage = nullptr);
+bool applyIpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
+                                  const QString& stagedRoot,
+                                  QString* matchedRelativePath = nullptr,
+                                  QString* errorMessage = nullptr);
+
+bool applyBpsPatch(const QString& sourceFile, const QString& bpsPatchFile, const QString& outputFile,
+                   QString* errorMessage = nullptr);
+bool applyBpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
+                                  const QString& stagedRoot,
+                                  QString* matchedRelativePath = nullptr,
+                                  QString* errorMessage = nullptr);
+
+bool applyUpsPatch(const QString& sourceFile, const QString& upsPatchFile, const QString& outputFile,
+                   QString* errorMessage = nullptr);
+bool applyUpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
+                                  const QString& stagedRoot,
+                                  QString* matchedRelativePath = nullptr,
+                                  QString* errorMessage = nullptr);
+
+bool applyPpfPatch(const QString& sourceFile, const QString& ppfPatchFile, const QString& outputFile,
+                   QString* errorMessage = nullptr);
+bool applyPpfPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
+                                  const QString& stagedRoot,
+                                  QString* matchedRelativePath = nullptr,
+                                  QString* errorMessage = nullptr);
 }  // namespace XngineExePatch
 
 #endif  // XNGINE_EXE_PATCH_H

@@ -22,6 +22,7 @@
 #include <QDir>
 #include <QTextStream>
 #include <QSettings>
+#include <QMetaType>
 
 #include <Windows.h>
 
@@ -44,6 +45,7 @@ using namespace MOBase;
 namespace
 {
 constexpr const char* kGlobalXdeltaPathKey = "xngine/global_xdelta_exe_path";
+constexpr const char* kDefaultUnityNexusName = "daggerfallunity";
 
 QString readGlobalXdeltaPath()
 {
@@ -270,10 +272,25 @@ QString GameDaggerfall::gameNexusName() const
   return "daggerfall";
 }
 
+QStringList GameDaggerfall::primarySources() const
+{
+  QStringList sources{"daggerfall"};
+  if (allowUnityModFormats() &&
+      !sources.contains(QString::fromLatin1(kDefaultUnityNexusName), Qt::CaseInsensitive)) {
+    sources.push_back(QString::fromLatin1(kDefaultUnityNexusName));
+  }
+  return sources;
+}
+
 QStringList GameDaggerfall::validShortNames() const
 {
   DF_TRACE("[GameDaggerfall] validShortNames() called\n");
-  return {"daggerfall", "df"};
+  QStringList names{"daggerfall", "df"};
+  if (allowUnityModFormats() &&
+      !names.contains(QString::fromLatin1(kDefaultUnityNexusName), Qt::CaseInsensitive)) {
+    names.push_back(QString::fromLatin1(kDefaultUnityNexusName));
+  }
+  return names;
 }
 
 QStringList GameDaggerfall::iniFiles() const
@@ -429,12 +446,24 @@ QList<PluginSetting> GameDaggerfall::settings() const
   DF_TRACE("[GameDaggerfall] settings() called\n");
   return {
       PluginSetting(
+          "show_developer_save_details",
+          tr("Developer save details level: 0=Off, 1=Compact, 2=Fit-to-pane, 3=Full."),
+          0),
+      PluginSetting(
+          "daggerfall_unity_mod_formats",
+          tr("Allow Daggerfall Unity mod formats (.dfmod and dfmod.json marker files). Limited support only: this plugin is for classic Daggerfall and cannot execute Unity runtime code."),
+          false),
+      PluginSetting(
+          "allow_save_pack_mod_install",
+          tr("Allow save-pack mods (SAVE* folders and MAPSAVE.SAV). WARNING: these can overwrite existing save-slot data."),
+          true),
+      PluginSetting(
           "allow_json_patch_mod_install",
           tr("Allow JSON binary patch mods. WARNING: this is dangerous and may corrupt saves or game data."),
           false),
       PluginSetting(
           "xdelta_enabled",
-          tr("Allow .xdelta binary patch mods. Requires the XNGINE patch tool (xdelta.exe) to be installed with MO2/plugin files. WARNING: this is dangerous and may corrupt saves or game data."),
+          tr("Allow binary patch mods (.xdelta/.xdelta3/.vcdiff, .ips, .bps, .ups, and .ppf). xdelta-family patches require the XNGINE patch tool (xdelta.exe) to be installed with MO2/plugin files. WARNING: this is dangerous and may corrupt saves or game data."),
           false),
       PluginSetting(
           "xdelta_exe_path",
@@ -443,9 +472,74 @@ QList<PluginSetting> GameDaggerfall::settings() const
   };
 }
 
+int GameDaggerfall::developerSaveDetailsLevel() const
+{
+  if (m_Organizer == nullptr) {
+    return 0;
+  }
+
+  const QVariant value = m_Organizer->pluginSetting(name(), "show_developer_save_details");
+
+  // Backward compatibility with existing bool setting values.
+  if (value.metaType().id() == QMetaType::Bool) {
+    return value.toBool() ? 1 : 0;
+  }
+
+  bool ok = false;
+  int level = value.toInt(&ok);
+  if (!ok) {
+    level = value.toString().trimmed().toInt(&ok);
+  }
+  if (!ok) {
+    return 0;
+  }
+
+  return std::clamp(level, 0, 3);
+}
+
+bool GameDaggerfall::showDeveloperSaveDetails() const
+{
+  return developerSaveDetailsLevel() > 0;
+}
+
 bool GameDaggerfall::allowExeModInstall() const
 {
-  return allowJsonPatchInstall() || allowXdeltaPatchInstall();
+  return allowJsonPatchInstall() || allowBinaryPatchInstall();
+}
+
+bool GameDaggerfall::allowBinaryPatchInstall() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  return m_Organizer->pluginSetting(name(), "xdelta_enabled").toBool();
+}
+
+bool GameDaggerfall::allowSavePackModInstall() const
+{
+  if (m_Organizer == nullptr) {
+    return true;
+  }
+  return m_Organizer->pluginSetting(name(), "allow_save_pack_mod_install").toBool();
+}
+
+bool GameDaggerfall::allowUnityModFormats() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  const bool enabled =
+      m_Organizer->pluginSetting(name(), "daggerfall_unity_mod_formats").toBool();
+  if (enabled) {
+    static bool warnedLimitedUnitySupport = false;
+    if (!warnedLimitedUnitySupport) {
+      qWarning().noquote()
+          << "[GameDaggerfall] Daggerfall Unity mod format support is enabled in compatibility mode."
+          << "Support is limited: this plugin manages classic Daggerfall and cannot run Unity runtime .dfmod code.";
+      warnedLimitedUnitySupport = true;
+    }
+  }
+  return enabled;
 }
 
 bool GameDaggerfall::allowJsonPatchInstall() const
@@ -461,7 +555,7 @@ bool GameDaggerfall::allowXdeltaPatchInstall() const
   if (m_Organizer == nullptr) {
     return false;
   }
-  if (!m_Organizer->pluginSetting(name(), "xdelta_enabled").toBool()) {
+  if (!allowBinaryPatchInstall()) {
     return false;
   }
 
@@ -535,6 +629,11 @@ QString GameDaggerfall::identifyGamePath() const
 QDir GameDaggerfall::savesDirectory() const
 {
   return GameXngine::savesDirectory();
+}
+
+QDir GameDaggerfall::dataDirectory() const
+{
+  return gameDirectory();
 }
 
 MappingType GameDaggerfall::mappings() const
@@ -665,7 +764,8 @@ bool GameDaggerfall::applyExePatchMods()
   }
   const bool allowJson = allowJsonPatchInstall();
   const bool allowXdelta = allowXdeltaPatchInstall();
-  if (!allowJson && !allowXdelta) {
+  const bool allowLegacyBinaryPatches = allowBinaryPatchInstall();
+  if (!allowJson && !allowXdelta && !allowLegacyBinaryPatches) {
     return true;
   }
 
@@ -696,8 +796,32 @@ bool GameDaggerfall::applyExePatchMods()
     QString replacementExePath;
     QString replacementExeRelPath;
     QStringList xdeltaPatchFiles;
+    QStringList ipsPatchFiles;
+    QStringList bpsPatchFiles;
+    QStringList upsPatchFiles;
+    QStringList ppfPatchFiles;
   };
   QList<ModPatchInput> patchInputs;
+
+  struct PatchSummary
+  {
+    int replacementExeCount = 0;
+    int replacementExeFailCount = 0;
+    int jsonCatalogCount = 0;
+    int jsonCatalogFailCount = 0;
+    int xdeltaCount = 0;
+    int xdeltaFailCount = 0;
+    int ipsCount = 0;
+    int ipsFailCount = 0;
+    int bpsCount = 0;
+    int bpsFailCount = 0;
+    int upsCount = 0;
+    int upsFailCount = 0;
+    int ppfCount = 0;
+    int ppfFailCount = 0;
+    QStringList details;
+  };
+  PatchSummary summary;
 
   for (const QString& modName : allMods) {
     if (!(modList->state(modName) & IModList::STATE_ACTIVE)) {
@@ -734,15 +858,44 @@ bool GameDaggerfall::applyExePatchMods()
       }
     }
     if (allowXdelta) {
-      QDirIterator xdeltaIt(modPath, QStringList() << "*.xdelta", QDir::Files,
+      QDirIterator xdeltaIt(modPath, QStringList() << "*.xdelta" << "*.xdelta3" << "*.vcdiff", QDir::Files,
                             QDirIterator::Subdirectories);
       while (xdeltaIt.hasNext()) {
         input.xdeltaPatchFiles.push_back(xdeltaIt.next());
       }
+      input.xdeltaPatchFiles.sort(Qt::CaseInsensitive);
+    }
+    if (allowLegacyBinaryPatches) {
+      QDirIterator ipsIt(modPath, QStringList() << "*.ips", QDir::Files,
+                        QDirIterator::Subdirectories);
+      while (ipsIt.hasNext()) {
+        input.ipsPatchFiles.push_back(ipsIt.next());
+      }
+      input.ipsPatchFiles.sort(Qt::CaseInsensitive);
+      QDirIterator bpsIt(modPath, QStringList() << "*.bps", QDir::Files,
+                        QDirIterator::Subdirectories);
+      while (bpsIt.hasNext()) {
+        input.bpsPatchFiles.push_back(bpsIt.next());
+      }
+      input.bpsPatchFiles.sort(Qt::CaseInsensitive);
+      QDirIterator upsIt(modPath, QStringList() << "*.ups", QDir::Files,
+                        QDirIterator::Subdirectories);
+      while (upsIt.hasNext()) {
+        input.upsPatchFiles.push_back(upsIt.next());
+      }
+      input.upsPatchFiles.sort(Qt::CaseInsensitive);
+      QDirIterator ppfIt(modPath, QStringList() << "*.ppf", QDir::Files,
+                        QDirIterator::Subdirectories);
+      while (ppfIt.hasNext()) {
+        input.ppfPatchFiles.push_back(ppfIt.next());
+      }
+      input.ppfPatchFiles.sort(Qt::CaseInsensitive);
     }
 
     if (!input.catalogPath.isEmpty() || !input.replacementExePath.isEmpty() ||
-        !input.xdeltaPatchFiles.isEmpty()) {
+        !input.xdeltaPatchFiles.isEmpty() || !input.ipsPatchFiles.isEmpty() ||
+        !input.bpsPatchFiles.isEmpty() || !input.upsPatchFiles.isEmpty() ||
+        !input.ppfPatchFiles.isEmpty()) {
       patchInputs.push_back(input);
       foundWork = true;
       lastPatchPriority = (std::max)(lastPatchPriority, modList->priority(modName));
@@ -798,6 +951,7 @@ bool GameDaggerfall::applyExePatchMods()
         qWarning().noquote()
             << "[GameDaggerfall] Failed to create destination directory for EXE replacement:"
             << destDir;
+        ++summary.replacementExeFailCount;
         overallSuccess = false;
       } else {
         QFile::remove(destPath);
@@ -805,11 +959,16 @@ bool GameDaggerfall::applyExePatchMods()
           qWarning().noquote()
               << "[GameDaggerfall] Failed to stage replacement executable from mod"
               << input.modName << "->" << destPath;
+          ++summary.replacementExeFailCount;
           overallSuccess = false;
         } else {
           qInfo().noquote()
               << "[GameDaggerfall] Staged replacement executable from mod" << input.modName
               << "to" << destPath;
+          ++summary.replacementExeCount;
+          summary.details.push_back(
+              QString("mod=%1 type=replacement target=%2")
+                  .arg(input.modName, QDir(tempModPath).relativeFilePath(destPath)));
         }
       }
     }
@@ -821,6 +980,12 @@ bool GameDaggerfall::applyExePatchMods()
     if (!workingExe.has_value()) {
       qWarning().noquote() << "[GameDaggerfall] Could not locate FALL.EXE/DAGGER.EXE base file for"
                               " patching";
+      summary.jsonCatalogFailCount += input.catalogPath.isEmpty() ? 0 : 1;
+      summary.xdeltaFailCount += input.xdeltaPatchFiles.size();
+      summary.ipsFailCount += input.ipsPatchFiles.size();
+      summary.bpsFailCount += input.bpsPatchFiles.size();
+      summary.upsFailCount += input.upsPatchFiles.size();
+      summary.ppfFailCount += input.ppfPatchFiles.size();
       overallSuccess = false;
       continue;
     }
@@ -831,11 +996,13 @@ bool GameDaggerfall::applyExePatchMods()
       if (!XngineExePatch::loadPatchSetsFromJsonFile(input.catalogPath, sets, &loadError)) {
         qWarning().noquote() << "[GameDaggerfall] Failed to load patch catalog from mod"
                              << input.modName << ":" << loadError;
+        ++summary.jsonCatalogFailCount;
         overallSuccess = false;
         continue;
       }
       if (sets.isEmpty()) {
         qWarning().noquote() << "[GameDaggerfall] Empty patch catalog in mod" << input.modName;
+        ++summary.jsonCatalogFailCount;
         overallSuccess = false;
         continue;
       }
@@ -844,6 +1011,7 @@ bool GameDaggerfall::applyExePatchMods()
       if (!exeFile.open(QIODevice::ReadOnly)) {
         qWarning().noquote() << "[GameDaggerfall] Failed to read base executable for patching:"
                              << workingExe->absolutePath;
+        ++summary.jsonCatalogFailCount;
         overallSuccess = false;
         continue;
       }
@@ -853,6 +1021,7 @@ bool GameDaggerfall::applyExePatchMods()
       if (!XngineExePatch::applyPatchSets(exeData, sets, &loadError)) {
         qWarning().noquote() << "[GameDaggerfall] Failed to apply patch catalog from mod"
                              << input.modName << ":" << loadError;
+        ++summary.jsonCatalogFailCount;
         overallSuccess = false;
         continue;
       }
@@ -863,6 +1032,7 @@ bool GameDaggerfall::applyExePatchMods()
         qWarning().noquote()
             << "[GameDaggerfall] Failed to create destination directory for patched EXE:"
             << destDir;
+        ++summary.jsonCatalogFailCount;
         overallSuccess = false;
         continue;
       }
@@ -871,18 +1041,24 @@ bool GameDaggerfall::applyExePatchMods()
       if (!out.open(QIODevice::WriteOnly)) {
         qWarning().noquote() << "[GameDaggerfall] Failed to write patched executable:"
                              << destPath;
+        ++summary.jsonCatalogFailCount;
         overallSuccess = false;
         continue;
       }
       if (out.write(exeData) != exeData.size()) {
         qWarning().noquote() << "[GameDaggerfall] Incomplete write for patched executable:"
                              << destPath;
+        ++summary.jsonCatalogFailCount;
         overallSuccess = false;
       }
       out.close();
 
       qInfo().noquote() << "[GameDaggerfall] Staged patched executable from catalog in mod"
                         << input.modName << "to" << destPath;
+      ++summary.jsonCatalogCount;
+      summary.details.push_back(
+          QString("mod=%1 type=json_catalog target=%2")
+              .arg(input.modName, QDir(tempModPath).relativeFilePath(destPath)));
     }
 
     if (!input.xdeltaPatchFiles.isEmpty()) {
@@ -900,6 +1076,7 @@ bool GameDaggerfall::applyExePatchMods()
                              << input.modName
                              << "but no xdelta tool was found (checked mod/game folders,"
                                 " MO2 folder/tools, XDELTA_EXE, and PATH).";
+        summary.xdeltaFailCount += input.xdeltaPatchFiles.size();
         overallSuccess = false;
         continue;
       }
@@ -911,13 +1088,123 @@ bool GameDaggerfall::applyExePatchMods()
                 tool, patchFile, gameDirPath, tempModPath, &matchedRel, &err)) {
           qWarning().noquote() << "[GameDaggerfall] Failed to apply .xdelta patch"
                                << patchFile << "from mod" << input.modName << ":" << err;
+          ++summary.xdeltaFailCount;
           overallSuccess = false;
           break;
         }
         qInfo().noquote() << "[GameDaggerfall] Applied .xdelta patch to" << matchedRel
                           << "from mod" << input.modName << ":" << patchFile;
+        ++summary.xdeltaCount;
+        summary.details.push_back(
+            QString("mod=%1 type=xdelta target=%2 patch=%3")
+                .arg(input.modName, matchedRel, QFileInfo(patchFile).fileName()));
       }
     }
+
+    if (!input.ipsPatchFiles.isEmpty()) {
+      for (const QString& patchFile : input.ipsPatchFiles) {
+        QString err;
+        QString matchedRel;
+        if (!XngineExePatch::applyIpsPatchToAnyFileInTree(patchFile, gameDirPath, tempModPath,
+                                                          &matchedRel, &err)) {
+          qWarning().noquote() << "[GameDaggerfall] Failed to apply .ips patch"
+                               << patchFile << "from mod" << input.modName << ":" << err;
+          ++summary.ipsFailCount;
+          overallSuccess = false;
+          break;
+        }
+        qInfo().noquote() << "[GameDaggerfall] Applied .ips patch to" << matchedRel
+                          << "from mod" << input.modName << ":" << patchFile;
+        ++summary.ipsCount;
+        summary.details.push_back(
+            QString("mod=%1 type=ips target=%2 patch=%3")
+                .arg(input.modName, matchedRel, QFileInfo(patchFile).fileName()));
+      }
+    }
+
+    if (!input.bpsPatchFiles.isEmpty()) {
+      for (const QString& patchFile : input.bpsPatchFiles) {
+        QString err;
+        QString matchedRel;
+        if (!XngineExePatch::applyBpsPatchToAnyFileInTree(patchFile, gameDirPath, tempModPath,
+                                                          &matchedRel, &err)) {
+          qWarning().noquote() << "[GameDaggerfall] Failed to apply .bps patch"
+                               << patchFile << "from mod" << input.modName << ":" << err;
+          ++summary.bpsFailCount;
+          overallSuccess = false;
+          break;
+        }
+        qInfo().noquote() << "[GameDaggerfall] Applied .bps patch to" << matchedRel
+                          << "from mod" << input.modName << ":" << patchFile;
+        ++summary.bpsCount;
+        summary.details.push_back(
+            QString("mod=%1 type=bps target=%2 patch=%3")
+                .arg(input.modName, matchedRel, QFileInfo(patchFile).fileName()));
+      }
+    }
+
+    if (!input.upsPatchFiles.isEmpty()) {
+      for (const QString& patchFile : input.upsPatchFiles) {
+        QString err;
+        QString matchedRel;
+        if (!XngineExePatch::applyUpsPatchToAnyFileInTree(patchFile, gameDirPath, tempModPath,
+                                                          &matchedRel, &err)) {
+          qWarning().noquote() << "[GameDaggerfall] Failed to apply .ups patch"
+                               << patchFile << "from mod" << input.modName << ":" << err;
+          ++summary.upsFailCount;
+          overallSuccess = false;
+          break;
+        }
+        qInfo().noquote() << "[GameDaggerfall] Applied .ups patch to" << matchedRel
+                          << "from mod" << input.modName << ":" << patchFile;
+        ++summary.upsCount;
+        summary.details.push_back(
+            QString("mod=%1 type=ups target=%2 patch=%3")
+                .arg(input.modName, matchedRel, QFileInfo(patchFile).fileName()));
+      }
+    }
+
+    if (!input.ppfPatchFiles.isEmpty()) {
+      for (const QString& patchFile : input.ppfPatchFiles) {
+        QString err;
+        QString matchedRel;
+        if (!XngineExePatch::applyPpfPatchToAnyFileInTree(patchFile, gameDirPath, tempModPath,
+                                                          &matchedRel, &err)) {
+          qWarning().noquote() << "[GameDaggerfall] Failed to apply .ppf patch"
+                               << patchFile << "from mod" << input.modName << ":" << err;
+          ++summary.ppfFailCount;
+          overallSuccess = false;
+          break;
+        }
+        qInfo().noquote() << "[GameDaggerfall] Applied .ppf patch to" << matchedRel
+                          << "from mod" << input.modName << ":" << patchFile;
+        ++summary.ppfCount;
+        summary.details.push_back(
+            QString("mod=%1 type=ppf target=%2 patch=%3")
+                .arg(input.modName, matchedRel, QFileInfo(patchFile).fileName()));
+      }
+    }
+  }
+
+  qInfo().noquote()
+      << "[GameDaggerfall] EXE patch summary:"
+      << "replacementExe=" << summary.replacementExeCount
+      << "replacementExeFailed=" << summary.replacementExeFailCount
+      << "jsonCatalog=" << summary.jsonCatalogCount
+      << "jsonCatalogFailed=" << summary.jsonCatalogFailCount
+      << "xdelta=" << summary.xdeltaCount
+      << "xdeltaFailed=" << summary.xdeltaFailCount
+      << "ips=" << summary.ipsCount
+      << "ipsFailed=" << summary.ipsFailCount
+      << "bps=" << summary.bpsCount
+      << "bpsFailed=" << summary.bpsFailCount
+      << "ups=" << summary.upsCount
+      << "upsFailed=" << summary.upsFailCount
+      << "ppf=" << summary.ppfCount
+      << "ppfFailed=" << summary.ppfFailCount
+      << "overallSuccess=" << (overallSuccess ? "true" : "false");
+  for (const QString& line : summary.details) {
+    qInfo().noquote() << "[GameDaggerfall]  -" << line;
   }
 
   return overallSuccess;
