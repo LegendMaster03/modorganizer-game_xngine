@@ -42,6 +42,8 @@ if "%VCVARS_BAT%"=="" (
 cd /d "%SCRIPT_DIR%"
 if errorlevel 1 goto error_cd
 
+call :stop_mo2
+
 if not "%VCVARS_BAT%"=="" (
 	call "%VCVARS_BAT%" -arch=x64
 	if errorlevel 1 goto error_vcvars
@@ -76,29 +78,35 @@ echo ========================================
 echo Deploying to MO2 plugins folder...
 echo ========================================
 
+call :stop_mo2
+
 if "%MO2_PLUGINS_DIR%"=="" (
   echo ERROR: MO2_PLUGINS_DIR is not set. Use config\local.env.bat or an environment variable.
-  pause
-  exit /b 1
+  goto fail
 )
 
 if not exist "%MO2_PLUGINS_DIR%" (
 	echo ERROR: MO2 plugins folder not found: %MO2_PLUGINS_DIR%
-	pause
-	exit /b 1
+	goto fail
 )
 
 if not exist "bin\Release\plugins" (
 	echo ERROR: Build output folder not found: bin\Release\plugins
-	pause
-	exit /b 1
+	goto fail
 )
 
 copy /Y "bin\Release\plugins\game_*.dll" "%MO2_PLUGINS_DIR%\"
 if %ERRORLEVEL% neq 0 (
 	echo ERROR: Failed to copy DLLs to %MO2_PLUGINS_DIR%
-	pause
-	exit /b 1
+	goto fail
+)
+
+if exist "bin\Release\plugins\xdelta.exe" (
+  copy /Y "bin\Release\plugins\xdelta.exe" "%MO2_PLUGINS_DIR%\"
+  if %ERRORLEVEL% neq 0 (
+    echo ERROR: Failed to copy xdelta.exe to %MO2_PLUGINS_DIR%
+    goto fail
+  )
 )
 
 echo ✓ Deployment completed
@@ -107,27 +115,49 @@ exit /b 0
 
 :error_cd
 echo ERROR: Failed to change to project directory
-pause
-exit /b 1
+goto fail
 
 :error_vcvars
 echo ERROR: Failed to initialize Visual Studio environment
-pause
-exit /b 1
+goto fail
 
 :error_build_cd
 echo ERROR: Failed to change to build directory
-pause
-exit /b 1
+goto fail
 
 :error_cmake
 echo ERROR: CMake configuration failed
-pause
-exit /b 1
+goto fail
 
 :error_ninja
 echo ERROR: Ninja build failed
-pause
-exit /b 1
+goto fail
+
+:fail
+echo.
+echo Build/deploy failed. Leaving this console open for investigation.
+echo You can inspect files and rerun commands from:
+echo   %SCRIPT_DIR%
+cd /d "%SCRIPT_DIR%"
+cmd /k
 
 endlocal
+
+:stop_mo2
+echo Closing MO2 if running...
+taskkill /F /T /IM ModOrganizer.exe >nul 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Get-Process -Name 'ModOrganizer' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1
+
+for /L %%I in (1,1,20) do (
+  tasklist /FI "IMAGENAME eq ModOrganizer.exe" 2>nul | find /I "ModOrganizer.exe" >nul
+  if errorlevel 1 goto :stop_mo2_done
+  timeout /T 1 /NOBREAK >nul
+)
+
+echo ERROR: ModOrganizer.exe is still running and may lock plugin DLLs.
+echo Please close MO2 manually, then rerun this script.
+goto fail
+
+:stop_mo2_done
+exit /b 0

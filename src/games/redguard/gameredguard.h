@@ -49,6 +49,8 @@ public:  // IPlugin interface
   virtual QString description() const override;
   virtual MOBase::VersionInfo version() const override;
   virtual QList<MOBase::PluginSetting> settings() const override;
+  bool allowExeModInstall() const;
+  bool allowDillon241PatchInstall() const;
 
 protected:
   virtual QString identifyGamePath() const override;

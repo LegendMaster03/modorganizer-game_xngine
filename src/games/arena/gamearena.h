@@ -51,11 +51,15 @@ public:  // IPlugin interface
   virtual MOBase::VersionInfo version() const override;
   virtual QList<MOBase::PluginSetting> settings() const override;
   bool showDeveloperSaveDetails() const;
+  bool allowJsonPatchInstall() const;
+  bool allowXdeltaPatchInstall() const;
+  bool allowExeModInstall() const;
 
 protected:
   virtual QString identifyGamePath() const override;
   virtual bool looksValid(QDir const& path) const override;
   virtual MappingType mappings() const override;
+  virtual bool prepareIni(const QString& exec) override;
   virtual QDir savesDirectory() const override;
   virtual QString savegameExtension() const override;
   virtual QString savegameSEExtension() const override;
@@ -67,6 +71,10 @@ protected:
   virtual QVector<XngineBSAFormat::FileSpec> bsaFileSpecs() const override;
 
 private:
+  bool applyExePatchMods();
+  void ensureExePatchCleanupHook();
+  void cleanupExePatchOutputMod() const;
+  bool m_ExePatchCleanupHookRegistered = false;
   QString findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const;
 };
 

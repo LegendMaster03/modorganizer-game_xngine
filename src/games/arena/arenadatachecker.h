@@ -3,10 +3,12 @@
 
 #include <xnginemoddatachecker.h>
 #include <gamexngine.h>
+#include "gamearena.h"
 #include <QString>
 #include <QStringList>
 #include <QDir>
 #include <QRegularExpression>
+#include <QDebug>
 #include <memory>
 
 class GameArena;
@@ -23,9 +25,19 @@ public:
       return CheckReturn::INVALID;
     }
 
+    const bool hasExePayload = containsExecutablePayload(fileTree);
+    if (hasExePayload && !isExeInstallAllowed()) {
+      qWarning().noquote()
+          << "[GameArena] Rejecting package with EXE/.xdelta payload because executable patching is disabled by plugin settings.";
+      return CheckReturn::INVALID;
+    }
+
     // Standard Arena/XnGine layout at archive root.
     const auto base = XngineModDataChecker::dataLooksValid(fileTree);
     if (base == CheckReturn::VALID) {
+      return CheckReturn::VALID;
+    }
+    if (hasExePayload) {
       return CheckReturn::VALID;
     }
     if (containsArenaLooseFiles(fileTree)) {
@@ -78,12 +90,45 @@ protected:
   {
     static FileNameSet result{
         "bat", "bsa", "cfg", "cif", "col", "conf", "dat", "exe", "img", "inf",
-        "ini", "lst", "map", "mif", "pal", "raw", "txt", "voc", "xmi",
+        "ini", "lst", "map", "mif", "pal", "raw", "txt", "voc", "xmi", "xdelta",
     };
     return result;
   }
 
 private:
+  bool isExeInstallAllowed() const
+  {
+    const auto* g = dynamic_cast<const GameArena*>(game());
+    return (g != nullptr) ? g->allowExeModInstall() : false;
+  }
+
+  bool containsExecutablePayload(std::shared_ptr<const MOBase::IFileTree> fileTree) const
+  {
+    if (!fileTree) {
+      return false;
+    }
+
+    for (const auto& entry : *fileTree) {
+      if (!entry) {
+        continue;
+      }
+      if (entry->isFile()) {
+        const QString name = entry->name();
+        const QString suffix = entry->suffix().toLower();
+        if (name.compare("ARENA.EXE", Qt::CaseInsensitive) == 0 ||
+            name.compare("A.EXE", Qt::CaseInsensitive) == 0 || suffix == "xdelta") {
+          return true;
+        }
+      } else if (entry->isDir()) {
+        auto subtree = fileTree->findDirectory(entry->name());
+        if (subtree && containsExecutablePayload(subtree)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   bool containsArenaLooseFiles(std::shared_ptr<const MOBase::IFileTree> fileTree) const
   {
     if (!fileTree) {

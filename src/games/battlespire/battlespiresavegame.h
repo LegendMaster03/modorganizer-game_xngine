@@ -3,6 +3,9 @@
 
 #include <xnginesavegame.h>
 
+#include <QHash>
+#include <QStringList>
+
 class GameBattlespire;
 
 class BattlespireSaveGame : public XngineSaveGame
@@ -21,6 +24,8 @@ private:
   bool parseSaveTree();
   bool parseSaveVars();
   bool parsePlayerBlockFromSaveVars(const QByteArray& data);
+  void evaluateDeveloperValidation();
+  bool hasAnySavePayload() const;
   static QString raceName(quint8 raceId);
   static QString levelLocationName(quint32 currentLevel);
   QString saveFilePath(const QString& fileName) const;
@@ -37,6 +42,40 @@ private:
   quint32 m_CurrentLevelId = 0;
   quint8 m_Race = 0xFF;
   QString m_ClassName;
+
+  bool m_IsEmptySlot = false;
+
+  // Developer detail fields
+  bool m_HasSaveName = false;
+  bool m_HasSaveTree = false;
+  bool m_HasSaveVars = false;
+  bool m_HasImage = false;
+  bool m_PlayerRecordFound = false;
+  bool m_PlayerRecordByTypeFound = false;
+  bool m_PlayerRecordByIdFound = false;
+  bool m_LevelReadFromAlternateOffset = false;
+  bool m_ValidationLikelyModified = false;
+  quint32 m_SaveTreeVersion = 0;
+  quint32 m_SaveTreeTailBytes = 0;
+  quint32 m_CurrentTimestamp = 0;
+  quint32 m_ActiveSpellsMask = 0;
+  quint32 m_CharacterFlagsMask = 0;
+  quint32 m_TeamValue = 0;
+  quint32 m_GoalValue = 0;
+  quint64 m_GoldAccumulator = 0;
+  int m_RecordCountTotal = 0;
+  int m_GoldItemRecordCount = 0;
+  int m_CurrentLevelOffset = -1;
+  int m_ConversationMapCount = 0;
+  int m_StaticEnemyCount = 0;
+  int m_GlobalVariableCount = 0;
+  int m_LocalVariableCount = 0;
+  int m_MonsterTypeCountNonZero = 0;
+  int m_MonsterTypeCountTotal = 0;
+  QHash<int, int> m_RecordTypeCounts;
+  QStringList m_ActiveSpellNames;
+  QStringList m_CharacterFlagNames;
+  QStringList m_ValidationNotes;
 };
 
 #endif  // BATTLESPIRE_SAVEGAME_H

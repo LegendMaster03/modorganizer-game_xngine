@@ -11,6 +11,11 @@ class DaggerfallsModDataContent : public XngineModDataContent
 {
 public:
   using XngineModDataContent::XngineModDataContent;
+
+  virtual std::vector<Content> getAllContents() const override;
+
+  virtual std::vector<int>
+  getContentsFor(std::shared_ptr<const MOBase::IFileTree> fileTree) const override;
 };
 
 #endif  // DAGGERFALLS_MODDATACONTENT_H

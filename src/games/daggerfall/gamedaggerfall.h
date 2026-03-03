@@ -48,10 +48,14 @@ public:  // IPlugin interface
   virtual QString description() const override;
   virtual MOBase::VersionInfo version() const override;
   virtual QList<MOBase::PluginSetting> settings() const override;
+  bool allowJsonPatchInstall() const;
+  bool allowXdeltaPatchInstall() const;
+  bool allowExeModInstall() const;
 
 protected:
   virtual QString identifyGamePath() const override;
   virtual QDir savesDirectory() const override;
+  virtual bool prepareIni(const QString& exec) override;
   virtual QString savegameExtension() const override;
   virtual QString savegameSEExtension() const override;
   virtual std::shared_ptr<const XngineSaveGame> makeSaveGame(QString filepath) const override;
@@ -62,7 +66,15 @@ protected:
   virtual QVector<XngineBSAFormat::FileSpec> bsaFileSpecs() const override;
 
 private:
+#if defined(XNGINE_DAGGERFALL_EXE_PATCHING)
+  bool applyExePatchMods();
+  void ensureExePatchCleanupHook();
+  void cleanupExePatchOutputMod() const;
+#endif
   QString findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const;
+#if defined(XNGINE_DAGGERFALL_EXE_PATCHING)
+  bool m_ExePatchCleanupHookRegistered = false;
+#endif
 };
 
 #endif  // GAMEDAGGERFALL_H

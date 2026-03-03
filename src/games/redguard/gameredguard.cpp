@@ -8,6 +8,7 @@
 #include "redguardsmapfile.h"
 #include "redguardsrtxdatabase.h"
 #include "redguardsutils.h"
+#include "xngineexepatch.h"
 
 #include <executableinfo.h>
 #include <pluginsetting.h>
@@ -45,6 +46,7 @@ using namespace MOBase;
 
 namespace {
 constexpr const char* kPatchTempModPrefix = "__redguard_patch_output_";
+constexpr const char* kGlobalXdeltaPathKey = "xngine/global_xdelta_exe_path";
 
 QString profileSuffix(const QString& profilePath)
 {
@@ -68,6 +70,25 @@ bool removeDirRecursive(const QString& path)
     return true;
   }
   return dir.removeRecursively();
+}
+
+QString readGlobalXdeltaPath()
+{
+  QSettings s;
+  return s.value(kGlobalXdeltaPathKey).toString().trimmed();
+}
+
+void writeGlobalXdeltaPath(const QString& path)
+{
+  if (path.trimmed().isEmpty()) {
+    return;
+  }
+  QSettings s;
+  if (s.value(kGlobalXdeltaPathKey).toString().trimmed() == path.trimmed()) {
+    return;
+  }
+  s.setValue(kGlobalXdeltaPathKey, path.trimmed());
+  s.sync();
 }
 
 bool copyDirectoryContents(const QString& sourceDir, const QString& destDir)
@@ -922,7 +943,60 @@ VersionInfo GameRedguard::version() const
 QList<PluginSetting> GameRedguard::settings() const
 {
   OutputDebugStringA("[GameRedguard] settings() called\n");
-  return QList<PluginSetting>();
+  return {
+      PluginSetting(
+          "allow_dillon241_patch_mod_install",
+          tr("Allow Dillon241 patch mods (About.txt / INI Changes.txt / Map Changes.txt / RTX Changes.txt)."),
+          true),
+      PluginSetting(
+          "xdelta_enabled",
+          tr("Allow .xdelta binary patch mods. Requires the XNGINE patch tool (xdelta.exe) to be installed with MO2/plugin files. WARNING: this is dangerous and may corrupt saves or game data."),
+          false),
+      PluginSetting(
+          "xdelta_exe_path",
+          tr("Optional full path to xdelta.exe/xdelta3.exe. If empty, uses a shared global xdelta path if set, otherwise automatic detection."),
+          ""),
+  };
+}
+
+bool GameRedguard::allowExeModInstall() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  if (!m_Organizer->pluginSetting(name(), "xdelta_enabled").toBool()) {
+    return false;
+  }
+
+  QString configuredTool =
+      m_Organizer->pluginSetting(name(), "xdelta_exe_path").toString().trimmed();
+  if (!configuredTool.isEmpty()) {
+    writeGlobalXdeltaPath(configuredTool);
+  } else {
+    configuredTool = readGlobalXdeltaPath();
+  }
+  const QString resolved =
+      XngineExePatch::findXdeltaTool({}, gameDirectory().absolutePath(), configuredTool);
+  if (!resolved.isEmpty()) {
+    return true;
+  }
+
+  static bool warnedMissingXdelta = false;
+  if (!warnedMissingXdelta) {
+    qWarning().noquote()
+        << "[GameRedguard] .xdelta patch setting is enabled but no xdelta tool was found."
+        << "Set plugin setting 'xdelta_exe_path' or install xdelta.exe in an auto-detected location.";
+    warnedMissingXdelta = true;
+  }
+  return false;
+}
+
+bool GameRedguard::allowDillon241PatchInstall() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  return m_Organizer->pluginSetting(name(), "allow_dillon241_patch_mod_install").toBool();
 }
 
 QString GameRedguard::identifyGamePath() const
@@ -1178,6 +1252,7 @@ bool GameRedguard::applyPatchMods()
   
   int patchModCount = 0;
   QStringList patchFileTypes = {"INI Changes.txt", "Map Changes.txt", "RTX Changes.txt"};
+  const bool allowDillon241 = allowDillon241PatchInstall();
   
   // Scan enabled mods for patch files
   int lastPatchPriority = -1;
@@ -1194,22 +1269,32 @@ bool GameRedguard::applyPatchMods()
       continue;
     }
     
-    // Check for patch files
+    // Check for text/map patch files
     bool hasPatchFiles = false;
     for (const QString& patchFile : patchFileTypes) {
       if (QFile::exists(modDir.absoluteFilePath(patchFile))) {
         if (!hasPatchFiles) {
           qInfo().noquote() << "[GameRedguard] Found patch mod:" << modName;
           hasPatchFiles = true;
-          patchModCount++;
-          patchModsInOrder.append(modName);
         }
         qInfo().noquote() << "[GameRedguard]   - Has" << patchFile;
       }
     }
+    bool hasXdelta = false;
+    QDirIterator xdeltaIt(modPath, QStringList() << "*.xdelta", QDir::Files,
+                          QDirIterator::Subdirectories);
+    while (xdeltaIt.hasNext()) {
+      hasXdelta = true;
+      if (!hasPatchFiles) {
+        qInfo().noquote() << "[GameRedguard] Found xdelta patch mod:" << modName;
+      }
+      qInfo().noquote() << "[GameRedguard]   - Has xdelta:" << xdeltaIt.next();
+    }
 
-    if (hasPatchFiles) {
+    if ((hasPatchFiles && allowDillon241) || (hasXdelta && allowExeModInstall())) {
       lastPatchPriority = modList->priority(modName);
+      patchModCount++;
+      patchModsInOrder.append(modName);
     }
   }
   
@@ -1300,13 +1385,13 @@ bool GameRedguard::applyPatchMods()
     qInfo().noquote() << "[GameRedguard] Applying patch mod:" << modName
                       << "from" << modPath;
 
-    if (QFile::exists(QDir(modPath).filePath("INI Changes.txt"))) {
+    if (allowDillon241 && QFile::exists(QDir(modPath).filePath("INI Changes.txt"))) {
       if (!applyIniChanges(modPath, tempModPath, gameDir)) {
         success = false;
       }
     }
 
-    if (QFile::exists(QDir(modPath).filePath("Map Changes.txt"))) {
+    if (allowDillon241 && QFile::exists(QDir(modPath).filePath("Map Changes.txt"))) {
       const QString changesPath = QDir(modPath).filePath("Map Changes.txt");
       qInfo().noquote() << "[GameRedguard] Parsing Map Changes from" << changesPath;
       if (!combinedMapChanges.readChanges(changesPath)) {
@@ -1317,7 +1402,7 @@ bool GameRedguard::applyPatchMods()
       }
     }
 
-    if (QFile::exists(QDir(modPath).filePath("RTX Changes.txt"))) {
+    if (allowDillon241 && QFile::exists(QDir(modPath).filePath("RTX Changes.txt"))) {
       if (!applyRtxChanges(modPath, tempModPath, gameDir)) {
         success = false;
       }
@@ -1340,6 +1425,46 @@ bool GameRedguard::applyPatchMods()
       if (!copyDirectoryContents(texturesSource, texturesDest)) {
         qWarning().noquote() << "[GameRedguard] Failed to stage Textures for mod:" << modName;
         success = false;
+      }
+    }
+
+    if (allowExeModInstall()) {
+      QDirIterator xdeltaProbe(modPath, QStringList() << "*.xdelta", QDir::Files,
+                               QDirIterator::Subdirectories);
+      if (xdeltaProbe.hasNext()) {
+        const QString configuredTool =
+            m_Organizer->pluginSetting(name(), "xdelta_exe_path").toString().trimmed();
+        QString resolvedConfiguredTool = configuredTool;
+        if (!resolvedConfiguredTool.isEmpty()) {
+            writeGlobalXdeltaPath(resolvedConfiguredTool);
+        } else {
+            resolvedConfiguredTool = readGlobalXdeltaPath();
+        }
+        const QString xdeltaTool =
+            XngineExePatch::findXdeltaTool(modPath, gameDir, resolvedConfiguredTool);
+        if (xdeltaTool.isEmpty()) {
+          qWarning().noquote()
+              << "[GameRedguard] xdelta tool not found for mod:" << modName
+              << "- checked mod/game folders, MO2 folder/tools, XDELTA_EXE, and PATH.";
+          success = false;
+        } else {
+          QDirIterator xdeltaIt(modPath, QStringList() << "*.xdelta", QDir::Files,
+                                QDirIterator::Subdirectories);
+          while (xdeltaIt.hasNext()) {
+            const QString patchFile = xdeltaIt.next();
+            QString matchedRel;
+            QString err;
+            if (!XngineExePatch::applyXdeltaPatchToAnyFileInTree(
+                    xdeltaTool, patchFile, gameDir, tempModPath, &matchedRel, &err)) {
+              qWarning().noquote() << "[GameRedguard] Failed applying .xdelta patch" << patchFile
+                                   << "from mod" << modName << ":" << err;
+              success = false;
+              break;
+            }
+            qInfo().noquote() << "[GameRedguard] Applied .xdelta patch to" << matchedRel
+                              << "from mod" << modName;
+          }
+        }
       }
     }
   }

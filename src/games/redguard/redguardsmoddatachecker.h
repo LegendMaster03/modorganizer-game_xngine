@@ -1,7 +1,9 @@
 #ifndef REDGUARDS_MODDATACHECKER_H
 #define REDGUARDS_MODDATACHECKER_H
 
+#include "gameredguard.h"
 #include <xnginemoddatachecker.h>
+#include <QDebug>
 
 /**
  * Redguard-specific mod data checker.
@@ -21,12 +23,26 @@ public:
     if (!fileTree) {
       return CheckReturn::INVALID;
     }
+    const bool hasExePayload = containsExecutablePayload(fileTree);
+    if (hasExePayload && !isExeInstallAllowed()) {
+      qWarning().noquote()
+          << "[GameRedguard] Rejecting package with REDGUARD.EXE/.xdelta payload because executable patching is disabled by plugin settings.";
+      return CheckReturn::INVALID;
+    }
 
     // Redguard-only patch-instruction indicators
     if (fileTree->find("About.txt", MOBase::IFileTree::FILE) ||
         fileTree->find("INI Changes.txt", MOBase::IFileTree::FILE) ||
         fileTree->find("Map Changes.txt", MOBase::IFileTree::FILE) ||
         fileTree->find("RTX Changes.txt", MOBase::IFileTree::FILE)) {
+      if (!isDillon241PatchInstallAllowed()) {
+        qWarning().noquote()
+            << "[GameRedguard] Rejecting Dillon241 patch package because Dillon241 patching is disabled by plugin settings.";
+        return CheckReturn::INVALID;
+      }
+      return CheckReturn::VALID;
+    }
+    if (hasExePayload) {
       return CheckReturn::VALID;
     }
 
@@ -70,11 +86,51 @@ protected:
         "txt",     // Text files (including Changes.txt)
         "cfg",     // Config files
         "bsa",     // BSA archive (less common for Redguard)
+        "xdelta",  // Binary patch payloads (typically EXE patches)
         "zip",     // Compressed archives
         "7z",      // Compressed archives
         "rar"      // Compressed archives
     };
     return result;
+  }
+
+private:
+  bool isExeInstallAllowed() const
+  {
+    const auto* g = dynamic_cast<const GameRedguard*>(game());
+    return (g != nullptr) ? g->allowExeModInstall() : false;
+  }
+
+  bool isDillon241PatchInstallAllowed() const
+  {
+    const auto* g = dynamic_cast<const GameRedguard*>(game());
+    return (g != nullptr) ? g->allowDillon241PatchInstall() : false;
+  }
+
+  bool containsExecutablePayload(std::shared_ptr<const MOBase::IFileTree> fileTree) const
+  {
+    if (!fileTree) {
+      return false;
+    }
+
+    for (const auto& entry : *fileTree) {
+      if (!entry) {
+        continue;
+      }
+      if (entry->isFile()) {
+        const QString name = entry->name();
+        const QString suffix = entry->suffix().toLower();
+        if (name.compare("REDGUARD.EXE", Qt::CaseInsensitive) == 0 || suffix == "xdelta") {
+          return true;
+        }
+      } else if (entry->isDir()) {
+        auto subtree = fileTree->findDirectory(entry->name());
+        if (subtree && containsExecutablePayload(subtree)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 };
 

@@ -2,6 +2,7 @@
 #include "arenasavegame.h"
 #include "arenadatachecker.h"
 #include "arenamodatacontent.h"
+#include "xngineexepatch.h"
 
 #include <executableinfo.h>
 #include <pluginsetting.h>
@@ -15,16 +16,65 @@
 #include <QIcon>
 #include <QDirIterator>
 #include <QRegularExpression>
+#include <QTextStream>
+#include <QSettings>
 
 #include <Windows.h>
 
 #include "utility.h"
 
 #include <memory>
+#include <algorithm>
 
 using namespace MOBase;
 
 namespace {
+constexpr const char* kExePatchTempModPrefix = "__arena_exe_patch_output_";
+constexpr const char* kGlobalXdeltaPathKey = "xngine/global_xdelta_exe_path";
+
+QString profileSuffix(const QString& profilePath)
+{
+  if (profilePath.isEmpty()) {
+    return "Default";
+  }
+  const QString name = QDir(profilePath).dirName();
+  return name.isEmpty() ? QString("Default") : name;
+}
+
+bool ensureDir(const QString& path)
+{
+  QDir dir;
+  return dir.mkpath(path);
+}
+
+bool removeDirRecursive(const QString& path)
+{
+  QDir dir(path);
+  if (!dir.exists()) {
+    return true;
+  }
+  return dir.removeRecursively();
+}
+
+QString readGlobalXdeltaPath()
+{
+  QSettings s;
+  return s.value(kGlobalXdeltaPathKey).toString().trimmed();
+}
+
+void writeGlobalXdeltaPath(const QString& path)
+{
+  if (path.trimmed().isEmpty()) {
+    return;
+  }
+  QSettings s;
+  if (s.value(kGlobalXdeltaPathKey).toString().trimmed() == path.trimmed()) {
+    return;
+  }
+  s.setValue(kGlobalXdeltaPathKey, path.trimmed());
+  s.sync();
+}
+
 QString firstExistingPath(const QDir& root, const QStringList& relativePaths)
 {
   for (const auto& relPath : relativePaths) {
@@ -105,6 +155,7 @@ bool GameArena::init(IOrganizer* moInfo)
   registerFeature(std::make_shared<XngineSaveGameInfo>(this));
   registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
   registerFeature(std::make_shared<XngineUnmanagedMods>(this));
+  ensureExePatchCleanupHook();
 
   return true;
 }
@@ -384,10 +435,20 @@ VersionInfo GameArena::version() const
 
 QList<PluginSetting> GameArena::settings() const
 {
-  return {PluginSetting(
-      "show_developer_save_details",
-      tr("Show internal Arena save debug details (quest flags, raw values) in save info."),
-      false)};
+  return {
+      PluginSetting(
+          "show_developer_save_details",
+          tr("Show internal Arena save debug details (quest flags, raw values) in save info."),
+          false),
+      PluginSetting(
+          "xdelta_enabled",
+          tr("Allow .xdelta binary patch mods. Requires the XNGINE patch tool (xdelta.exe) to be installed with MO2/plugin files. WARNING: this is dangerous and may corrupt saves or game data."),
+          false),
+      PluginSetting(
+          "xdelta_exe_path",
+          tr("Optional full path to xdelta.exe/xdelta3.exe. If empty, uses a shared global xdelta path if set, otherwise automatic detection."),
+          ""),
+  };
 }
 
 bool GameArena::showDeveloperSaveDetails() const
@@ -396,6 +457,64 @@ bool GameArena::showDeveloperSaveDetails() const
     return false;
   }
   return m_Organizer->pluginSetting(name(), "show_developer_save_details").toBool();
+}
+
+bool GameArena::allowExeModInstall() const
+{
+  return allowJsonPatchInstall() || allowXdeltaPatchInstall();
+}
+
+bool GameArena::allowJsonPatchInstall() const
+{
+  return false;
+}
+
+bool GameArena::allowXdeltaPatchInstall() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  if (!m_Organizer->pluginSetting(name(), "xdelta_enabled").toBool()) {
+    return false;
+  }
+
+  QString configuredTool =
+      m_Organizer->pluginSetting(name(), "xdelta_exe_path").toString().trimmed();
+  if (!configuredTool.isEmpty()) {
+    writeGlobalXdeltaPath(configuredTool);
+  } else {
+    configuredTool = readGlobalXdeltaPath();
+  }
+  const QString resolved =
+      XngineExePatch::findXdeltaTool({}, gameDirectory().absolutePath(), configuredTool);
+  if (!resolved.isEmpty()) {
+    return true;
+  }
+
+  static bool warnedMissingXdelta = false;
+  if (!warnedMissingXdelta) {
+    qWarning().noquote()
+        << "[GameArena] .xdelta patch setting is enabled but no xdelta tool was found."
+        << "Set plugin setting 'xdelta_exe_path' or install xdelta.exe in an auto-detected location.";
+    warnedMissingXdelta = true;
+  }
+  return false;
+}
+
+bool GameArena::prepareIni(const QString& exec)
+{
+  if (!GameXngine::prepareIni(exec)) {
+    return false;
+  }
+
+  if (allowExeModInstall()) {
+    if (!applyExePatchMods()) {
+      qWarning().noquote()
+          << "[GameArena] EXE patch staging failed; continuing launch without generated patch output.";
+    }
+  }
+
+  return true;
 }
 
 QString GameArena::identifyGamePath() const
@@ -554,6 +673,207 @@ SaveLayout GameArena::saveLayout() const
 QString GameArena::saveGameId() const
 {
   return "arena";
+}
+
+void GameArena::ensureExePatchCleanupHook()
+{
+  if (m_ExePatchCleanupHookRegistered || !m_Organizer) {
+    return;
+  }
+  m_Organizer->onFinishedRun([this](const QString&, unsigned int) {
+    cleanupExePatchOutputMod();
+  });
+  m_ExePatchCleanupHookRegistered = true;
+}
+
+void GameArena::cleanupExePatchOutputMod() const
+{
+  if (!m_Organizer) {
+    return;
+  }
+  auto* modList = m_Organizer->modList();
+  if (!modList) {
+    return;
+  }
+
+  const QString tempModName =
+      QString(kExePatchTempModPrefix) + profileSuffix(profilePath());
+  const QString tempModPath = QDir(m_Organizer->modsPath()).filePath(tempModName);
+  if (modList->getMod(tempModName)) {
+    modList->setActive(tempModName, false);
+  }
+  removeDirRecursive(tempModPath);
+}
+
+bool GameArena::applyExePatchMods()
+{
+  if (!m_Organizer) {
+    return false;
+  }
+  auto* modList = m_Organizer->modList();
+  if (!modList) {
+    return false;
+  }
+
+  const bool allowXdelta = allowXdeltaPatchInstall();
+  if (!allowXdelta) {
+    return true;
+  }
+
+  const QStringList exeCandidates = {
+      "Arena/ARENA.EXE", "ARENA/ARENA.EXE", "ARENA.EXE", "ARENA/A.EXE", "Arena/A.EXE", "A.EXE"};
+  const QStringList exeNames = {"ARENA.EXE", "A.EXE"};
+
+  const QStringList allMods = modList->allModsByProfilePriority();
+  if (allMods.isEmpty()) {
+    return true;
+  }
+
+  const QString modsPath = m_Organizer->modsPath();
+  const QString gameDirPath = gameDirectory().absolutePath();
+  const QString tempModName = QString(kExePatchTempModPrefix) + profileSuffix(profilePath());
+  const QString tempModPath = QDir(modsPath).filePath(tempModName);
+
+  struct ModPatchInput
+  {
+    QString modName;
+    QString modPath;
+    QString replacementExePath;
+    QStringList xdeltaPatchFiles;
+  };
+
+  QList<ModPatchInput> patchInputs;
+  int lastPatchPriority = -1;
+  for (const QString& modName : allMods) {
+    if (!(modList->state(modName) & IModList::STATE_ACTIVE)) {
+      continue;
+    }
+    const QString modPath = QDir(modsPath).filePath(modName);
+    if (!QDir(modPath).exists()) {
+      continue;
+    }
+
+    ModPatchInput input;
+    input.modName = modName;
+    input.modPath = modPath;
+
+    input.replacementExePath = XngineExePatch::findFirstExistingFile(modPath, exeCandidates);
+    if (input.replacementExePath.isEmpty()) {
+      input.replacementExePath =
+          XngineExePatch::findFirstMatchingFileRecursive(modPath, exeNames);
+    }
+
+    QDirIterator xdeltaIt(modPath, QStringList() << "*.xdelta", QDir::Files,
+                          QDirIterator::Subdirectories);
+    while (xdeltaIt.hasNext()) {
+      input.xdeltaPatchFiles.push_back(xdeltaIt.next());
+    }
+
+    if (!input.replacementExePath.isEmpty() || !input.xdeltaPatchFiles.isEmpty()) {
+      patchInputs.push_back(input);
+      lastPatchPriority = (std::max)(lastPatchPriority, modList->priority(modName));
+    }
+  }
+
+  if (patchInputs.isEmpty()) {
+    return true;
+  }
+
+  if (!removeDirRecursive(tempModPath)) {
+    qWarning().noquote() << "[GameArena] Failed to clean temp mod path:" << tempModPath;
+  }
+  if (!modList->getMod(tempModName)) {
+    MOBase::GuessedValue<QString> guessedName(tempModName);
+    m_Organizer->createMod(guessedName);
+  }
+  if (!ensureDir(tempModPath)) {
+    qWarning().noquote() << "[GameArena] Failed to create temp mod path:" << tempModPath;
+    return false;
+  }
+
+  const QString metaIniPath = QDir(tempModPath).filePath("meta.ini");
+  QFile metaFile(metaIniPath);
+  if (!metaFile.exists() && metaFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    QTextStream out(&metaFile);
+    out << "[General]\n";
+    out << "name=" << tempModName << "\n";
+    out << "version=1.0\n";
+    out << "author=Mod Organizer\n";
+    out << "description=Temporary Arena executable patch output\n";
+    metaFile.close();
+  }
+
+  if (modList->getMod(tempModName)) {
+    modList->setActive(tempModName, true);
+    if (lastPatchPriority >= 0) {
+      modList->setPriority(tempModName, lastPatchPriority + 1);
+    }
+  }
+
+  bool success = true;
+  for (const ModPatchInput& input : patchInputs) {
+    QString workingExePath = XngineExePatch::findFirstExistingFile(tempModPath, exeCandidates);
+    if (workingExePath.isEmpty()) {
+      workingExePath = XngineExePatch::findFirstExistingFile(gameDirPath, exeCandidates);
+    }
+    if (workingExePath.isEmpty()) {
+      qWarning().noquote() << "[GameArena] Could not find base EXE for patching";
+      success = false;
+      continue;
+    }
+    QString relExePath = QDir(tempModPath).relativeFilePath(workingExePath);
+    if (QDir(tempModPath).relativeFilePath(workingExePath).startsWith("..")) {
+      relExePath = QDir(gameDirPath).relativeFilePath(workingExePath);
+    }
+
+    const QString stagedExePath = QDir(tempModPath).filePath(relExePath);
+    ensureDir(QFileInfo(stagedExePath).absolutePath());
+
+    if (!input.replacementExePath.isEmpty()) {
+      QFile::remove(stagedExePath);
+      if (!QFile::copy(input.replacementExePath, stagedExePath)) {
+        qWarning().noquote() << "[GameArena] Failed staging replacement EXE from mod"
+                             << input.modName;
+        success = false;
+        continue;
+      }
+    } else if (!QFileInfo::exists(stagedExePath)) {
+      QFile::copy(workingExePath, stagedExePath);
+    }
+
+    if (!input.xdeltaPatchFiles.isEmpty()) {
+      QString configuredTool =
+          m_Organizer->pluginSetting(name(), "xdelta_exe_path").toString().trimmed();
+      if (!configuredTool.isEmpty()) {
+        writeGlobalXdeltaPath(configuredTool);
+      } else {
+        configuredTool = readGlobalXdeltaPath();
+      }
+      QString xdeltaTool =
+          XngineExePatch::findXdeltaTool(input.modPath, gameDirPath, configuredTool);
+      if (xdeltaTool.isEmpty()) {
+        qWarning().noquote() << "[GameArena] xdelta tool not found for mod" << input.modName
+                             << "- checked mod/game folders, MO2 folder/tools, XDELTA_EXE, and PATH.";
+        success = false;
+        continue;
+      }
+      for (const QString& patchFile : input.xdeltaPatchFiles) {
+        QString err;
+        QString matchedRel;
+        if (!XngineExePatch::applyXdeltaPatchToAnyFileInTree(
+                xdeltaTool, patchFile, gameDirPath, tempModPath, &matchedRel, &err)) {
+          qWarning().noquote() << "[GameArena] Failed applying .xdelta patch" << patchFile
+                               << "from mod" << input.modName << ":" << err;
+          success = false;
+          break;
+        }
+        qInfo().noquote() << "[GameArena] Applied .xdelta patch to" << matchedRel
+                          << "from mod" << input.modName;
+      }
+    }
+  }
+
+  return success;
 }
 
 QString GameArena::saveSlotPrefix() const

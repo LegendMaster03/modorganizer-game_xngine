@@ -1,17 +1,13 @@
 #include "gamebattlespire.h"
-
-// Game-specific feature classes disabled - using XnGine base implementations instead
-// #include "battlespiredatachecker.h"
-// #include "battlespiremodatacontent.h"
-// #include "battlespireafegame.h"
+#include "battlespiredatachecker.h"
+#include "battlespiremodatacontent.h"
 #include "battlespiresavegame.h"
+#include "xngineexepatch.h"
 
 #include <executableinfo.h>
 #include <pluginsetting.h>
 
 #include <xnginelocalsavegames.h>
-#include <xnginemoddatachecker.h>
-#include <xnginemoddatacontent.h>
 #include <xnginesavegameinfo.h>
 #include <xngineunmanagedmods.h>
 
@@ -23,6 +19,9 @@
 #include <QFile>
 #include <QRegularExpression>
 #include <QIcon>
+#include <QDirIterator>
+#include <QTextStream>
+#include <QSettings>
 
 #include <Windows.h>
 
@@ -31,11 +30,57 @@
 #include <exception>
 #include <memory>
 #include <stdexcept>
+#include <algorithm>
 
 using namespace MOBase;
 
 namespace
 {
+constexpr const char* kExePatchTempModPrefix = "__battlespire_exe_patch_output_";
+constexpr const char* kGlobalXdeltaPathKey = "xngine/global_xdelta_exe_path";
+
+QString profileSuffix(const QString& profilePath)
+{
+  if (profilePath.isEmpty()) {
+    return "Default";
+  }
+  const QString name = QDir(profilePath).dirName();
+  return name.isEmpty() ? QString("Default") : name;
+}
+
+bool ensureDir(const QString& path)
+{
+  QDir dir;
+  return dir.mkpath(path);
+}
+
+bool removeDirRecursive(const QString& path)
+{
+  QDir dir(path);
+  if (!dir.exists()) {
+    return true;
+  }
+  return dir.removeRecursively();
+}
+
+QString readGlobalXdeltaPath()
+{
+  QSettings s;
+  return s.value(kGlobalXdeltaPathKey).toString().trimmed();
+}
+
+void writeGlobalXdeltaPath(const QString& path)
+{
+  if (path.trimmed().isEmpty()) {
+    return;
+  }
+  QSettings s;
+  if (s.value(kGlobalXdeltaPathKey).toString().trimmed() == path.trimmed()) {
+    return;
+  }
+  s.setValue(kGlobalXdeltaPathKey, path.trimmed());
+  s.sync();
+}
 }  // namespace
 
 GameBattlespire::GameBattlespire()
@@ -86,9 +131,12 @@ bool GameBattlespire::init(IOrganizer* moInfo)
     OutputDebugStringA("[GameBattlespire] GameXngine::init() SUCCESS\n");
 
     const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
+    registerFeature(std::make_shared<BattlespiresModDataChecker>(this));
+    registerFeature(std::make_shared<BattlespireModDataContent>(m_Organizer->gameFeatures()));
     registerFeature(std::make_shared<XngineSaveGameInfo>(this));
     registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
     registerFeature(std::make_shared<XngineUnmanagedMods>(this));
+    ensureExePatchCleanupHook();
 
     if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] init() EXIT SUCCESS";
     OutputDebugStringA("[GameBattlespire] init() EXIT SUCCESS\n");
@@ -112,15 +160,11 @@ GameBattlespire::listSaves(QDir folder) const
 
 QString GameBattlespire::gameName() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] gameName() called";
-  OutputDebugStringA("[GameBattlespire] gameName() called\n");
   return "Battlespire";
 }
 
 QString GameBattlespire::displayGameName() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] displayGameName() called";
-  OutputDebugStringA("[GameBattlespire] displayGameName() called\n");
   return "An Elder Scrolls Legend: Battlespire";
 }
 
@@ -218,43 +262,31 @@ QList<MOBase::ExecutableInfo> GameBattlespire::executables() const
 
 QString GameBattlespire::steamAPPId() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] steamAPPId() called";
-  OutputDebugStringA("[GameBattlespire] steamAPPId() called\n");
   return "1812420";
 }
 
 QString GameBattlespire::gogAPPId() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] gogAPPId() called";
-  OutputDebugStringA("[GameBattlespire] gogAPPId() called\n");
   return "1435829464";
 }
 
 QString GameBattlespire::binaryName() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] binaryName() called";
-  OutputDebugStringA("[GameBattlespire] binaryName() called\n");
   return "GAME.EXE";
 }
 
 QString GameBattlespire::gameShortName() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] gameShortName() called";
-  OutputDebugStringA("[GameBattlespire] gameShortName() called\n");
   return "Battlespire";
 }
 
 QString GameBattlespire::gameNexusName() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] gameNexusName() called";
-  OutputDebugStringA("[GameBattlespire] gameNexusName() called\n");
   return "anelderscrollslegendbattlespire";
 }
 
 QStringList GameBattlespire::validShortNames() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] validShortNames() called";
-  OutputDebugStringA("[GameBattlespire] validShortNames() called\n");
   /*
   return {"battlespire", "an elder scrolls legend", "tesbattlespire"};
   */
@@ -314,22 +346,16 @@ XngineBSAFormat::Traits GameBattlespire::bsaTraits() const
 
 int GameBattlespire::nexusModOrganizerID() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] nexusModOrganizerID() called";
-  OutputDebugStringA("[GameBattlespire] nexusModOrganizerID() called\n");
   return 0;  // To be determined
 }
 
 int GameBattlespire::nexusGameID() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] nexusGameID() called";
-  OutputDebugStringA("[GameBattlespire] nexusGameID() called\n");
   return 3495;  // Nexus "games.json" id for An Elder Scrolls Legend: Battlespire
 }
 
 bool GameBattlespire::looksValid(QDir const& path) const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] looksValid() called";
-  OutputDebugStringA("[GameBattlespire] looksValid() called\n");
   return path.exists("GAME.EXE") || path.exists("SPIRE.BAT");
 }
 
@@ -401,37 +427,151 @@ QString GameBattlespire::name() const
 
 QString GameBattlespire::localizedName() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] localizedName() called";
-  OutputDebugStringA("[GameBattlespire] localizedName() called\n");
   return tr("An Elder Scrolls Legend: Battlespire Support Plugin");
 }
 
 QString GameBattlespire::author() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] author() called";
-  OutputDebugStringA("[GameBattlespire] author() called\n");
   return "Legend_Master";
 }
 
 QString GameBattlespire::description() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] description() called";
-  OutputDebugStringA("[GameBattlespire] description() called\n");
   return tr("Adds support for the game An Elder Scrolls Legend: Battlespire");
 }
 
 MOBase::VersionInfo GameBattlespire::version() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] version() called";
-  OutputDebugStringA("[GameBattlespire] version() called\n");
   return VersionInfo(1, 0, 0, VersionInfo::RELEASE_FINAL);
 }
 
 QList<PluginSetting> GameBattlespire::settings() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] settings() called";
-  OutputDebugStringA("[GameBattlespire] settings() called\n");
-  return QList<PluginSetting>();
+  return {
+      PluginSetting(
+          "show_developer_save_details",
+          tr("Show internal Battlespire save debug details (record offsets, flags, validation notes) in save info."),
+          false),
+      PluginSetting(
+          "xdelta_enabled",
+          tr("Allow .xdelta binary patch mods. Requires the XNGINE patch tool (xdelta.exe) to be installed with MO2/plugin files. WARNING: this is dangerous and may corrupt saves or game data."),
+          false),
+      PluginSetting(
+          "xdelta_exe_path",
+          tr("Optional full path to xdelta.exe/xdelta3.exe. If empty, uses a shared global xdelta path if set, otherwise automatic detection."),
+          ""),
+  };
+}
+
+bool GameBattlespire::showDeveloperSaveDetails() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  return m_Organizer->pluginSetting(name(), "show_developer_save_details").toBool();
+}
+
+bool GameBattlespire::allowExeModInstall() const
+{
+  return allowJsonPatchInstall() || allowXdeltaPatchInstall();
+}
+
+bool GameBattlespire::allowJsonPatchInstall() const
+{
+  return false;
+}
+
+bool GameBattlespire::allowXdeltaPatchInstall() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  if (!m_Organizer->pluginSetting(name(), "xdelta_enabled").toBool()) {
+    return false;
+  }
+
+  QString configuredTool =
+      m_Organizer->pluginSetting(name(), "xdelta_exe_path").toString().trimmed();
+  bool usingGlobalFallback = false;
+  if (!configuredTool.isEmpty()) {
+    writeGlobalXdeltaPath(configuredTool);
+  } else {
+    const QString globalConfigured = readGlobalXdeltaPath();
+    if (!globalConfigured.isEmpty()) {
+      configuredTool = globalConfigured;
+      usingGlobalFallback = true;
+    }
+  }
+  const QString gameDirPath = gameDirectory().absolutePath();
+
+  // Prefer explicit user-configured path if provided.
+  if (!configuredTool.isEmpty()) {
+    const QFileInfo configuredInfo(configuredTool);
+    const bool configuredExists = configuredInfo.exists() && configuredInfo.isFile();
+    if (configuredExists) {
+      const QString resolvedConfigured =
+          XngineExePatch::findXdeltaTool({}, gameDirPath, configuredTool);
+      if (!resolvedConfigured.isEmpty()) {
+        if (usingGlobalFallback) {
+          logXdeltaToolStatusOnce(
+              QString("global_ok|%1|%2").arg(configuredTool, resolvedConfigured));
+        } else {
+          logXdeltaToolStatusOnce(QString("configured_ok|%1").arg(resolvedConfigured));
+        }
+        return true;
+      }
+
+      if (usingGlobalFallback) {
+        logXdeltaToolStatusOnce(QString("global_unusable|%1").arg(configuredTool));
+      } else {
+        logXdeltaToolStatusOnce(QString("configured_unusable|%1").arg(configuredTool));
+      }
+    } else {
+      const QString resolvedAuto = XngineExePatch::findXdeltaTool({}, gameDirPath, {});
+      if (!resolvedAuto.isEmpty()) {
+        if (usingGlobalFallback) {
+          logXdeltaToolStatusOnce(
+              QString("global_missing_fallback|%1|%2").arg(configuredTool, resolvedAuto));
+        } else {
+          logXdeltaToolStatusOnce(
+              QString("configured_missing_fallback|%1|%2").arg(configuredTool, resolvedAuto));
+        }
+        return true;
+      }
+
+      if (usingGlobalFallback) {
+        logXdeltaToolStatusOnce(QString("global_missing_no_tool|%1").arg(configuredTool));
+      } else {
+        logXdeltaToolStatusOnce(QString("configured_missing_no_tool|%1").arg(configuredTool));
+      }
+      return false;
+    }
+  }
+
+  const QString resolvedAuto = XngineExePatch::findXdeltaTool({}, gameDirPath, {});
+  if (!resolvedAuto.isEmpty()) {
+    logXdeltaToolStatusOnce(QString("auto_ok|%1").arg(resolvedAuto));
+    return true;
+  }
+
+  logXdeltaToolStatusOnce("no_tool");
+  return false;
+}
+
+bool GameBattlespire::prepareIni(const QString& exec)
+{
+  if (!GameXngine::prepareIni(exec)) {
+    return false;
+  }
+
+  if (allowExeModInstall()) {
+    if (!applyExePatchMods()) {
+      qWarning().noquote()
+          << "[GameBattlespire] EXE patch staging failed; continuing launch without generated patch output.";
+    }
+  }
+
+  return true;
 }
 
 QString GameBattlespire::identifyGamePath() const
@@ -502,22 +642,16 @@ QDir GameBattlespire::savesDirectory() const
 
 QString GameBattlespire::savegameExtension() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] savegameExtension() called (disabled for isolation)";
-  OutputDebugStringA("[GameBattlespire] savegameExtension() called\n");
   return {};
 }
 
 QString GameBattlespire::savegameSEExtension() const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] savegameSEExtension() called (disabled for isolation)";
-  OutputDebugStringA("[GameBattlespire] savegameSEExtension() called\n");
   return {};
 }
 
 std::shared_ptr<const XngineSaveGame> GameBattlespire::makeSaveGame(QString filepath) const
 {
-  if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] makeSaveGame() called";
-  OutputDebugStringA("[GameBattlespire] makeSaveGame() called\n");
   return std::make_shared<BattlespireSaveGame>(filepath, this);
 }
 
@@ -537,6 +671,302 @@ SaveLayout GameBattlespire::saveLayout() const
 QString GameBattlespire::saveGameId() const
 {
   return "battlespire";
+}
+
+void GameBattlespire::ensureExePatchCleanupHook()
+{
+  if (m_ExePatchCleanupHookRegistered || !m_Organizer) {
+    return;
+  }
+  m_Organizer->onFinishedRun([this](const QString&, unsigned int) {
+    cleanupExePatchOutputMod();
+  });
+  m_ExePatchCleanupHookRegistered = true;
+}
+
+void GameBattlespire::cleanupExePatchOutputMod() const
+{
+  if (!m_Organizer) {
+    return;
+  }
+  auto* modList = m_Organizer->modList();
+  if (!modList) {
+    return;
+  }
+
+  const QString tempModName =
+      QString(kExePatchTempModPrefix) + profileSuffix(profilePath());
+  const QString tempModPath = QDir(m_Organizer->modsPath()).filePath(tempModName);
+  if (modList->getMod(tempModName)) {
+    modList->setActive(tempModName, false);
+  }
+  const bool removed = removeDirRecursive(tempModPath);
+  if (!removed) {
+    qWarning().noquote() << "[GameBattlespire] Failed to remove temp patch mod directory:"
+                         << tempModPath;
+  }
+}
+
+void GameBattlespire::logXdeltaToolStatusOnce(const QString& status) const
+{
+  if (m_LastXdeltaToolStatus == status) {
+    return;
+  }
+  m_LastXdeltaToolStatus = status;
+
+  const QStringList parts = status.split('|');
+  const QString kind = parts.value(0);
+
+  if (kind == "configured_ok") {
+    qInfo().noquote() << "[GameBattlespire] xdelta tool path is valid (plugin setting):"
+                      << parts.value(1);
+    return;
+  }
+  if (kind == "global_ok") {
+    qInfo().noquote() << "[GameBattlespire] Using global xdelta path from shared settings:"
+                      << parts.value(1)
+                      << "(resolved to:" << parts.value(2) << ")";
+    return;
+  }
+  if (kind == "configured_unusable") {
+    qWarning().noquote() << "[GameBattlespire] xdelta_exe_path is set but could not be used:"
+                         << parts.value(1);
+    return;
+  }
+  if (kind == "global_unusable") {
+    qWarning().noquote()
+        << "[GameBattlespire] Global xdelta path is set but could not be used:"
+        << parts.value(1);
+    return;
+  }
+  if (kind == "configured_missing_fallback") {
+    qWarning().noquote() << "[GameBattlespire] xdelta_exe_path does not exist:"
+                         << parts.value(1)
+                         << "- using auto-detected xdelta tool:"
+                         << parts.value(2);
+    return;
+  }
+  if (kind == "global_missing_fallback") {
+    qWarning().noquote() << "[GameBattlespire] Global xdelta path does not exist:"
+                         << parts.value(1)
+                         << "- using auto-detected xdelta tool:"
+                         << parts.value(2);
+    return;
+  }
+  if (kind == "configured_missing_no_tool") {
+    qWarning().noquote() << "[GameBattlespire] xdelta_exe_path does not exist:"
+                         << parts.value(1)
+                         << "- and no auto-detected xdelta tool was found.";
+    return;
+  }
+  if (kind == "global_missing_no_tool") {
+    qWarning().noquote() << "[GameBattlespire] Global xdelta path does not exist:"
+                         << parts.value(1)
+                         << "- and no auto-detected xdelta tool was found.";
+    return;
+  }
+  if (kind == "auto_ok") {
+    qInfo().noquote() << "[GameBattlespire] xdelta tool auto-detected at:" << parts.value(1);
+    return;
+  }
+
+  qWarning().noquote()
+      << "[GameBattlespire] .xdelta patch setting is enabled but no xdelta tool was found."
+      << "Set plugin setting 'xdelta_exe_path' or install xdelta.exe in an auto-detected location.";
+}
+
+bool GameBattlespire::applyExePatchMods()
+{
+  if (!m_Organizer) {
+    return false;
+  }
+  const bool allowXdelta = allowXdeltaPatchInstall();
+  if (!allowXdelta) {
+    return true;
+  }
+  auto* modList = m_Organizer->modList();
+  if (!modList) {
+    return false;
+  }
+
+  const QStringList exeCandidates = {"GAME.EXE"};
+  const QStringList exeNames = {"GAME.EXE"};
+  const QStringList allMods = modList->allModsByProfilePriority();
+  if (allMods.isEmpty()) {
+    return true;
+  }
+
+  const QString modsPath = m_Organizer->modsPath();
+  const QString gameDirPath = gameDirectory().absolutePath();
+  const QString tempModName = QString(kExePatchTempModPrefix) + profileSuffix(profilePath());
+  const QString tempModPath = QDir(modsPath).filePath(tempModName);
+  qInfo().noquote() << "[GameBattlespire] applyExePatchMods() start:"
+                    << "allowXdelta=" << allowXdelta
+                    << "gameDir=" << gameDirPath
+                    << "modsPath=" << modsPath
+                    << "tempModPath=" << tempModPath;
+
+  struct ModPatchInput
+  {
+    QString modName;
+    QString modPath;
+    QString replacementExePath;
+    QStringList xdeltaPatchFiles;
+  };
+
+  QList<ModPatchInput> patchInputs;
+  int lastPatchPriority = -1;
+  for (const QString& modName : allMods) {
+    if (!(modList->state(modName) & IModList::STATE_ACTIVE)) {
+      continue;
+    }
+    const QString modPath = QDir(modsPath).filePath(modName);
+    if (!QDir(modPath).exists()) {
+      continue;
+    }
+    ModPatchInput input;
+    input.modName = modName;
+    input.modPath = modPath;
+
+    input.replacementExePath = XngineExePatch::findFirstExistingFile(modPath, exeCandidates);
+    if (input.replacementExePath.isEmpty()) {
+      input.replacementExePath =
+          XngineExePatch::findFirstMatchingFileRecursive(modPath, exeNames);
+    }
+
+    if (allowXdelta) {
+      QDirIterator xdeltaIt(modPath, QStringList() << "*.xdelta", QDir::Files,
+                            QDirIterator::Subdirectories);
+      while (xdeltaIt.hasNext()) {
+        input.xdeltaPatchFiles.push_back(xdeltaIt.next());
+      }
+    }
+
+    if (!input.replacementExePath.isEmpty() || !input.xdeltaPatchFiles.isEmpty()) {
+      patchInputs.push_back(input);
+      lastPatchPriority = (std::max)(lastPatchPriority, modList->priority(modName));
+      qInfo().noquote() << "[GameBattlespire] Patch input detected:"
+                        << "mod=" << modName
+                        << "replacementExe="
+                        << (input.replacementExePath.isEmpty() ? "<none>"
+                                                               : input.replacementExePath)
+                        << "xdeltaCount=" << input.xdeltaPatchFiles.size();
+      for (const QString& patchFile : input.xdeltaPatchFiles) {
+        qInfo().noquote() << "[GameBattlespire]  - xdelta patch file:" << patchFile;
+      }
+    }
+  }
+
+  if (patchInputs.isEmpty()) {
+    qInfo().noquote() << "[GameBattlespire] applyExePatchMods(): no eligible patch mods found.";
+    return true;
+  }
+
+  removeDirRecursive(tempModPath);
+  if (!modList->getMod(tempModName)) {
+    MOBase::GuessedValue<QString> guessedName(tempModName);
+    m_Organizer->createMod(guessedName);
+  }
+  if (!ensureDir(tempModPath)) {
+    qWarning().noquote() << "[GameBattlespire] Failed to create temp mod path:" << tempModPath;
+    return false;
+  }
+  qInfo().noquote() << "[GameBattlespire] Temp patch mod directory ready:" << tempModPath;
+
+  const QString metaIniPath = QDir(tempModPath).filePath("meta.ini");
+  QFile metaFile(metaIniPath);
+  if (!metaFile.exists() && metaFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    QTextStream out(&metaFile);
+    out << "[General]\n";
+    out << "name=" << tempModName << "\n";
+    out << "version=1.0\n";
+    out << "author=Mod Organizer\n";
+    out << "description=Temporary Battlespire executable patch output\n";
+    metaFile.close();
+  }
+
+  if (modList->getMod(tempModName)) {
+    modList->setActive(tempModName, true);
+    if (lastPatchPriority >= 0) {
+      modList->setPriority(tempModName, lastPatchPriority + 1);
+    }
+  }
+
+  bool success = true;
+  for (const ModPatchInput& input : patchInputs) {
+    qInfo().noquote() << "[GameBattlespire] Applying patch mod:" << input.modName;
+    QString workingExePath = XngineExePatch::findFirstExistingFile(tempModPath, exeCandidates);
+    if (workingExePath.isEmpty()) {
+      workingExePath = XngineExePatch::findFirstExistingFile(gameDirPath, exeCandidates);
+    }
+    if (workingExePath.isEmpty()) {
+      qWarning().noquote() << "[GameBattlespire] Could not find GAME.EXE for patching";
+      success = false;
+      continue;
+    }
+
+    QString relExePath = QDir(tempModPath).relativeFilePath(workingExePath);
+    if (relExePath.startsWith("..")) {
+      relExePath = QDir(gameDirPath).relativeFilePath(workingExePath);
+    }
+    const QString stagedExePath = QDir(tempModPath).filePath(relExePath);
+    ensureDir(QFileInfo(stagedExePath).absolutePath());
+    qInfo().noquote() << "[GameBattlespire]  workingExePath:" << workingExePath;
+    qInfo().noquote() << "[GameBattlespire]  stagedExePath :" << stagedExePath;
+
+    if (!input.replacementExePath.isEmpty()) {
+      QFile::remove(stagedExePath);
+      if (!QFile::copy(input.replacementExePath, stagedExePath)) {
+        qWarning().noquote() << "[GameBattlespire] Failed staging replacement EXE from mod"
+                             << input.modName;
+        success = false;
+        continue;
+      }
+      qInfo().noquote() << "[GameBattlespire]  staged replacement EXE from:"
+                        << input.replacementExePath;
+    } else if (!QFileInfo::exists(stagedExePath)) {
+      QFile::copy(workingExePath, stagedExePath);
+      qInfo().noquote() << "[GameBattlespire]  seeded staged EXE from game file.";
+    }
+
+    if (!input.xdeltaPatchFiles.isEmpty()) {
+      QString configuredTool =
+          m_Organizer->pluginSetting(name(), "xdelta_exe_path").toString().trimmed();
+      if (configuredTool.isEmpty()) {
+        configuredTool = readGlobalXdeltaPath();
+      } else {
+        writeGlobalXdeltaPath(configuredTool);
+      }
+      QString xdeltaTool =
+          XngineExePatch::findXdeltaTool(input.modPath, gameDirPath, configuredTool);
+      if (xdeltaTool.isEmpty()) {
+        qWarning().noquote()
+            << "[GameBattlespire] xdelta tool not found for mod" << input.modName
+            << "- checked mod/game folders, MO2 folder/tools, XDELTA_EXE, and PATH.";
+        success = false;
+        continue;
+      }
+      qInfo().noquote() << "[GameBattlespire]  xdelta tool resolved to:" << xdeltaTool;
+      for (const QString& patchFile : input.xdeltaPatchFiles) {
+        qInfo().noquote() << "[GameBattlespire]  applying xdelta patch:" << patchFile;
+        QString err;
+        QString matchedRel;
+        if (!XngineExePatch::applyXdeltaPatchToAnyFileInTree(
+                xdeltaTool, patchFile, gameDirPath, tempModPath, &matchedRel, &err)) {
+          qWarning().noquote() << "[GameBattlespire] Failed applying .xdelta patch" << patchFile
+                               << "from mod" << input.modName << ":" << err;
+          success = false;
+          break;
+        }
+        qInfo().noquote() << "[GameBattlespire] Applied .xdelta patch to" << matchedRel
+                          << "from mod" << input.modName;
+      }
+    }
+  }
+
+  qInfo().noquote() << "[GameBattlespire] applyExePatchMods() done. success=" << success
+                    << "tempModPath=" << tempModPath;
+  return success;
 }
 
 QString GameBattlespire::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const

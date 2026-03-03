@@ -32,6 +32,23 @@ constexpr bool kLogSaveParsing = false;
 constexpr quint32 kPlayerRecordId = 50000U;  // 0x0000C350
 constexpr quint16 kItemIdGoldPieces = 33;
 
+int expectedRecordLength(quint8 type)
+{
+  // SAVETREE "RecordLength" excludes its own 4-byte length field.
+  switch (type) {
+    case 2: return 816;
+    case 3: return 852;
+    case 6: return 172;
+    case 7: return 62;
+    case 9: return 180;
+    case 18: return 852;
+    case 23: return 66;
+    case 51: return 1266;
+    case 66: return 510;
+    default: return -1;
+  }
+}
+
 template <typename T>
 bool readLE(const QByteArray& data, qsizetype offset, T& value)
 {
@@ -97,6 +114,51 @@ bool loadBattlespirePalette(const GameBattlespire* game, std::array<QColor, 256>
   }
   return false;
 }
+
+QStringList decodeBitFlags(quint32 mask, const QStringList& names)
+{
+  QStringList out;
+  for (int bit = 0; bit < names.size() && bit < 32; ++bit) {
+    if (mask & (1u << bit)) {
+      const auto& name = names.at(bit);
+      if (!name.isEmpty()) {
+        out.push_back(name);
+      }
+    }
+  }
+  return out;
+}
+
+QStringList activeSpellNamesFromMask(quint32 mask)
+{
+  static const QStringList kSpellArray = {
+      "Unused",         "Monster Summoning", "Detect Spell",     "Detect Enemy",
+      "Detect Invis",   "Invisibility",      "Shadow",           "Chameleon",
+      "Slow Fall",      "Continuous Damage", "Poison",           "Confusion",
+      "Vampiric Drain", "Delayed Damage",    "Dispel Magic",     "Spell Reflect",
+      "Spell Resist",   "Spell Absorption",  "Cause Damage",     "Fire Shield",
+      "Cure Poison",    "Cure Health",       "Jumping",          "Running",
+      "Etherealness",   "Teleport",          "Shield",           "Resistance",
+      "Slow",           "Haste",             "Strength",         "Dispel Sigil",
+  };
+  return decodeBitFlags(mask, kSpellArray);
+}
+
+QStringList characterFlagNamesFromMask(quint32 mask)
+{
+  // Only expose known/useful names; unknown bits remain in raw mask.
+  static const QStringList kCharacterFlags = {
+      "",          "",          "Detected",   "IsFemale",
+      "",          "",          "Sneaking",   "CursorMode",
+      "",          "",          "LanternOn",  "IsFemale2",
+      "",          "",          "",           "",
+      "",          "",          "",           "",
+      "",          "",          "",           "",
+      "",          "",          "",           "",
+      "",          "",          "",           "",
+  };
+  return decodeBitFlags(mask, kCharacterFlags);
+}
 }  // namespace
 
 BattlespireSaveGame::BattlespireSaveGame(QString const& folder,
@@ -109,6 +171,9 @@ BattlespireSaveGame::BattlespireSaveGame(QString const& folder,
   parseSaveName();
   parseSaveTree();
   parseSaveVars();
+  m_HasImage = QFileInfo::exists(saveFilePath("IMAGE.RAW"));
+  evaluateDeveloperValidation();
+  m_IsEmptySlot = !hasAnySavePayload();
 
   if (m_PCName.isEmpty() && !m_DisplayName.isEmpty() &&
       !m_DisplayName.startsWith("SAVE", Qt::CaseInsensitive)) {
@@ -143,6 +208,11 @@ QString BattlespireSaveGame::getSaveGroupIdentifier() const
 
 QString BattlespireSaveGame::getGameDetails() const
 {
+  const bool kShowDeveloperDetails =
+      (static_cast<const GameBattlespire*>(m_Game) != nullptr)
+          ? static_cast<const GameBattlespire*>(m_Game)->showDeveloperSaveDetails()
+          : false;
+
   QStringList lines;
 
   const QString race = raceName(m_Race);
@@ -158,8 +228,93 @@ QString BattlespireSaveGame::getGameDetails() const
   if (m_SpellPointsMax > 0) {
     lines.push_back(QString("MP: %1/%2").arg(m_SpellPoints).arg(m_SpellPointsMax));
   }
-  if (m_Gold > 0) {
-    lines.push_back(QString("Gold: %1").arg(m_Gold));
+  lines.push_back(QString("Gold: %1").arg(m_Gold));
+
+  if (kShowDeveloperDetails && !m_IsEmptySlot) {
+    lines.push_back("");
+    lines.push_back("[Developer Details]");
+    lines.push_back(QString("Save Validation: %1")
+                        .arg(m_ValidationLikelyModified ? "Has structural anomalies"
+                                                        : "No structural anomalies detected"));
+    if (m_ValidationLikelyModified) {
+      constexpr int kMaxNotes = 5;
+      const int shown =
+          (std::min<int>)(kMaxNotes, static_cast<int>(m_ValidationNotes.size()));
+      for (int i = 0; i < shown; ++i) {
+        lines.push_back(QString(" - %1").arg(m_ValidationNotes.at(i)));
+      }
+      if (m_ValidationNotes.size() > shown) {
+        lines.push_back(QString(" - ... %1 more").arg(m_ValidationNotes.size() - shown));
+      }
+    }
+    if (m_LevelReadFromAlternateOffset || m_SaveTreeTailBytes > 0) {
+      lines.push_back("Parse Notes:");
+      if (m_LevelReadFromAlternateOffset) {
+        lines.push_back(" - CurrentLevel read from alternate offset 1051");
+      }
+      if (m_SaveTreeTailBytes > 0) {
+        lines.push_back(
+            QString(" - SAVETREE trailing section present (%1 bytes)").arg(m_SaveTreeTailBytes));
+      }
+    }
+    lines.push_back(QString("Payload Files: SAVENAME=%1, SAVETREE=%2, SAVEVARS=%3, IMAGE=%4")
+                        .arg(m_HasSaveName ? "yes" : "no")
+                        .arg(m_HasSaveTree ? "yes" : "no")
+                        .arg(m_HasSaveVars ? "yes" : "no")
+                        .arg(m_HasImage ? "yes" : "no"));
+    lines.push_back(QString("SAVETREE Header Version: %1").arg(m_SaveTreeVersion));
+    lines.push_back(QString("SAVETREE Record Count: %1").arg(m_RecordCountTotal));
+    if (!m_RecordTypeCounts.isEmpty()) {
+      QStringList typeCounts;
+      const QList<int> keys = m_RecordTypeCounts.keys();
+      for (const auto type : keys) {
+        typeCounts.push_back(QString("T%1=%2").arg(type).arg(m_RecordTypeCounts.value(type)));
+      }
+      lines.push_back(QString("SAVETREE Types: %1").arg(typeCounts.join(", ")));
+    }
+    lines.push_back(
+        QString("Player Record Found: %1 (type=%2, id=%3)")
+            .arg(m_PlayerRecordFound ? "yes" : "no")
+            .arg(m_PlayerRecordByTypeFound ? "yes" : "no")
+            .arg(m_PlayerRecordByIdFound ? "yes" : "no"));
+    lines.push_back(QString("Gold Scan: total=%1 from %2 item records")
+                        .arg(m_GoldAccumulator)
+                        .arg(m_GoldItemRecordCount));
+    lines.push_back(QString("Current Level ID: %1 (offset %2)")
+                        .arg(m_CurrentLevelId)
+                        .arg(m_CurrentLevelOffset >= 0 ? QString::number(m_CurrentLevelOffset)
+                                                       : QString("?")));
+    if (m_CurrentTimestamp > 0) {
+    lines.push_back(QString("Current Timestamp: %1").arg(m_CurrentTimestamp));
+    }
+    lines.push_back(QString("Active Spells Mask: 0x%1")
+                        .arg(m_ActiveSpellsMask, 8, 16, QChar('0')).toUpper());
+    if (!m_ActiveSpellNames.isEmpty()) {
+      constexpr int kMaxSpellNames = 8;
+      QStringList shown = m_ActiveSpellNames.mid(0, kMaxSpellNames);
+      QString suffix;
+      if (m_ActiveSpellNames.size() > kMaxSpellNames) {
+        suffix = QString(" (+%1 more)").arg(m_ActiveSpellNames.size() - kMaxSpellNames);
+      }
+      lines.push_back(QString("Active Spells: %1%2").arg(shown.join(", ")).arg(suffix));
+    }
+    lines.push_back(QString("Character Flags: 0x%1")
+                        .arg(m_CharacterFlagsMask, 8, 16, QChar('0')).toUpper());
+    if (!m_CharacterFlagNames.isEmpty()) {
+      lines.push_back(QString("Character Flags Set: %1").arg(m_CharacterFlagNames.join(", ")));
+    }
+    lines.push_back(QString("AI Team/Goal: %1 / %2").arg(m_TeamValue).arg(m_GoalValue));
+    lines.push_back(QString("SAVEVARS Summary: ConversationMap=%1, StaticEnemy=%2, GlobalVars=%3, LocalVars=%4")
+                        .arg(m_ConversationMapCount)
+                        .arg(m_StaticEnemyCount)
+                        .arg(m_GlobalVariableCount)
+                        .arg(m_LocalVariableCount));
+    lines.push_back(QString("MonsterTypeCount: non-zero=%1, total=%2")
+                        .arg(m_MonsterTypeCountNonZero)
+                        .arg(m_MonsterTypeCountTotal));
+    if (m_SaveTreeTailBytes > 0) {
+      lines.push_back(QString("SAVETREE Trailing Bytes: %1").arg(m_SaveTreeTailBytes));
+    }
   }
 
   return lines.join('\n');
@@ -217,6 +372,7 @@ bool BattlespireSaveGame::parseSaveName()
   if (!saveNameFile.open(QIODevice::ReadOnly)) {
     return false;
   }
+  m_HasSaveName = true;
 
   QByteArray bytes = saveNameFile.read(kSaveNameLength);
   if (bytes.isEmpty()) {
@@ -243,16 +399,24 @@ bool BattlespireSaveGame::parseSaveTree()
   if (!saveTreeFile.open(QIODevice::ReadOnly)) {
     return false;
   }
+  m_HasSaveTree = true;
 
   const QByteArray data = saveTreeFile.readAll();
   if (data.size() < 8) {
     return false;
   }
 
+  readLE(data, 0, m_SaveTreeVersion);
   qsizetype pos = 4;  // 4-byte file version/header
   bool foundPlayerRecord = false;
   quint64 goldTotal = 0;
   m_Gold = 0;
+  m_RecordCountTotal = 0;
+  m_RecordTypeCounts.clear();
+  m_PlayerRecordByTypeFound = false;
+  m_PlayerRecordByIdFound = false;
+  m_GoldItemRecordCount = 0;
+  m_GoldAccumulator = 0;
   while (pos + 5 <= data.size()) {
     quint32 recordLength = 0;
     if (!readLE(data, pos, recordLength)) {
@@ -268,6 +432,16 @@ bool BattlespireSaveGame::parseSaveTree()
     }
 
     const quint8 recordType = static_cast<quint8>(data.at(pos + 4));
+    ++m_RecordCountTotal;
+    m_RecordTypeCounts[recordType] = m_RecordTypeCounts.value(recordType) + 1;
+    const int expectedLength = expectedRecordLength(recordType);
+    if (expectedLength > 0 && static_cast<int>(recordLength) != expectedLength) {
+      m_ValidationNotes.push_back(
+          QString("Record length mismatch for type %1: got %2 expected %3")
+              .arg(recordType)
+              .arg(recordLength)
+              .arg(expectedLength));
+    }
     const qsizetype recordEnd = pos + totalLength;
     auto hasBytes = [recordEnd](qsizetype at, qsizetype size) {
         return at >= 0 && size >= 0 && at + size <= recordEnd;
@@ -280,6 +454,8 @@ bool BattlespireSaveGame::parseSaveTree()
 
     if (isPlayerRecordByType || isPlayerRecordById) {
       foundPlayerRecord = true;
+      m_PlayerRecordByTypeFound = m_PlayerRecordByTypeFound || isPlayerRecordByType;
+      m_PlayerRecordByIdFound = m_PlayerRecordByIdFound || isPlayerRecordById;
 
       if (hasBytes(pos + 65, 32)) {
         const QString name = readFixedString(data, pos + 65, 32);
@@ -331,13 +507,19 @@ bool BattlespireSaveGame::parseSaveTree()
           readLE(data, pos + 61, parentId) && itemId == kItemIdGoldPieces &&
           parentId == kPlayerRecordId) {
         goldTotal += quantity;
+        ++m_GoldItemRecordCount;
       }
     }
 
     pos += totalLength;
   }
 
+  if (pos < data.size()) {
+    m_SaveTreeTailBytes = static_cast<quint32>(data.size() - pos);
+  }
   m_Gold = static_cast<quint32>(std::min<quint64>(goldTotal, 0xFFFFFFFFULL));
+  m_GoldAccumulator = goldTotal;
+  m_PlayerRecordFound = foundPlayerRecord;
 
   return foundPlayerRecord;
 }
@@ -348,6 +530,7 @@ bool BattlespireSaveGame::parseSaveVars()
   if (!saveVarsFile.open(QIODevice::ReadOnly)) {
     return false;
   }
+  m_HasSaveVars = true;
 
   const QByteArray data = saveVarsFile.readAll();
   if (data.size() < 1072) {
@@ -374,6 +557,79 @@ bool BattlespireSaveGame::parseSaveVars()
   }
 
   m_CurrentLevelId = currentLevel;
+  m_CurrentLevelOffset = static_cast<int>(levelOffset);
+  m_LevelReadFromAlternateOffset = (levelOffset == 1051);
+
+  readLE(data, 1055, m_CurrentTimestamp);
+
+  auto countFixedRecords = [&](qsizetype start, qsizetype bytesPerRecord, qsizetype maxRecords,
+                               auto&& recordHasData) {
+    int count = 0;
+    if (start < 0 || bytesPerRecord <= 0 || maxRecords <= 0) {
+      return count;
+    }
+    for (qsizetype i = 0; i < maxRecords; ++i) {
+      const qsizetype off = start + i * bytesPerRecord;
+      if (off + bytesPerRecord > data.size()) {
+        break;
+      }
+      const QByteArray rec = data.mid(off, bytesPerRecord);
+      if (recordHasData(rec)) {
+        ++count;
+      }
+    }
+    return count;
+  };
+
+  // SAVEVARS block summaries from documented fixed-layout offsets.
+  m_ConversationMapCount = countFixedRecords(
+      4492, 8, 128, [](const QByteArray& rec) {
+        quint32 id = 0;
+        std::memcpy(&id, rec.constData(), sizeof(id));
+        return qFromLittleEndian(id) != 0;
+      });
+
+  m_StaticEnemyCount = countFixedRecords(
+      5520, 56, 128, [](const QByteArray& rec) {
+        quint32 id = 0;
+        std::memcpy(&id, rec.constData(), sizeof(id));
+        return qFromLittleEndian(id) != 0;
+      });
+
+  m_GlobalVariableCount = countFixedRecords(
+      15237, 8, 1344, [](const QByteArray& rec) {
+        quint32 hash = 0;
+        std::memcpy(&hash, rec.constData(), sizeof(hash));
+        return qFromLittleEndian(hash) != 0;
+      });
+
+  m_LocalVariableCount = countFixedRecords(
+      25989, 68, 128, [](const QByteArray& rec) {
+        quint32 id = 0;
+        std::memcpy(&id, rec.constData(), sizeof(id));
+        if (qFromLittleEndian(id) != 0) {
+          return true;
+        }
+        // Some records may have zeroed ID but populated var hashes/values.
+        for (int i = 4; i < rec.size(); ++i) {
+          if (static_cast<unsigned char>(rec.at(i)) != 0) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+  m_MonsterTypeCountNonZero = 0;
+  m_MonsterTypeCountTotal = 0;
+  if (34693 + 16 <= data.size()) {
+    for (int i = 0; i < 16; ++i) {
+      const int v = static_cast<unsigned char>(data.at(34693 + i));
+      m_MonsterTypeCountTotal += v;
+      if (v > 0) {
+        ++m_MonsterTypeCountNonZero;
+      }
+    }
+  }
 
   const QString locationName = levelLocationName(currentLevel);
   if (!locationName.isEmpty()) {
@@ -423,6 +679,13 @@ bool BattlespireSaveGame::parsePlayerBlockFromSaveVars(const QByteArray& data)
     m_Race = race;
   }
 
+  readLE(data, 435, m_ActiveSpellsMask);
+  readLE(data, 615, m_CharacterFlagsMask);
+  readLE(data, 623, m_TeamValue);
+  readLE(data, 627, m_GoalValue);
+  m_ActiveSpellNames = activeSpellNamesFromMask(m_ActiveSpellsMask);
+  m_CharacterFlagNames = characterFlagNamesFromMask(m_CharacterFlagsMask);
+
   quint16 sp = 0;
   quint16 spMax = 0;
   qint32 wounds = 0;
@@ -441,6 +704,39 @@ bool BattlespireSaveGame::parsePlayerBlockFromSaveVars(const QByteArray& data)
   }
 
   return true;
+}
+
+void BattlespireSaveGame::evaluateDeveloperValidation()
+{
+  m_ValidationLikelyModified = false;
+  m_ValidationNotes.clear();
+
+  if (!m_HasSaveTree) {
+    m_ValidationNotes.push_back("SAVETREE.DAT missing or unreadable");
+  }
+  if (!m_HasSaveVars) {
+    m_ValidationNotes.push_back("SAVEVARS.DAT missing or unreadable");
+  }
+  if (!m_PlayerRecordFound) {
+    m_ValidationNotes.push_back("Player record not found in SAVETREE");
+  }
+  if (m_GoldAccumulator > 0xFFFFFFFFULL) {
+    m_ValidationNotes.push_back("Gold total exceeded uint32 range before clamp");
+  }
+
+  m_ValidationLikelyModified = !m_ValidationNotes.isEmpty();
+}
+
+bool BattlespireSaveGame::hasAnySavePayload() const
+{
+  if (m_HasSaveName || m_HasSaveTree || m_HasSaveVars || m_HasImage) {
+    return true;
+  }
+
+  return QFileInfo::exists(saveFilePath("SAVENAME.DAT")) ||
+         QFileInfo::exists(saveFilePath("SAVETREE.DAT")) ||
+         QFileInfo::exists(saveFilePath("SAVEVARS.DAT")) ||
+         QFileInfo::exists(saveFilePath("IMAGE.RAW"));
 }
 
 QString BattlespireSaveGame::raceName(quint8 raceId)

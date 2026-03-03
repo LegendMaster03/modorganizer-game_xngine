@@ -9,6 +9,8 @@ add_library(xngine STATIC
 	xnginearchiveextractor.h
 	xnginearchiveextractorfeature.cpp
 	xnginearchiveextractorfeature.h
+	xngineexepatch.cpp
+	xngineexepatch.h
 	xnginebsaformat.cpp
 	xnginebsaformat.h
 	xngine3dformat.cpp
