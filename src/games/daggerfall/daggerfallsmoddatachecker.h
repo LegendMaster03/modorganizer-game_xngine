@@ -45,27 +45,32 @@ public:
     const bool allowUnity = isUnityModFormatAllowed();
     if (hasExePayload && !isAnyPatchInstallAllowed()) {
       qWarning().noquote()
-          << "[GameDaggerfall] Rejecting package with EXE payload because binary patching is disabled by plugin settings.";
+          << "[GameDaggerfall] Rejecting package with EXE payload because executable/binary patch installs are disabled."
+          << "Enable 'allow_json_patch_mod_install' and/or 'xdelta_enabled' in plugin settings to allow patch payloads.";
       return CheckReturn::INVALID;
     }
     if (hasJsonCatalog && !isJsonPatchInstallAllowed()) {
       qWarning().noquote()
-          << "[GameDaggerfall] Rejecting package with JSON patch catalog because JSON patching is disabled by plugin settings.";
+          << "[GameDaggerfall] Rejecting package with JSON patch catalog because JSON patching is disabled."
+          << "Enable 'allow_json_patch_mod_install' in plugin settings.";
       return CheckReturn::INVALID;
     }
     if (hasXdeltaPayload && !isXdeltaPatchInstallAllowed()) {
       qWarning().noquote()
-          << "[GameDaggerfall] Rejecting package with xdelta payload (.xdelta/.xdelta3/.vcdiff) because xdelta patching is disabled by plugin settings.";
+          << "[GameDaggerfall] Rejecting package with xdelta payload (.xdelta/.xdelta3/.vcdiff)."
+          << "Enable 'xdelta_enabled' and ensure xdelta is available via 'xdelta_exe_path' or auto-detection.";
       return CheckReturn::INVALID;
     }
     if (hasLegacyBinaryPatchPayload && !allowBinaryPatching) {
       qWarning().noquote()
-          << "[GameDaggerfall] Rejecting package with legacy binary patch payload because binary patching is disabled by plugin settings.";
+          << "[GameDaggerfall] Rejecting package with legacy binary patch payload (.ips/.bps/.ups/.ppf) because binary patching is disabled."
+          << "Enable 'xdelta_enabled' in plugin settings.";
       return CheckReturn::INVALID;
     }
     if (hasSavePackPayload && !allowSavePack) {
       qWarning().noquote()
-          << "[GameDaggerfall] Rejecting package with save-pack payload because save-pack mod installs are disabled by plugin settings.";
+          << "[GameDaggerfall] Rejecting package with save-pack payload because save-pack installs are disabled."
+          << "Enable 'allow_save_pack_mod_install' in plugin settings.";
       return CheckReturn::INVALID;
     }
     if (hasLegacyBinaryPatchPayload) {
@@ -80,7 +85,8 @@ public:
     if (hasUnityPayload && !allowUnity) {
       if (!hasClassicOrPatchPayload) {
         qWarning().noquote()
-            << "[GameDaggerfall] Rejecting package with Daggerfall Unity payload because Unity mod format support is disabled by plugin settings.";
+            << "[GameDaggerfall] Rejecting package with Daggerfall Unity payload because Unity compatibility mode is disabled."
+            << "Enable 'daggerfall_unity_mod_formats' to accept .dfmod/dfmod.json payload markers.";
         return CheckReturn::INVALID;
       }
 

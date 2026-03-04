@@ -1207,6 +1207,13 @@ bool GameDaggerfall::applyExePatchMods()
     qInfo().noquote() << "[GameDaggerfall]  -" << line;
   }
 
+  if (!overallSuccess) {
+    qWarning().noquote()
+        << "[GameDaggerfall] EXE patch staging completed with failures."
+        << "Review warnings above. Common fixes: verify patch/base-game version match,"
+        << "enable required plugin settings, and confirm xdelta path/tool availability.";
+  }
+
   return overallSuccess;
 }
 #endif

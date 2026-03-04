@@ -28,7 +28,8 @@ std::vector<int> BattlespireModDataContent::getContentsFor(
 
     // Archive and executable replacement packs are core Battlespire mod payloads.
     if (name == "game.exe" || suffix == "bsa" || suffix == "bsi" || suffix == "bs6" ||
-        suffix == "snd" || suffix == "flc" || suffix == "xdelta") {
+        suffix == "snd" || suffix == "flc" || suffix == "xdelta" ||
+        suffix == "xdelta3" || suffix == "vcdiff") {
       addContent(CONTENT_FILE_OVERRIDES);
       continue;
     }

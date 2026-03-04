@@ -6,6 +6,7 @@
 
 #include <executableinfo.h>
 #include <pluginsetting.h>
+#include <report.h>
 
 #include <xnginelocalsavegames.h>
 #include <xnginesavegameinfo.h>
@@ -454,7 +455,7 @@ QList<PluginSetting> GameBattlespire::settings() const
           false),
       PluginSetting(
           "xdelta_enabled",
-          tr("Allow .xdelta binary patch mods. Requires the XNGINE patch tool (xdelta.exe) to be installed with MO2/plugin files. WARNING: this is dangerous and may corrupt saves or game data."),
+          tr("Allow binary patch mods (.xdelta/.xdelta3/.vcdiff). Requires the XNGINE patch tool (xdelta.exe) to be installed with MO2/plugin files. WARNING: this is dangerous and may corrupt saves or game data."),
           false),
       PluginSetting(
           "xdelta_exe_path",
@@ -815,6 +816,7 @@ bool GameBattlespire::applyExePatchMods()
   };
 
   QList<ModPatchInput> patchInputs;
+  int failureCount = 0;
   int lastPatchPriority = -1;
   for (const QString& modName : allMods) {
     if (!(modList->state(modName) & IModList::STATE_ACTIVE)) {
@@ -835,7 +837,7 @@ bool GameBattlespire::applyExePatchMods()
     }
 
     if (allowXdelta) {
-      QDirIterator xdeltaIt(modPath, QStringList() << "*.xdelta", QDir::Files,
+      QDirIterator xdeltaIt(modPath, QStringList() << "*.xdelta" << "*.xdelta3" << "*.vcdiff", QDir::Files,
                             QDirIterator::Subdirectories);
       while (xdeltaIt.hasNext()) {
         input.xdeltaPatchFiles.push_back(xdeltaIt.next());
@@ -902,6 +904,7 @@ bool GameBattlespire::applyExePatchMods()
     if (workingExePath.isEmpty()) {
       qWarning().noquote() << "[GameBattlespire] Could not find GAME.EXE for patching";
       success = false;
+      ++failureCount;
       continue;
     }
 
@@ -920,6 +923,7 @@ bool GameBattlespire::applyExePatchMods()
         qWarning().noquote() << "[GameBattlespire] Failed staging replacement EXE from mod"
                              << input.modName;
         success = false;
+        ++failureCount;
         continue;
       }
       qInfo().noquote() << "[GameBattlespire]  staged replacement EXE from:"
@@ -944,6 +948,7 @@ bool GameBattlespire::applyExePatchMods()
             << "[GameBattlespire] xdelta tool not found for mod" << input.modName
             << "- checked mod/game folders, MO2 folder/tools, XDELTA_EXE, and PATH.";
         success = false;
+        ++failureCount;
         continue;
       }
       qInfo().noquote() << "[GameBattlespire]  xdelta tool resolved to:" << xdeltaTool;
@@ -953,12 +958,13 @@ bool GameBattlespire::applyExePatchMods()
         QString matchedRel;
         if (!XngineExePatch::applyXdeltaPatchToAnyFileInTree(
                 xdeltaTool, patchFile, gameDirPath, tempModPath, &matchedRel, &err)) {
-          qWarning().noquote() << "[GameBattlespire] Failed applying .xdelta patch" << patchFile
+          qWarning().noquote() << "[GameBattlespire] Failed applying xdelta-family patch" << patchFile
                                << "from mod" << input.modName << ":" << err;
           success = false;
+          ++failureCount;
           break;
         }
-        qInfo().noquote() << "[GameBattlespire] Applied .xdelta patch to" << matchedRel
+        qInfo().noquote() << "[GameBattlespire] Applied xdelta-family patch to" << matchedRel
                           << "from mod" << input.modName;
       }
     }
@@ -966,7 +972,54 @@ bool GameBattlespire::applyExePatchMods()
 
   qInfo().noquote() << "[GameBattlespire] applyExePatchMods() done. success=" << success
                     << "tempModPath=" << tempModPath;
+  if (!success) {
+    qWarning().noquote()
+        << "[GameBattlespire] EXE patch staging completed with failures."
+        << "Review warnings above. Common fixes: enable 'xdelta_enabled', verify xdelta path/tool,"
+        << "and ensure patch files match the installed GAME.EXE version.";
+  }
+  showExePatchUiStatusOnce(success, patchInputs.size(), failureCount, tempModPath);
   return success;
+}
+
+void GameBattlespire::showExePatchUiStatusOnce(bool success, int sourceModCount,
+                                               int failureCount,
+                                               const QString& tempModPath) const
+{
+  const QString status =
+      QString("%1|mods=%2|fail=%3")
+          .arg(success ? QStringLiteral("ok") : QStringLiteral("fail"))
+          .arg(sourceModCount)
+          .arg(failureCount);
+  if (m_LastExePatchUiStatus == status) {
+    return;
+  }
+  m_LastExePatchUiStatus = status;
+
+  const QString stagedModName = QFileInfo(tempModPath).fileName();
+  if (success) {
+    MOBase::TaskDialog dialog(nullptr, tr("Battlespire EXE Patch Staging"));
+    dialog.main(tr("Executable patch staging completed."));
+    dialog.content(
+        tr("Patched output mod: %1\nSource patch mods processed: %2")
+            .arg(stagedModName, QString::number(sourceModCount)));
+    dialog.icon(QMessageBox::Information);
+    dialog.button(MOBase::TaskDialogButton(tr("OK"), QMessageBox::Ok));
+    dialog.exec();
+    return;
+  }
+
+  MOBase::reportError(
+      tr("Battlespire executable patch staging completed with errors.\n\n"
+         "Patched output mod: %1\n"
+         "Source patch mods processed: %2\n"
+         "Failures: %3\n\n"
+         "Common fixes:\n"
+         "- Enable 'xdelta_enabled' in plugin settings\n"
+         "- Verify xdelta path/tool resolution\n"
+         "- Ensure patch files match your installed GAME.EXE version")
+          .arg(stagedModName, QString::number(sourceModCount),
+               QString::number(failureCount)));
 }
 
 QString GameBattlespire::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const

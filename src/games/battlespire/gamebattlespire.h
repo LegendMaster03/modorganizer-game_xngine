@@ -69,11 +69,14 @@ protected:
 
 private:
   void logXdeltaToolStatusOnce(const QString& status) const;
+  void showExePatchUiStatusOnce(bool success, int sourceModCount, int failureCount,
+                                const QString& tempModPath) const;
   bool applyExePatchMods();
   void ensureExePatchCleanupHook();
   void cleanupExePatchOutputMod() const;
   bool m_ExePatchCleanupHookRegistered = false;
   mutable QString m_LastXdeltaToolStatus;
+  mutable QString m_LastExePatchUiStatus;
   QString findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const;
 };
 

@@ -25,7 +25,8 @@ public:
 
     if (containsExecutablePayload(fileTree) && !isExeInstallAllowed()) {
       qWarning().noquote()
-          << "[GameBattlespire] Rejecting mod package with GAME.EXE because executable patching is disabled by plugin settings.";
+          << "[GameBattlespire] Rejecting package with executable patch payload (GAME.EXE/.xdelta/.xdelta3/.vcdiff) because patching is disabled."
+          << "Enable 'xdelta_enabled' in plugin settings and set 'xdelta_exe_path' (or rely on auto-detection) to allow these mods.";
       return CheckReturn::INVALID;
     }
 
@@ -67,7 +68,7 @@ protected:
   {
     static FileNameSet result{
         "bat", "bsa", "bs6", "bsi", "cfg", "conf", "dat", "exe", "flc", "ini",
-        "pal", "snd", "txt", "wav", "rtx", "xdelta"};
+        "pal", "snd", "txt", "wav", "rtx", "xdelta", "xdelta3", "vcdiff"};
     return result;
   }
 
@@ -93,7 +94,7 @@ private:
         const QString name = entry->name();
         const QString suffix = entry->suffix().toLower();
         if (name.compare("GAME.EXE", Qt::CaseInsensitive) == 0 ||
-            suffix == "xdelta") {
+            suffix == "xdelta" || suffix == "xdelta3" || suffix == "vcdiff") {
           return true;
         }
       } else if (entry->isDir()) {
@@ -130,7 +131,8 @@ private:
 
       const QString suffix = entry->suffix().toLower();
       if (suffix == "bsa" || suffix == "bsi" || suffix == "bs6" || suffix == "snd" ||
-          suffix == "flc" || suffix == "xdelta") {
+          suffix == "flc" || suffix == "xdelta" || suffix == "xdelta3" ||
+          suffix == "vcdiff") {
         return true;
       }
     }
@@ -156,6 +158,9 @@ private:
         "STEAM INSTALL",
         "GOG INSTALL",
         "DOSBOX STAGING",
+        "MAIN FILES",
+        "MOD FILES",
+        "OPTIONAL FILES",
     };
   }
 
@@ -169,6 +174,9 @@ private:
         "An Elder Scrolls Legend Battlespire",
         "common",
         "game",
+        "files",
+        "install",
+        "installation",
         "mods",
     };
   }
