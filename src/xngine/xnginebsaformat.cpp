@@ -206,7 +206,8 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
     if (descriptor.size < 0) {
       return setError(errorMessage, "Encountered negative record size");
     }
-    if (descriptor.compressed != 0 && !traits.allowCompressed) {
+    if (descriptor.compressed != 0 && !traits.allowCompressed &&
+        !traits.allowCompressedPassthroughRead) {
       return setError(errorMessage,
                       "Compressed records are not supported for this game");
     }
@@ -236,11 +237,13 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
     Entry entry;
     entry.compressed = descriptor.compressed;
     if (descriptor.compressed != 0) {
-      if (!traits.allowCompressed) {
+      if (!traits.allowCompressed && !traits.allowCompressedPassthroughRead) {
         return setError(errorMessage,
                         "Compressed records are not supported for this game");
       }
-      if (traits.compressionMode == CompressionMode::BattlespireLzss) {
+      if (traits.allowCompressedPassthroughRead) {
+        entry.data = data;
+      } else if (traits.compressionMode == CompressionMode::BattlespireLzss) {
         entry.data = decompressBattlespireLzss(data);
       } else {
         return setError(errorMessage,

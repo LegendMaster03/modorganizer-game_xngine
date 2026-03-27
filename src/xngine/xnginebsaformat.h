@@ -31,6 +31,7 @@ public:
   struct Traits
   {
     bool allowCompressed = false;
+    bool allowCompressedPassthroughRead = false;
     bool allowCompressedPassthroughWrite = false;
     bool enforceDos83Names = false;
     bool normalizeNameCase = false;

@@ -72,3 +72,4 @@ src/games/battlespire/LEVELS.TXT
 # Temporary extractor tooling and outputs
 src/temp_bsa_extract/
 temp_bsa_extract_outputs/
+src/games/redguard/formats/TSG_FILES_INDEX.csv

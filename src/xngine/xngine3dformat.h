@@ -30,6 +30,8 @@ public:
 
   struct TextureRef
   {
+    bool isSolidColor = false;
+    int colorIndex = -1;
     int fileIndex = 0;
     int imageIndex = 0;
   };
@@ -133,7 +135,7 @@ public:
     bool isValid() const { return header.versionTag != VersionTag::Unknown; }
   };
 
-public:
+ public:
   static QString versionTagToString(VersionTag versionTag);
   static VersionTag versionTagFromString(const QString& versionString);
 

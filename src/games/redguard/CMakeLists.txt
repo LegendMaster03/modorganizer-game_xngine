@@ -39,6 +39,8 @@ set(REDGUARD_GAME_SOURCES
     redguardsitem.h
     redguardsrtxdatabase.cpp
     redguardsrtxdatabase.h
+    redguards3d.cpp
+    redguards3d.h
     redguardswld.cpp
     redguardswld.h
     redguardsutils.cpp
@@ -46,6 +48,10 @@ set(REDGUARD_GAME_SOURCES
     redguardsmoddatachecker.h
     redguardsmoddatacontent.cpp
     redguardsmoddatacontent.h
+    redguardspatchutils.cpp
+    redguardspatchutils.h
+    redguardspatchruntime.cpp
+    redguardspatchruntime.h
 )
 
 # Create shared library
@@ -54,8 +60,28 @@ add_library(game_redguard SHARED
     gameredguard.json
 )
 
+add_executable(redguard3dscan
+    redguard3dscan.cpp
+    redguards3d.cpp
+    redguards3d.h
+    ../battlespire/battlespire3dbsa.cpp
+    ../battlespire/battlespire3dbsa.h
+    ../daggerfall/daggerfallarch3dbsa.cpp
+    ../daggerfall/daggerfallarch3dbsa.h
+    ../daggerfall/daggerfallformatutils.cpp
+    ../daggerfall/daggerfallformatutils.h
+)
+
 # Link against Qt6
 target_link_libraries(game_redguard Qt6::Core Qt6::Gui Qt6::Widgets)
+target_link_libraries(redguard3dscan Qt6::Core xngine)
+target_include_directories(redguard3dscan PRIVATE
+    ${MO2_UIBASE_PATH}
+    ${MO2_SRC_PATH}
+    ${CMAKE_SOURCE_DIR}/src/xngine
+    ${CMAKE_SOURCE_DIR}/src/games/battlespire
+    ${CMAKE_SOURCE_DIR}/src/games/daggerfall
+)
 
 # Link against xngine and MO2
 target_link_libraries(game_redguard

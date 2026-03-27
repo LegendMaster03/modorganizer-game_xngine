@@ -14,6 +14,92 @@
 
 namespace
 {
+struct SaveChunkRow
+{
+  QByteArray tag;
+  qsizetype tagOffset = -1;
+  qsizetype payloadOffset = -1;
+  quint32 payloadLength = 0;
+  bool bounded = false;
+};
+
+QList<SaveChunkRow> buildChunkTable(const QByteArray& bytes)
+{
+  QList<SaveChunkRow> rows;
+  if (bytes.size() < 8) {
+    return rows;
+  }
+
+  qsizetype pos = 0;
+  int guardCount = 0;
+  constexpr int kMaxRows = 8192;
+  while (pos + 8 <= bytes.size() && guardCount < kMaxRows) {
+    SaveChunkRow row;
+    row.tag = bytes.mid(pos, 4);
+    row.tagOffset = pos;
+    row.payloadLength = qFromBigEndian<quint32>(
+        reinterpret_cast<const uchar*>(bytes.constData() + pos + 4));
+    row.payloadOffset = pos + 8;
+    row.bounded = (row.payloadOffset + static_cast<qsizetype>(row.payloadLength) <= bytes.size());
+    rows.push_back(row);
+
+    if (!row.bounded) {
+      break;
+    }
+
+    pos = row.payloadOffset + static_cast<qsizetype>(row.payloadLength);
+    ++guardCount;
+  }
+
+  return rows;
+}
+
+QString chunkDecodeStatus(const QByteArray& tag)
+{
+  if (tag == "THMB" || tag == "SVIT" || tag == "SVMD") {
+    return QStringLiteral("parsed");
+  }
+
+  static const QSet<QByteArray> knownOpaque = {
+      QByteArrayLiteral("SVGM"),
+      QByteArrayLiteral("SCR3"),
+      QByteArrayLiteral("SVGF"),
+      QByteArrayLiteral("SMGR"),
+      QByteArrayLiteral("SMOB"),
+      QByteArrayLiteral("SMRP"),
+      QByteArrayLiteral("SMCO"),
+      QByteArrayLiteral("SMSH"),
+      QByteArrayLiteral("SVCM"),
+      QByteArrayLiteral("SMFM"),
+      QByteArrayLiteral("SVRG"),
+      QByteArrayLiteral("SVGV"),
+      QByteArrayLiteral("SVG2"),
+      QByteArrayLiteral("SVCB"),
+      QByteArrayLiteral("SVMV"),
+  };
+
+  if (knownOpaque.contains(tag)) {
+    return QStringLiteral("known-opaque");
+  }
+  return QStringLiteral("unknown");
+}
+
+QString formatChunkTable(const QList<SaveChunkRow>& rows)
+{
+  QStringList lines;
+  lines << QStringLiteral("tag\ttag_offset\tpayload_offset\tlength_be\tbounds\tdecode_status");
+  for (const SaveChunkRow& row : rows) {
+    lines << QStringLiteral("%1\t%2\t%3\t%4\t%5\t%6")
+                 .arg(QString::fromLatin1(row.tag))
+                 .arg(row.tagOffset)
+                 .arg(row.payloadOffset)
+                 .arg(row.payloadLength)
+                 .arg(row.bounded ? QStringLiteral("ok") : QStringLiteral("out-of-bounds"))
+                 .arg(chunkDecodeStatus(row.tag));
+  }
+  return lines.join('\n');
+}
+
 qsizetype findThumbnailSignature(const QByteArray& bytes)
 {
   constexpr qsizetype kCanonicalOffset = 0x118;
@@ -169,6 +255,23 @@ QStringList RedguardsSaveGame::allFiles() const
     return files;
   }
   return XngineSaveGame::allFiles();
+}
+
+QString RedguardsSaveGame::chunkTableDebugText() const
+{
+  if (!m_ChunkTableDebugText.isEmpty()) {
+    return m_ChunkTableDebugText;
+  }
+
+  QFile f(m_SaveFile);
+  if (!f.open(QIODevice::ReadOnly)) {
+    return {};
+  }
+
+  const QByteArray bytes = f.readAll();
+  f.close();
+  m_ChunkTableDebugText = formatChunkTable(buildChunkTable(bytes));
+  return m_ChunkTableDebugText;
 }
 
 void RedguardsSaveGame::resolveSavePath()

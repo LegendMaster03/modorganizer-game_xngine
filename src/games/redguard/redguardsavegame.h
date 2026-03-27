@@ -21,6 +21,7 @@ public:
   virtual QString getName() const override;
   virtual QString getGameDetails() const override;
   virtual QStringList allFiles() const override;
+  QString chunkTableDebugText() const;
 
 protected:
   virtual std::unique_ptr<DataFields> fetchDataFields() const override;
@@ -51,6 +52,7 @@ private:
   QStringList m_LocationCodes;
   QString m_AreaToken;
   QStringList m_AuxiliaryFiles;
+  mutable QString m_ChunkTableDebugText;
 };
 
 #endif  // REDGUARDS_SAVEGAME_H

@@ -12,6 +12,9 @@ public:
   static bool listRecordNames(const QString& archivePath, QStringList& outRecordNames,
                               QString* errorMessage = nullptr);
 
+  static bool loadMeshFile(const QString& filePath, Xngine3dFormat::MeshRecord& outMesh,
+                           QString* errorMessage = nullptr);
+
   static bool loadMeshRecordByName(const QString& archivePath, const QString& recordName,
                                    Xngine3dFormat::MeshRecord& outMesh,
                                    QString* errorMessage = nullptr);

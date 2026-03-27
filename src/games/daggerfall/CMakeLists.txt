@@ -130,6 +130,30 @@ add_library(game_daggerfall SHARED
     gamedaggerfall.json
 )
 
+if(XNGINE_DAGGERFALL_ENABLE_TOOLKIT AND XNGINE_DAGGERFALL_TOOLKIT_ASSETS)
+  add_executable(daggerfall3dscan
+      daggerfall3dscan.cpp
+      daggerfallarch3dbsa.cpp
+      daggerfallarch3dbsa.h
+      daggerfallformatutils.cpp
+      daggerfallformatutils.h
+  )
+
+  target_include_directories(daggerfall3dscan PRIVATE
+      ${MO2_UIBASE_PATH}
+      ${MO2_SRC_PATH}
+      ${CMAKE_SOURCE_DIR}/src/xngine
+  )
+
+  target_link_libraries(daggerfall3dscan
+      Qt6::Core
+      Qt6::Gui
+      Qt6::Widgets
+      xngine
+      "${MO2_UIBASE_LIB}"
+  )
+endif()
+
 if(XNGINE_DAGGERFALL_ENABLE_EXE_PATCHING)
   target_compile_definitions(game_daggerfall PRIVATE XNGINE_DAGGERFALL_EXE_PATCHING=1)
 endif()

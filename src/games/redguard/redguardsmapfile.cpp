@@ -194,6 +194,11 @@ bool RedguardsMapFile::writeMap(const QString& filePath, const QString& script)
     writeRecord(record, mRecords.value(record));
   }
 
+  // Optional record: preserve presence/absence exactly for round-trip safety.
+  if (mRecords.contains("RAVC")) {
+    writeRecord("RAVC", mRecords.value("RAVC"));
+  }
+
   out.writeRawData("END ", 4);
   file.close();
   return true;

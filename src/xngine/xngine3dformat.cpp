@@ -71,6 +71,51 @@ bool readLE32F(const QByteArray& data, qsizetype offset, float& value)
   return true;
 }
 
+Xngine3dFormat::TextureRef decodeV2xTextureRef(quint16 raw)
+{
+  Xngine3dFormat::TextureRef texture;
+  const int textureId = static_cast<int>(raw >> 7);
+  if (textureId < 2) {
+    texture.isSolidColor = true;
+    texture.colorIndex = static_cast<int>(raw & 0xFF);
+    return texture;
+  }
+
+  texture.fileIndex = textureId;
+  texture.imageIndex = static_cast<int>(raw & 0x7F);
+  return texture;
+}
+
+Xngine3dFormat::TextureRef decodeV4V5TextureRef(quint32 raw)
+{
+  Xngine3dFormat::TextureRef texture;
+
+  if ((raw >> 20) == 0x0FFFu) {
+    texture.isSolidColor = true;
+    texture.colorIndex = static_cast<int>((raw >> 8) & 0xFFu);
+    return texture;
+  }
+
+  const quint32 texturePart = (raw >> 8);
+  if (texturePart < 4000000u) {
+    return texture;
+  }
+
+  const quint32 tempVal = texturePart - 4000000u;
+  const quint32 ones = (tempVal / 250u) % 40u;
+  const quint32 tens = ((tempVal - (ones * 250u)) / 1000u) % 100u;
+  const quint32 hundreds =
+      (tempVal - (ones * 250u) - (tens * 1000u)) / 4000u;
+  texture.fileIndex = static_cast<int>(ones + tens + hundreds);
+
+  const quint32 imageBits = raw & 0xFFu;
+  const quint32 imageOnes = imageBits % 10u;
+  const quint32 imageTens = (imageBits / 40u) * 10u;
+  texture.imageIndex = static_cast<int>(imageOnes + imageTens);
+
+  return texture;
+}
+
 qint16 decodeSigned12Bit(qint16 fromFile)
 {
   qint16 v = static_cast<qint16>(fromFile & 0x0FFF);
@@ -95,6 +140,11 @@ int pointIndexForOffset(Xngine3dFormat::VersionTag versionTag, qint32 pointOffse
     return -1;
   }
   return pointOffset / 12;
+}
+
+qsizetype v2xPointListOffset(const Xngine3dFormat::Header& h)
+{
+  return static_cast<qsizetype>(h.offsetVertexCoors);
 }
 
 struct DVec3
@@ -365,7 +415,7 @@ bool parseV2xRecord(const QByteArray& data, Xngine3dFormat::MeshRecord& outMesh,
     readLE32U(data, frameStart + 12, outMesh.frameData.u4);
   }
 
-  const qsizetype pointListOffset = static_cast<qsizetype>(h.offsetVertexCoors);
+  const qsizetype pointListOffset = v2xPointListOffset(h);
   const qsizetype pointBytes = static_cast<qsizetype>(h.numVertices) * 12;
   if (pointListOffset + pointBytes > data.size()) {
     return setError(errorMessage, "3D point list overflows record");
@@ -423,8 +473,7 @@ bool parseV2xRecord(const QByteArray& data, Xngine3dFormat::MeshRecord& outMesh,
         !readLE32U(data, planePos + 4, plane.unknown2)) {
       return setError(errorMessage, "Failed reading 3D plane header");
     }
-    plane.texture.imageIndex = static_cast<int>(plane.textureRaw & 0x7f);
-    plane.texture.fileIndex = static_cast<int>(plane.textureRaw >> 7);
+    plane.texture = decodeV2xTextureRef(plane.textureRaw);
     planePos += 8;
 
     const qsizetype planePointBytes = static_cast<qsizetype>(plane.pointCount) * 8;
@@ -576,6 +625,7 @@ bool parseV4V5Record(const QByteArray& data, Xngine3dFormat::MeshRecord& outMesh
         !readLE32U(data, facePos + 6, plane.unknown2)) {
       return setError(errorMessage, "Failed reading 3D face header");
     }
+    plane.texture = decodeV4V5TextureRef(plane.textureRaw32);
     facePos += 10;
 
     const qsizetype faceVertexBytes = static_cast<qsizetype>(plane.pointCount) * 8;
