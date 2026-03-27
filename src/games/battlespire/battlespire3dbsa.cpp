@@ -94,6 +94,9 @@ QByteArray normalizeBattlespireExtendedFaceLayoutDropMiddle(const QByteArray& da
   QByteArray out;
   out.reserve(data.size() - removedBytes);
   out.append(data.constData(), 64);
+  if (header.offsetFaceData > 64) {
+    out.append(data.constData() + 64, header.offsetFaceData - 64);
+  }
 
   qsizetype pos = static_cast<qsizetype>(header.offsetFaceData);
   for (qint32 i = 0; i < header.numFaces; ++i) {
@@ -134,6 +137,9 @@ QByteArray normalizeBattlespireExtendedFaceLayoutDropTail(const QByteArray& data
   QByteArray out;
   out.reserve(data.size() - removedBytes);
   out.append(data.constData(), 64);
+  if (header.offsetFaceData > 64) {
+    out.append(data.constData() + 64, header.offsetFaceData - 64);
+  }
 
   qsizetype pos = static_cast<qsizetype>(header.offsetFaceData);
   for (qint32 i = 0; i < header.numFaces; ++i) {
