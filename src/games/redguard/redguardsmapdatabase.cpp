@@ -1,14 +1,59 @@
 #include "redguardsmapdatabase.h"
 
-#include "redguardsitem.h"
 #include "redguardsmapfile.h"
 #include "redguardssoupflag.h"
 #include "redguardssoupfunction.h"
 #include "redguardsrtxdatabase.h"
 
 #include <QFile>
-#include <QTextStream>
 #include <QRegularExpression>
+#include <QTextStream>
+
+namespace
+{
+QString redguardItemNameOverride(int index)
+{
+  static const QMap<int, QString> overrides = {
+      {7, "GUARD SWORD"},
+      {15, "RUNE (2 LINES AND A DOT)"},
+      {16, "RUNE (2 LINES)"},
+      {17, "RUNE (A LINE AND DOT)"},
+      {20, "ORC'S BLOOD (SUBLIMATED)"},
+      {22, "SPIDER'S MILK (SUBLIMATED)"},
+      {24, "ECTOPLASM (SUBLIMATED)"},
+      {26, "HIST SAP (SUBLIMATED)"},
+      {30, "GLASS VIAL (WITH ELIXIR)"},
+      {34, "RUNE (fist)"},
+      {35, "'ELVEN ARTIFACTS VIII' (COPY)"},
+      {53, "ISZARA'S JOURNAL (OPEN)"},
+      {57, "ISZARA'S JOURNAL (LOCKED)"},
+      {59, "KEY TO KRISANDRA'S STOREROOM"},
+      {60, "KEY TO ISZARA'S LODGE"},
+      {61, "N'GASTA'S NECROMANCY BOOK"},
+      {62, "BAR MUG"},
+      {63, "MARIAH'S WATERING CAN"},
+      {69, "BLOODY BANDAGE"},
+      {70, "SKELETON SWORD"},
+      {71, "KEEP OUT"},
+      {72, "NO TRESPASSING"},
+      {73, "TOBIAS' BAR MUG"},
+      {74, "BONE KEY"},
+      {75, "FLAMING SABRE"},
+      {76, "GOBLIN SWORD"},
+      {77, "OGRE'S AXE"},
+      {78, "DRAM'S SWORD"},
+      {79, "SILVER KEY (PALACE)"},
+      {80, "DRAM'S BOW"},
+      {81, "DRAM'S ARROW"},
+      {82, "SILVER LOCKET (COPY)"},
+      {84, "WANTED POSTER"},
+      {85, "PALACE DIAGRAM"},
+      {86, "LAST"},
+  };
+
+  return overrides.value(index);
+}
+}
 
 RedguardsMapDatabase::RedguardsMapDatabase(const RedguardsRtxDatabase& rtxDatabase)
 {
@@ -21,9 +66,6 @@ RedguardsMapDatabase::RedguardsMapDatabase(const RedguardsRtxDatabase& rtxDataba
 RedguardsMapDatabase::~RedguardsMapDatabase()
 {
   qDeleteAll(mMapFiles);
-  qDeleteAll(mFunctions);
-  qDeleteAll(mFlags);
-  qDeleteAll(mItems);
 }
 
 QString RedguardsMapDatabase::rtxEntry(const QString& label) const
@@ -100,11 +142,11 @@ bool RedguardsMapDatabase::readSoupFile(const QString& soupFilePath)
   }
 
   QTextStream in(&file);
-  mFunctions.append(new RedguardsSoupFunction("function NullFunction params 0"));
+  mFunctions.append(RedguardsSoupFunction("function NullFunction params 0"));
 
   readSoupSection(in, "[functions]");
   readSoupSection(in, "[refs]", [this](const QString& line) {
-    mFunctions.append(new RedguardsSoupFunction(line));
+    mFunctions.append(RedguardsSoupFunction(line));
   });
 
   readSoupSection(in, "[equates]", [this](const QString& line) {
@@ -121,7 +163,7 @@ bool RedguardsMapDatabase::readSoupFile(const QString& soupFilePath)
 
   readSoupSection(in, "[flags]");
   readSoupSection(in, QString(), [this](const QString& line) {
-    mFlags.append(new RedguardsSoupFlag(line));
+    mFlags.append(RedguardsSoupFlag(line));
   });
 
   return true;
@@ -152,7 +194,15 @@ bool RedguardsMapDatabase::readItemsFile(const QString& itemsFilePath)
         continue;
       }
       QString descId = descLine.mid(descEq + 1).trimmed().toLower();
-      mItems.append(new RedguardsItem(this, mItems.size(), nameId, descId));
+      RedguardsItemData item;
+      item.nameId = nameId;
+      item.descriptionId = descId;
+      item.name = redguardItemNameOverride(mItems.size());
+      if (item.name.isEmpty()) {
+        item.name = rtxEntry(nameId);
+      }
+      item.description = rtxEntry(descId);
+      mItems.append(item);
     }
   }
 

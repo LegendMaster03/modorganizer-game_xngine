@@ -2,16 +2,17 @@
 
 #include <QFile>
 #include <QTextStream>
-#include <QDebug>
 
 RedguardsMapChanges::RedguardsMapChanges() = default;
 
 QList<QString>* RedguardsMapChanges::lineChangesAt(const QString& mapName, int pos)
 {
-  if (mLineChanges.contains(mapName) && mLineChanges[mapName].contains(pos)) {
-    return &mLineChanges[mapName][pos];
+  auto mapIt = mLineChanges.find(mapName);
+  if (mapIt == mLineChanges.end()) {
+    return nullptr;
   }
-  return nullptr;
+  auto posIt = mapIt->find(pos);
+  return (posIt != mapIt->end()) ? &(*posIt) : nullptr;
 }
 
 const QList<QString>* RedguardsMapChanges::lineChangesAt(const QString& mapName,
@@ -26,6 +27,15 @@ const QList<QString>* RedguardsMapChanges::lineChangesAt(const QString& mapName,
     return nullptr;
   }
   return &(*posIt);
+}
+
+QList<int> RedguardsMapChanges::changedPositions(const QString& mapName) const
+{
+  auto mapIt = mLineChanges.constFind(mapName);
+  if (mapIt == mLineChanges.constEnd()) {
+    return {};
+  }
+  return mapIt->keys();
 }
 
 bool RedguardsMapChanges::hasModifiedMap(const QString& mapName) const
@@ -55,11 +65,6 @@ void RedguardsMapChanges::addChange(const QString& mapName, int pos, const QStri
   }
 
   QList<QString>& list = mLineChanges[mapName][pos];
-
-  if (line.isEmpty() && mapName == "ISLAND" && pos == 8621) {
-    qInfo().noquote() << "[GameRedguard] Map" << mapName << "position" << pos
-                      << "empty change line preserved as insertion";
-  }
 
   // Handle deletions (represented as literal "null" string)
   if (line == "null") {
@@ -103,12 +108,13 @@ bool RedguardsMapChanges::readChanges(const QString& changesFilePath)
         }
       } else if (!currentMap.isEmpty()) {
         // This is a position and change
-        QStringList parts = line.split('\t');
-        if (!parts.isEmpty()) {
+        const int tabPos = line.indexOf('\t');
+        const QString posText = (tabPos >= 0) ? line.left(tabPos).trimmed() : line.trimmed();
+        if (!posText.isEmpty()) {
           bool ok = false;
-          int pos = parts[0].trimmed().toInt(&ok);
+          int pos = posText.toInt(&ok);
           if (ok) {
-            QString change = parts.size() > 1 ? parts[1].trimmed() : "";
+            const QString change = (tabPos >= 0) ? line.mid(tabPos + 1) : QString();
             addChange(currentMap, pos, change);
           }
         }

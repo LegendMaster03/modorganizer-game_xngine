@@ -27,6 +27,7 @@ public:
    */
   QList<QString>* lineChangesAt(const QString& mapName, int pos);
   const QList<QString>* lineChangesAt(const QString& mapName, int pos) const;
+  QList<int> changedPositions(const QString& mapName) const;
 
   /**
    * Checks if a map has any modifications.

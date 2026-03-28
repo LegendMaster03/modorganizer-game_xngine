@@ -107,6 +107,8 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
   ui->characterLabel->setText("");
   ui->locationLabel->setText("");
   ui->levelLabel->setText("");
+  ui->label_4->setVisible(true);
+  ui->levelLabel->setVisible(true);
 
   QDateTime t = save.getCreationTime().toLocalTime();
   ui->dateLabel->setText(
@@ -116,8 +118,12 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
   if (auto xngineSave = dynamic_cast<XngineSaveGame const*>(&save)) {
     ui->characterLabel->setText(xngineSave->getPCName());
     setLabelTextPreserveFont(ui->locationLabel, xngineSave->getPCLocation());
-    if (xngineSave->getPCLevel() > 0) {
-      ui->levelLabel->setText(QString::number(xngineSave->getPCLevel()));
+    const QString levelText = xngineSave->getPCLevelText().trimmed();
+    const bool hideLevel = levelText.isEmpty();
+    ui->label_4->setVisible(!hideLevel);
+    ui->levelLabel->setVisible(!hideLevel);
+    if (!hideLevel) {
+      ui->levelLabel->setText(levelText);
     }
 
     const QImage screenshot = xngineSave->getScreenshot();
@@ -130,12 +136,14 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
 
     const bool hasCharacter = !xngineSave->getPCName().trimmed().isEmpty();
     const bool hasLocation = !xngineSave->getPCLocation().trimmed().isEmpty();
-    const bool hasLevel = xngineSave->getPCLevel() > 0;
+    const bool hasLevel = !hideLevel && !levelText.isEmpty();
     const bool hasScreenshot = !screenshot.isNull();
     if (!hasCharacter && !hasLocation && !hasLevel && !hasScreenshot) {
       ui->characterLabel->setText(tr("Empty"));
       ui->locationLabel->setText(tr("Empty"));
-      ui->levelLabel->setText(tr("Empty"));
+      if (!hideLevel) {
+        ui->levelLabel->setText(tr("Empty"));
+      }
       ui->dateLabel->setText(tr("Empty"));
     }
   }

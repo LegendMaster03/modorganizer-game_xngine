@@ -6,6 +6,7 @@
 class RedguardsSoupFlag
 {
 public:
+  RedguardsSoupFlag() = default;
   explicit RedguardsSoupFlag(const QString& line);
 
   const QString& type() const { return mType; }

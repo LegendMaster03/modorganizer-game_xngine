@@ -5,7 +5,6 @@
 #include "redguardsscriptinstruction.h"
 #include "redguardssoupfunction.h"
 #include "redguardssoupflag.h"
-#include "redguardsitem.h"
 #include "redguardsmapfile.h"
 #include "redguardsutils.h"
 
@@ -93,12 +92,12 @@ void RedguardsScriptReader::getValue(ValueMode mode)
     break;
   case 6: {
     int flagIndex = readShort();
-    auto* flag = mMapDatabase->flags().value(flagIndex);
-    if (flag) {
-      mCurrentInstruction->appendText(flag->name());
+    const auto flag = mMapDatabase->flags().value(flagIndex);
+    if (!flag.name().isEmpty()) {
+      mCurrentInstruction->appendText(flag.name());
       if (mode == ValueMode::MAIN) {
         getFormula();
-        mCurrentInstruction->setComment(flag->comment());
+        mCurrentInstruction->setComment(flag.comment());
       } else if (mode == ValueMode::LHS || mode == ValueMode::RHS) {
         getOperator();
       } else if (mode == ValueMode::PARAMETER) {
@@ -210,12 +209,13 @@ void RedguardsScriptReader::getTaskText(int taskType)
   if (taskType == 1) {
     mCurrentInstruction->appendText("@");
   }
-  auto* function = mMapDatabase->functions().value(id);
-  if (!function) {
+  const auto& functions = mMapDatabase->functions();
+  if (id < 0 || id >= functions.size()) {
     return;
   }
+  const auto& function = functions[id];
 
-  mCurrentTask = function->name();
+  mCurrentTask = function.name();
   mCurrentInstruction->appendText(mCurrentTask + "(");
   int numParams = (id == 0) ? 0 : readByte();
   if (numParams > 0) {
@@ -328,9 +328,9 @@ QString RedguardsScriptReader::readIntFlexible()
   }
   case ParameterType::ITEM: {
     int itemId = readInt();
-    auto* item = mMapDatabase->items().value(itemId);
+    const auto item = mMapDatabase->items().value(itemId);
     mCurrentTask.clear();
-    return item ? "<" + item->name() + ">" : QString::number(itemId);
+    return !item.name.isEmpty() ? "<" + item.name + ">" : QString::number(itemId);
   }
   case ParameterType::MAP: {
     int mapId = readInt();

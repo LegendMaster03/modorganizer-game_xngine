@@ -5,7 +5,6 @@
 #include "redguardsparsedmapheader.h"
 #include "redguardssoupfunction.h"
 #include "redguardssoupflag.h"
-#include "redguardsitem.h"
 #include "redguardsutils.h"
 
 #include <QByteArray>
@@ -45,15 +44,15 @@ void RedguardsScriptParser::initReverseMaps()
   }
 
   for (int i = 0; i < mMapDatabase->functions().size(); ++i) {
-    mFunctionIds.insert(mMapDatabase->functions()[i]->name(), i);
+    mFunctionIds.insert(mMapDatabase->functions()[i].name(), i);
   }
 
   for (int i = 0; i < mMapDatabase->flags().size(); ++i) {
-    mFlagIds.insert(mMapDatabase->flags()[i]->name(), i);
+    mFlagIds.insert(mMapDatabase->flags()[i].name(), i);
   }
 
   for (int i = 0; i < mMapDatabase->items().size(); ++i) {
-    mItemIds.insert("<" + mMapDatabase->items()[i]->name() + ">", i);
+    mItemIds.insert("<" + mMapDatabase->items()[i].name + ">", i);
   }
 
   for (int i = 0; i < mMapDatabase->references().size(); ++i) {
@@ -67,10 +66,12 @@ void RedguardsScriptParser::initReverseMaps()
 
 void RedguardsScriptParser::preParse(const QString& script)
 {
-  QString text = script;
-  text.replace(QRegularExpression(", +"), ",");
-  text.replace(QRegularExpression(" +//.*"), "");
-  text.replace(QRegularExpression("(\\+\\+|--)"), " \\1");
+  QStringList lines = script.split('\n', Qt::KeepEmptyParts);
+  for (QString& line : lines) {
+    line = stripTrailingComment(line);
+    line.replace(QRegularExpression("(\\+\\+|--)"), " \\1");
+  }
+  const QString text = lines.join('\n');
 
   QRegularExpression pattern("<[a-zA-Z0-9 ()']+>");
   QRegularExpressionMatchIterator it = pattern.globalMatch(text);
@@ -93,6 +94,63 @@ void RedguardsScriptParser::preParse(const QString& script)
 
   mLines = result.split('\n');
   mLineIndex = 0;
+}
+
+QString RedguardsScriptParser::stripTrailingComment(const QString& line)
+{
+  bool inQuote = false;
+  for (int i = 0; i + 1 < line.length(); ++i) {
+    const QChar ch = line[i];
+    if (ch == '"') {
+      inQuote = !inQuote;
+      continue;
+    }
+    if (!inQuote && ch == '/' && line[i + 1] == '/') {
+      return line.left(i).trimmed();
+    }
+  }
+  return line;
+}
+
+QStringList RedguardsScriptParser::splitTopLevel(const QString& text, QChar delimiter)
+{
+  QStringList parts;
+  QString current;
+  bool inQuote = false;
+  int parenDepth = 0;
+  int angleDepth = 0;
+
+  for (QChar ch : text) {
+    if (ch == '"') {
+      inQuote = !inQuote;
+      current.append(ch);
+      continue;
+    }
+
+    if (!inQuote) {
+      if (ch == '(') {
+        ++parenDepth;
+      } else if (ch == ')' && parenDepth > 0) {
+        --parenDepth;
+      } else if (ch == '<') {
+        ++angleDepth;
+      } else if (ch == '>' && angleDepth > 0) {
+        --angleDepth;
+      } else if (ch == delimiter && parenDepth == 0 && angleDepth == 0) {
+        parts.append(current.trimmed());
+        current.clear();
+        continue;
+      }
+    }
+
+    current.append(ch);
+  }
+
+  if (!current.isEmpty() || text.endsWith(delimiter)) {
+    parts.append(current.trimmed());
+  }
+
+  return parts;
 }
 
 QList<RedguardsParsedMapHeader> RedguardsScriptParser::parse()
@@ -268,7 +326,7 @@ void RedguardsScriptParser::parseValue(const QString& value, ValueMode mode)
         name = name.mid(1);
       }
       if (mFunctionIds.contains(name)) {
-        if (mMapDatabase->functions()[mFunctionIds.value(name)]->type() == "function") {
+        if (mMapDatabase->functions()[mFunctionIds.value(name)].type() == "function") {
           addByte(26);
         } else {
           addByte(25);
@@ -295,8 +353,11 @@ void RedguardsScriptParser::parseValue(const QString& value, ValueMode mode)
 
 void RedguardsScriptParser::parseTask(const QString& line, bool writeBytes)
 {
-  QStringList split = line.split('(');
-  mCurrentTask = split[0];
+  const int openParen = line.indexOf('(');
+  const int closeParen = line.lastIndexOf(')');
+  const QString taskName =
+      (openParen >= 0) ? line.left(openParen).trimmed() : line.trimmed();
+  mCurrentTask = taskName;
   bool multitask = false;
   if (mCurrentTask.startsWith('@')) {
     mCurrentTask = mCurrentTask.mid(1);
@@ -304,22 +365,25 @@ void RedguardsScriptParser::parseTask(const QString& line, bool writeBytes)
   }
 
   int functionId = mFunctionIds.value(mCurrentTask, 0);
-  auto* function = mMapDatabase->functions().value(functionId);
+  const auto function = mMapDatabase->functions().value(functionId);
 
   if (writeBytes) {
     if (multitask) {
       addByte(1);
     } else {
-      addByte((function && function->type() == "task") ? 0 : 2);
+    addByte((function.type() == "task") ? 0 : 2);
     }
   }
   addShort(functionId, true);
 
-  int paramNum = function ? function->paramCount() : 0;
+  int paramNum = function.paramCount();
   addByte(paramNum);
   if (paramNum > 0) {
-    QString params = split[1].left(split[1].length() - 1);
-    QStringList paramList = params.split(',');
+    const QString params =
+        (openParen >= 0 && closeParen > openParen)
+            ? line.mid(openParen + 1, closeParen - openParen - 1)
+            : QString();
+    const QStringList paramList = splitTopLevel(params, ',');
     for (int i = 0; i < paramNum && i < paramList.size(); ++i) {
       parseValue(paramList[i], ValueMode::PARAMETER);
     }

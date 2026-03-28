@@ -267,11 +267,7 @@ QString RedguardsMapFile::getScript() const
 QString RedguardsMapFile::getModifiedScript(const RedguardsMapChanges& mapChanges) const
 {
   QString output;
-  const QStringList scriptLines = getScript().split('\n');
-  
-  int changeCount = 0;
-  int deletionCount = 0;
-  int insertionCount = 0;
+  const QStringList scriptLines = getScript().split('\n', Qt::KeepEmptyParts);
 
   for (int pos = 0; pos < scriptLines.size(); ++pos) {
     const QList<QString>* lines = mapChanges.lineChangesAt(mName, pos);
@@ -279,52 +275,38 @@ QString RedguardsMapFile::getModifiedScript(const RedguardsMapChanges& mapChange
       output.append(scriptLines[pos]);
       output.append("\n");
     } else {
-      changeCount++;
-      qInfo().noquote() << "[GameRedguard] Map" << mName << "position" << pos << "has" << lines->size() << "changes";
-      
-      // Show context: 3 lines before
-      qInfo().noquote() << "[GameRedguard]   --- Context (3 lines before) ---";
-      for (int i = qMax(0, pos - 3); i < pos; ++i) {
-        qInfo().noquote() << "[GameRedguard]   " << QString::number(i) + ":" << scriptLines[i].left(80);
-      }
-      
-      qInfo().noquote() << "[GameRedguard]   >>> Position" << pos << "(ORIGINAL):" << scriptLines[pos].left(80);
-      qInfo().noquote() << "[GameRedguard]   First change:" << (lines->isEmpty() ? "EMPTY" : lines->first().left(80));
-      
-      // Output original line FIRST (unless first change is "null" = deletion marker)
-      qInfo().noquote() << "[GameRedguard]   === OUTPUT START ===";
-      if (lines->first() != "null") {
+      // Keep the original line unless a leading deletion marker suppresses it.
+      if (lines->isEmpty() || lines->first() != "null") {
         output.append(scriptLines[pos]);
         output.append("\n");
-        qInfo().noquote() << "[GameRedguard]   + KEPT ORIG:" << scriptLines[pos].left(80);
-      } else {
-        deletionCount++;
-        qInfo().noquote() << "[GameRedguard]   - DELETED:" << scriptLines[pos].left(80);
       }
-      
-      // Then insert change lines AFTER the original line
+
+      // Then apply inserted lines in listed order.
       for (const QString& line : *lines) {
         if (line != "null") {
-          insertionCount++;
           output.append(line);
           output.append("\n");
-          qInfo().noquote() << "[GameRedguard]   + INSERTED:" << line.left(80);
         }
       }
-      qInfo().noquote() << "[GameRedguard]   === OUTPUT END ===";
-      
-      // Show context: 3 lines after
-      qInfo().noquote() << "[GameRedguard]   --- Context (3 lines after) ---";
-      for (int i = pos + 1; i < qMin(scriptLines.size(), pos + 4); ++i) {
-        qInfo().noquote() << "[GameRedguard]   " << QString::number(i) + ":" << scriptLines[i].left(80);
-      }
-      qInfo().noquote() << "";
     }
   }
-  
-  if (changeCount > 0) {
-    qInfo().noquote() << "[GameRedguard] Map" << mName << "applied" << changeCount << "position changes:" 
-             << deletionCount << "deletions," << insertionCount << "insertions";
+
+  // Allow sidecars to target synthetic EOF positions for pure append operations.
+  const QList<int> changedPositions = mapChanges.changedPositions(mName);
+  for (int pos : changedPositions) {
+    if (pos < scriptLines.size()) {
+      continue;
+    }
+    const QList<QString>* lines = mapChanges.lineChangesAt(mName, pos);
+    if (!lines) {
+      continue;
+    }
+    for (const QString& line : *lines) {
+      if (line != "null") {
+        output.append(line);
+        output.append("\n");
+      }
+    }
   }
 
   return output;

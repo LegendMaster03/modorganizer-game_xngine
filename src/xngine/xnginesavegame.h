@@ -43,6 +43,7 @@ public:
   // Simple getters
   virtual QString getPCName() const { return m_PCName; }
   virtual unsigned short getPCLevel() const { return m_PCLevel; }
+  virtual QString getPCLevelText() const;
   virtual QString getPCLocation() const { return m_PCLocation; }
   virtual unsigned long getSaveNumber() const { return m_SaveNumber; }
   virtual QString getGameDetails() const { return {}; }

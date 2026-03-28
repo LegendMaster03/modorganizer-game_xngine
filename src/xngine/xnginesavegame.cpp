@@ -74,6 +74,11 @@ QDateTime XngineSaveGame::getCreationTime() const
   return m_CreationTime;
 }
 
+QString XngineSaveGame::getPCLevelText() const
+{
+  return (m_PCLevel > 0) ? QString::number(m_PCLevel) : QString();
+}
+
 QString XngineSaveGame::getName() const
 {
   if (m_PCName.isEmpty()) {

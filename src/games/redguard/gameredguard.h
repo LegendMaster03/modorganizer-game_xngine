@@ -7,7 +7,6 @@
 #include <QtPlugin>
 #include <QtGlobal>
 #include <QIcon>
-#include <QStandardPaths>
 #include <windows.h>
 #include <memory>
 
@@ -20,49 +19,50 @@ class GameRedguard : public GameXngine
 #endif
 
 public:
-  GameRedguard();
+  GameRedguard() = default;
 
-  virtual bool init(MOBase::IOrganizer* moInfo) override;
+  bool init(MOBase::IOrganizer* moInfo) override;
 
 public:  // IPluginGame interface
-  virtual QString gameName() const override;
-  virtual QString displayGameName() const override;
-  virtual QList<MOBase::ExecutableInfo> executables() const override;
-  virtual QString steamAPPId() const override;
-  virtual QString gogAPPId() const;
-  virtual QString binaryName() const override;
-  virtual QString gameShortName() const override;
-  virtual QString gameNexusName() const override;
-  virtual QStringList validShortNames() const override;
-  virtual QStringList iniFiles() const override;
-  virtual MappingType mappings() const override;
-  virtual int nexusModOrganizerID() const override;
-  virtual int nexusGameID() const override;
-  virtual QString gameVersion() const override;
-  virtual QIcon gameIcon() const override;
-  virtual QDir dataDirectory() const override;
+  QString gameName() const override;
+  QString displayGameName() const override;
+  QList<MOBase::ExecutableInfo> executables() const override;
+  QString steamAPPId() const override;
+  QString gogAPPId() const;
+  QString binaryName() const override;
+  QString gameShortName() const override;
+  QString gameNexusName() const override;
+  QStringList validShortNames() const override;
+  QStringList iniFiles() const override;
+  MappingType mappings() const override;
+  int nexusModOrganizerID() const override;
+  int nexusGameID() const override;
+  QString gameVersion() const override;
+  QIcon gameIcon() const override;
+  QDir dataDirectory() const override;
 
 public:  // IPlugin interface
-  virtual QString name() const override;
-  virtual QString localizedName() const override;
-  virtual QString author() const override;
-  virtual QString description() const override;
-  virtual MOBase::VersionInfo version() const override;
-  virtual QList<MOBase::PluginSetting> settings() const override;
+  QString name() const override;
+  QString localizedName() const override;
+  QString author() const override;
+  QString description() const override;
+  MOBase::VersionInfo version() const override;
+  QList<MOBase::PluginSetting> settings() const override;
   bool allowExeModInstall() const;
   bool allowDillon241PatchInstall() const;
+  bool showFullSvitInventory() const;
 
 protected:
-  virtual QString identifyGamePath() const override;
-  virtual bool looksValid(QDir const& path) const override;
-  virtual bool prepareIni(const QString& exec) override;
-  virtual QDir savesDirectory() const override;
-  virtual QString savegameExtension() const override;
-  virtual QString savegameSEExtension() const override;
-  virtual std::shared_ptr<const XngineSaveGame> makeSaveGame(QString filepath) const override;
+  QString identifyGamePath() const override;
+  bool looksValid(QDir const& path) const override;
+  bool prepareIni(const QString& exec) override;
+  QDir savesDirectory() const override;
+  QString savegameExtension() const override;
+  QString savegameSEExtension() const override;
+  std::shared_ptr<const XngineSaveGame> makeSaveGame(QString filepath) const override;
 
-  virtual SaveLayout saveLayout() const override;
-  virtual QString saveGameId() const override;
+  SaveLayout saveLayout() const override;
+  QString saveGameId() const override;
 
 private:
   QString findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const;

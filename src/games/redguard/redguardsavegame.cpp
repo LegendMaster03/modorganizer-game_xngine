@@ -1,5 +1,6 @@
 #include "redguardsavegame.h"
 #include "gameredguard.h"
+#include "redguardsmapdatabase.h"
 #include "redguardsrtxdatabase.h"
 
 #include <QDir>
@@ -12,8 +13,185 @@
 #include <QRegularExpression>
 #include <QtEndian>
 
+#include <iterator>
+
 namespace
 {
+constexpr int kSvitRecordSize = 0x16;
+constexpr int kSvitCurrentCountOffset = 0x0A;
+constexpr quint32 kSvitSavePayloadLength = 0x768;
+constexpr int kSvitItemCount = 86;
+
+struct SvitItemNameCache
+{
+  QMutex mutex;
+  QHash<QString, QStringList> namesByDataPath;
+};
+
+struct RtxSubtitleCache
+{
+  QMutex mutex;
+  QHash<QString, QHash<QString, QString>> subtitlesByDataPath;
+};
+
+QStringList buildDefaultSvitItemNames()
+{
+  QStringList names;
+  names.reserve(kSvitItemCount + 1);
+  for (int i = 0; i < kSvitItemCount; ++i) {
+    names.push_back(QStringLiteral("Item %1").arg(i));
+  }
+  names.push_back(QStringLiteral("LAST"));
+  return names;
+}
+
+QStringList loadSvitItemNamesFromDataDirectory(const QDir& dataDir)
+{
+  QStringList names = buildDefaultSvitItemNames();
+  if (!dataDir.exists()) {
+    return names;
+  }
+
+  const QString rtxPath = dataDir.absoluteFilePath("ENGLISH.RTX");
+  const QString itemPath = dataDir.absoluteFilePath("ITEM.INI");
+
+  RedguardsRtxDatabase rtxDatabase;
+  if (!rtxDatabase.readFile(rtxPath)) {
+    return names;
+  }
+
+  RedguardsMapDatabase mapDatabase(rtxDatabase);
+  if (!mapDatabase.readItemsFile(itemPath)) {
+    return names;
+  }
+
+  const auto& items = mapDatabase.items();
+  for (int i = 0; i < items.size() && i < kSvitItemCount; ++i) {
+    if (!items[i].name.trimmed().isEmpty()) {
+      names[i] = items[i].name.trimmed();
+    }
+  }
+
+  return names;
+}
+
+QStringList loadCachedSvitItemNames(const QDir& dataDir)
+{
+  if (!dataDir.exists()) {
+    return buildDefaultSvitItemNames();
+  }
+
+  const QString cacheKey = dataDir.absolutePath();
+  if (cacheKey.isEmpty()) {
+    return buildDefaultSvitItemNames();
+  }
+
+  static SvitItemNameCache cache;
+  QMutexLocker lock(&cache.mutex);
+  const auto cacheIt = cache.namesByDataPath.constFind(cacheKey);
+  if (cacheIt != cache.namesByDataPath.cend()) {
+    return cacheIt.value();
+  }
+
+  const QStringList names = loadSvitItemNamesFromDataDirectory(dataDir);
+  cache.namesByDataPath.insert(cacheKey, names);
+  return names;
+}
+
+QStringList loadSvitItemNames(const GameRedguard* game)
+{
+  if (game == nullptr) {
+    return buildDefaultSvitItemNames();
+  }
+
+  return loadCachedSvitItemNames(game->dataDirectory());
+}
+
+QHash<QString, QString> loadEnglishRtxSubtitlesFromDataDirectory(const QDir& dataDir)
+{
+  QHash<QString, QString> subtitles;
+  if (!dataDir.exists()) {
+    return subtitles;
+  }
+
+  const QString rtxPath = dataDir.absoluteFilePath("ENGLISH.RTX");
+  RedguardsRtxDatabase rtxDatabase;
+  if (!rtxDatabase.readFile(rtxPath)) {
+    return subtitles;
+  }
+
+  const auto& entries = rtxDatabase.entries();
+  subtitles.reserve(entries.size());
+  for (auto it = entries.cbegin(); it != entries.cend(); ++it) {
+    subtitles.insert(it.key().trimmed().toLower(), it.value().subtitle.trimmed());
+  }
+  return subtitles;
+}
+
+QHash<QString, QString> loadCachedEnglishRtxSubtitles(const GameRedguard* game)
+{
+  if (game == nullptr) {
+    return {};
+  }
+
+  const QDir dataDir = game->dataDirectory();
+  if (!dataDir.exists()) {
+    return {};
+  }
+
+  const QString cacheKey = dataDir.absolutePath();
+  if (cacheKey.isEmpty()) {
+    return {};
+  }
+
+  static RtxSubtitleCache cache;
+  QMutexLocker lock(&cache.mutex);
+  const auto cacheIt = cache.subtitlesByDataPath.constFind(cacheKey);
+  if (cacheIt != cache.subtitlesByDataPath.cend()) {
+    return cacheIt.value();
+  }
+
+  const QHash<QString, QString> subtitles = loadEnglishRtxSubtitlesFromDataDirectory(dataDir);
+  cache.subtitlesByDataPath.insert(cacheKey, subtitles);
+  return subtitles;
+}
+
+void appendInventoryCountLine(QStringList& lines, const QString& label, quint32 count)
+{
+  if (count > 0) {
+    lines << QString("%1: %2").arg(label).arg(count);
+  }
+}
+
+QStringList buildCompactInventoryDetails(quint32 gold, quint32 ironSkinPotions,
+                                         quint32 healthPotions, quint32 strengthPotions)
+{
+  QStringList lines;
+  appendInventoryCountLine(lines, QStringLiteral("Gold"), gold);
+  appendInventoryCountLine(lines, QStringLiteral("Potion of Ironskin"), ironSkinPotions);
+  appendInventoryCountLine(lines, QStringLiteral("Health Potions"), healthPotions);
+  appendInventoryCountLine(lines, QStringLiteral("Strength Potions"), strengthPotions);
+  if (!lines.isEmpty()) {
+    lines.prepend(QStringLiteral("Inventory:"));
+  }
+  return lines;
+}
+
+QStringList buildFullInventoryDetails(const QVector<quint32>& counts, const QStringList& names)
+{
+  QStringList lines;
+  if (counts.isEmpty()) {
+    return lines;
+  }
+
+  lines << QStringLiteral("Inventory:");
+  const int limit = qMin(counts.size(), names.size());
+  for (int itemId = 0; itemId < limit; ++itemId) {
+    lines << QString("%1: %2").arg(names[itemId]).arg(counts[itemId]);
+  }
+  return lines;
+}
+
 struct SaveChunkRow
 {
   QByteArray tag;
@@ -226,18 +404,33 @@ QString RedguardsSaveGame::getName() const
   return parts.join(", ");
 }
 
+QString RedguardsSaveGame::getPCLevelText() const
+{
+  return {};
+}
+
 QString RedguardsSaveGame::getGameDetails() const
 {
+  const bool showFullInventory =
+      (m_Game != nullptr) ? m_Game->showFullSvitInventory() : false;
+
   QStringList lines;
-  if (m_Gold > 0) {
-    lines << QString("Gold: %1").arg(m_Gold);
-  }
-  if (m_HealthPotions > 0) {
-    lines << QString("Health Potions: %1").arg(m_HealthPotions);
-  }
   if (!m_AreaToken.isEmpty()) {
     lines << QString("Area: %1").arg(m_AreaToken);
   }
+
+  const QStringList inventoryLines =
+      showFullInventory ? buildFullInventoryDetails(m_SvitCurrentCounts, loadSvitItemNames(m_Game))
+                        : buildCompactInventoryDetails(m_Gold, m_IronSkinPotions,
+                                                        m_HealthPotions, m_StrengthPotions);
+
+  if (!inventoryLines.isEmpty()) {
+    if (!lines.isEmpty()) {
+      lines << QString();
+    }
+    lines.append(inventoryLines);
+  }
+
   return lines.join('\n');
 }
 
@@ -409,19 +602,29 @@ void RedguardsSaveGame::parseStructuredMetadata(const QByteArray& bytes)
 {
   constexpr qsizetype kTailScanOffset = 0;
 
-  // SVIT appears to hold most player state.
+  // In SAVEGAME.SAV, the trailing bounded-valid SVIT chunk is a fixed-stride item table:
+  // item ID n lives at base (n * 0x16), and current_count[n] is LE u32 at base + 0x0A.
+  // This layout is confirmed for the 0x768-byte SAVEGAME.SAV payload. SVIT also appears in
+  // some TSG files, but those variants should not be interpreted with SAVEGAME.SAV semantics.
   qsizetype svitOffset = -1;
   quint32 svitLen = 0;
+  m_Gold = 0;
+  m_IronSkinPotions = 0;
+  m_HealthPotions = 0;
+  m_StrengthPotions = 0;
+  m_SvitCurrentCounts.fill(0, kSvitItemCount);
   if (findLastChunkPayload(bytes, "SVIT", kTailScanOffset, &svitOffset, &svitLen) &&
-      svitLen >= 0x64) {
+      svitLen >= kSvitSavePayloadLength) {
     const auto* svit = reinterpret_cast<const uchar*>(bytes.constData() + svitOffset);
 
-    // Observed in provided saves: offset 0x36 tracks carried gold.
-    // (offset 0x32 is another value and was causing incorrect Gold=500 readings)
-    m_Gold = qFromLittleEndian<quint32>(svit + 0x36);
+    for (int itemId = 0; itemId < kSvitItemCount; ++itemId) {
+      m_SvitCurrentCounts[itemId] = readSvitCurrentCount(svit, svitLen, itemId);
+    }
 
-    // Observed in sample saves: offset 0x62 tracks health potion count.
-    m_HealthPotions = qFromLittleEndian<quint32>(svit + 0x62);
+    m_Gold = readSvitCurrentCount(svit, svitLen, 2);
+    m_IronSkinPotions = readSvitCurrentCount(svit, svitLen, 3);
+    m_HealthPotions = readSvitCurrentCount(svit, svitLen, 4);
+    m_StrengthPotions = readSvitCurrentCount(svit, svitLen, 67);
   }
 
   // SVMD contains location code records and an active location index.
@@ -429,10 +632,6 @@ void RedguardsSaveGame::parseStructuredMetadata(const QByteArray& bytes)
   quint32 svmdLen = 0;
   if (!findLastChunkPayload(bytes, "SVMD", kTailScanOffset, &svmdOffset, &svmdLen) ||
       svmdLen < 10) {
-    return;
-  }
-
-  if (svmdLen < 10) {
     return;
   }
 
@@ -471,6 +670,21 @@ void RedguardsSaveGame::parseStructuredMetadata(const QByteArray& bytes)
   m_LocationCode = locationById.value(activeLocationId);
 }
 
+quint32 RedguardsSaveGame::readSvitCurrentCount(const uchar* svit, quint32 svitLen, int itemId)
+{
+  if (svit == nullptr || itemId < 0) {
+    return 0;
+  }
+
+  const qsizetype offset =
+      static_cast<qsizetype>(itemId) * kSvitRecordSize + kSvitCurrentCountOffset;
+  if (offset + static_cast<qsizetype>(sizeof(quint32)) > static_cast<qsizetype>(svitLen)) {
+    return 0;
+  }
+
+  return qFromLittleEndian<quint32>(svit + offset);
+}
+
 void RedguardsSaveGame::resolveLocationFromCode()
 {
   if (m_LocationCode.isEmpty() && m_LocationCodes.isEmpty()) {
@@ -479,26 +693,7 @@ void RedguardsSaveGame::resolveLocationFromCode()
 
   // Resolve code labels from ENGLISH.RTX (e.g. ?smk -> STROS M'KAI)
   // instead of relying on hardcoded guesses.
-  static QMutex cacheMutex;
-  static QHash<QString, QString> subtitleByLabel;
-  static QString loadedFromPath;
-
-  if (m_Game != nullptr) {
-    const QString rtxPath = m_Game->dataDirectory().absoluteFilePath("ENGLISH.RTX");
-    QMutexLocker lock(&cacheMutex);
-    if (loadedFromPath != rtxPath) {
-      subtitleByLabel.clear();
-      loadedFromPath.clear();
-
-      RedguardsRtxDatabase rtx;
-      if (rtx.readFile(rtxPath)) {
-        for (auto it = rtx.entries().cbegin(); it != rtx.entries().cend(); ++it) {
-          subtitleByLabel.insert(it.key().trimmed().toLower(), it.value().subtitle.trimmed());
-        }
-        loadedFromPath = rtxPath;
-      }
-    }
-  }
+  const QHash<QString, QString> subtitleByLabel = loadCachedEnglishRtxSubtitles(m_Game);
 
   QStringList candidates;
   if (!m_LocationCode.isEmpty()) {
@@ -513,7 +708,6 @@ void RedguardsSaveGame::resolveLocationFromCode()
 
   QString bestSubtitle;
   QString fallbackSubtitle;
-  QString fallbackCode;
 
   for (const QString& code : candidates) {
     const QString key = QStringLiteral("?") + code;
@@ -523,7 +717,6 @@ void RedguardsSaveGame::resolveLocationFromCode()
     }
     if (fallbackSubtitle.isEmpty()) {
       fallbackSubtitle = subtitle;
-      fallbackCode = code;
     }
     if (!isWeakLocationToken(code, subtitle)) {
       bestSubtitle = subtitle;

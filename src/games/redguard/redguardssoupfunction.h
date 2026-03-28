@@ -6,6 +6,7 @@
 class RedguardsSoupFunction
 {
 public:
+  RedguardsSoupFunction() = default;
   explicit RedguardsSoupFunction(const QString& line);
 
   const QString& type() const { return mType; }

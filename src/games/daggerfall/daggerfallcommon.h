@@ -1,9 +1,7 @@
 #ifndef DAGGERFALL_COMMON_H
 #define DAGGERFALL_COMMON_H
 
-#include <QHash>
 #include <QString>
-#include <QVector>
 #include <QtGlobal>
 
 namespace Daggerfall
@@ -38,15 +36,6 @@ bool isMapsaveRecordName(const QString& recordName);
 
 QString rmbPrefixForBlockIndex(quint8 blockIndex);
 QString rdbPrefixForBlockIndex(quint8 blockIndex);
-
-QHash<int, QString> regionNames();
-QHash<int, QString> locationTypes();
-QHash<int, int> locationTypePaletteIndices();
-QHash<int, QString> buildingTypes();
-QHash<int, QString> townBuildingTypes();
-QHash<int, QString> rulerTitles();
-QVector<QString> rmbPrefixes();
-QVector<QString> rdbPrefixes();
 }  // namespace Data
 }  // namespace Daggerfall
 

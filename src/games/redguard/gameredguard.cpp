@@ -14,8 +14,6 @@
 #include <xnginesavegameinfo.h>
 #include <xngineunmanagedmods.h>
 
-#include <QCoreApplication>
-#include <QDebug>
 #include <QFileInfo>
 #include <QByteArray>
 #include <QFile>
@@ -114,71 +112,42 @@ QString detectRedguardVersionFromText(const QDir& root, const QStringList& candi
 
 }  // namespace
 
-GameRedguard::GameRedguard() {
-  qInfo().noquote() << "[GameRedguard] Constructor ENTRY";
-  OutputDebugStringA("[GameRedguard] Constructor ENTRY\n");
-  OutputDebugStringA("[GameRedguard] Constructor EXIT\n");
-  qInfo().noquote() << "[GameRedguard] Constructor EXIT";
-}
-
 bool GameRedguard::init(IOrganizer* moInfo)
 {
-  qInfo().noquote() << "[GameRedguard] init() ENTRY";
-  OutputDebugStringA("[GameRedguard] init() ENTRY\n");
-  
   try {
-    OutputDebugStringA("[GameRedguard] About to call GameXngine::init()\n");
     if (!GameXngine::init(moInfo)) {
-      OutputDebugStringA("[GameRedguard] GameXngine::init() FAILED\n");
-      qWarning().noquote() << "[GameRedguard] GameXngine::init() FAILED";
+      qWarning().noquote() << "Redguard: GameXngine::init() failed";
       return false;
     }
-    OutputDebugStringA("[GameRedguard] GameXngine::init() SUCCESS\n");
-    qInfo().noquote() << "[GameRedguard] GameXngine::init() SUCCESS";
 
-    // Register save-related features even if optional checker setup fails.
     const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
     registerFeature(std::make_shared<XngineSaveGameInfo>(this));
     registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
     registerFeature(std::make_shared<XngineUnmanagedMods>(this));
 
-    // Optional checker feature: don't fail plugin init if this breaks.
-    OutputDebugStringA("[GameRedguard] About to create RedguardsModDataChecker\n");
     try {
       auto checker = std::make_shared<RedguardsModDataChecker>(this);
-      OutputDebugStringA("[GameRedguard] RedguardsModDataChecker created successfully\n");
-      OutputDebugStringA("[GameRedguard] About to register RedguardsModDataChecker\n");
-      qInfo().noquote() << "[GameRedguard] Registering RedguardsModDataChecker";
       registerFeature(checker);
-      OutputDebugStringA("[GameRedguard] RedguardsModDataChecker registered successfully\n");
-      qInfo().noquote() << "[GameRedguard] RedguardsModDataChecker registered successfully";
     } catch (const std::exception&) {
-      OutputDebugStringA("[GameRedguard] EXCEPTION creating/registering RedguardsModDataChecker (continuing)\n");
-      qWarning().noquote() << "[GameRedguard] RedguardsModDataChecker setup failed, continuing";
+      qWarning().noquote() << "Redguard: RedguardsModDataChecker setup failed, continuing";
     } catch (...) {
-      OutputDebugStringA("[GameRedguard] UNKNOWN EXCEPTION creating/registering RedguardsModDataChecker (continuing)\n");
-      qWarning().noquote() << "[GameRedguard] RedguardsModDataChecker setup failed (unknown), continuing";
+      qWarning().noquote() << "Redguard: RedguardsModDataChecker setup failed, continuing";
     }
 
     registerFeature(std::make_shared<RedguardsModDataContent>(m_Organizer->gameFeatures()));
 
-    OutputDebugStringA("[GameRedguard] init() EXIT SUCCESS\n");
-    qInfo().noquote() << "[GameRedguard] init() EXIT SUCCESS";
     return true;
   } catch (const std::exception& e) {
-    OutputDebugStringA("[GameRedguard] EXCEPTION in init()\n");
-    qWarning().noquote() << "[GameRedguard] EXCEPTION in init()";
+    qWarning().noquote() << "Redguard: init() failed:" << e.what();
     return false;
   } catch (...) {
-    OutputDebugStringA("[GameRedguard] UNKNOWN EXCEPTION in init()\n");
-    qWarning().noquote() << "[GameRedguard] UNKNOWN EXCEPTION in init()";
+    qWarning().noquote() << "Redguard: init() failed";
     return false;
   }
 }
 
 QString GameRedguard::gameName() const
 {
-  OutputDebugStringA("[GameRedguard] gameName() called\n");
   return "Redguard";
 }
 
@@ -189,17 +158,14 @@ QString GameRedguard::displayGameName() const
 
 QList<ExecutableInfo> GameRedguard::executables() const
 {
-  OutputDebugStringA("[GameRedguard] executables() ENTRY\n");
   QList<ExecutableInfo> executables;
   QDir gameDir = gameDirectory();
   if (gameDir.path().isEmpty() || !gameDir.exists()) {
-    OutputDebugStringA("[GameRedguard] executables() - game directory invalid\n");
     return executables;
   }
   
   // Steam DOSBox launcher
   QFileInfo steamDosbox(gameDir.filePath("DOSBox-0.73/dosbox.exe"));
-  QFileInfo steamConfig(gameDir.filePath("DOSBox-0.73/rg.conf"));
   if (steamDosbox.exists()) {
     executables << ExecutableInfo("Redguard (Steam DOSBox Windowed)", steamDosbox)
                    .withArgument("dosbox.exe -noconsole -conf rg.conf");
@@ -220,43 +186,36 @@ QList<ExecutableInfo> GameRedguard::executables() const
     executables << ExecutableInfo("Redguard", redguardExe);
   }
 
-  OutputDebugStringA("[GameRedguard] executables() EXIT\n");
   return executables;
 }
 
 QString GameRedguard::steamAPPId() const
 {
-  OutputDebugStringA("[GameRedguard] steamAPPId() called\n");
   return "1812410";
 }
 
 QString GameRedguard::gogAPPId() const
 {
-  OutputDebugStringA("[GameRedguard] gogAPPId() called\n");
   return "1435829617";
 }
 
 QString GameRedguard::binaryName() const
 {
-  OutputDebugStringA("[GameRedguard] binaryName() called\n");
   return "REDGUARD.EXE";
 }
 
 QString GameRedguard::gameShortName() const
 {
-  OutputDebugStringA("[GameRedguard] gameShortName() called\n");
   return "Redguard";
 }
 
 QString GameRedguard::gameNexusName() const
 {
-  OutputDebugStringA("[GameRedguard] gameNexusName() called\n");
   return "theelderscrollsadventuresredguard";
 }
 
 QStringList GameRedguard::validShortNames() const
 {
-  OutputDebugStringA("[GameRedguard] validShortNames() called\n");
   return {"redguard", "rg"};
 }
 
@@ -305,13 +264,11 @@ QIcon GameRedguard::gameIcon() const
 
 int GameRedguard::nexusModOrganizerID() const
 {
-  OutputDebugStringA("[GameRedguard] nexusModOrganizerID() called\n");
   return 6220;  // Nexus MO Organizer ID for Redguard
 }
 
 int GameRedguard::nexusGameID() const
 {
-  OutputDebugStringA("[GameRedguard] nexusGameID() called\n");
   return 4462;  // Nexus Game ID for Redguard
 }
 
@@ -371,36 +328,35 @@ QString GameRedguard::name() const
 
 QString GameRedguard::localizedName() const
 {
-  OutputDebugStringA("[GameRedguard] localizedName() called\n");
   return tr("The Elder Scrolls Adventures: Redguard Support Plugin");
 }
 
 QString GameRedguard::author() const
 {
-  OutputDebugStringA("[GameRedguard] author() called\n");
   return "Legend_Master";
 }
 
 QString GameRedguard::description() const
 {
-  OutputDebugStringA("[GameRedguard] description() called\n");
   return tr("Adds support for the game The Elder Scrolls Adventures: Redguard");
 }
 
 VersionInfo GameRedguard::version() const
 {
-  OutputDebugStringA("[GameRedguard] version() called\n");
   return VersionInfo(1, 0, 0, VersionInfo::RELEASE_FINAL);
 }
 
 QList<PluginSetting> GameRedguard::settings() const
 {
-  OutputDebugStringA("[GameRedguard] settings() called\n");
   return {
       PluginSetting(
           "allow_dillon241_patch_mod_install",
           tr("Allow Dillon241 patch mods (About.txt / INI Changes.txt / Map Changes.txt / RTX Changes.txt)."),
           true),
+      PluginSetting(
+          "show_full_svit_inventory",
+          tr("Show the full Redguard SAVEGAME.SAV SVIT inventory table in save info (developer/debug view)."),
+          false),
       PluginSetting(
           "xdelta_enabled",
           tr("Allow .xdelta binary patch mods. Requires the XNGINE patch tool (xdelta.exe) to be installed with MO2/plugin files. WARNING: this is dangerous and may corrupt saves or game data."),
@@ -425,56 +381,50 @@ bool GameRedguard::allowDillon241PatchInstall() const
   return m_Organizer->pluginSetting(name(), "allow_dillon241_patch_mod_install").toBool();
 }
 
+bool GameRedguard::showFullSvitInventory() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  return m_Organizer->pluginSetting(name(), "show_full_svit_inventory").toBool();
+}
+
 QString GameRedguard::identifyGamePath() const
 {
-  qInfo().noquote() << "[GameRedguard] identifyGamePath() ENTRY";
-  OutputDebugStringA("[GameRedguard] identifyGamePath() ENTRY\n");
   try {
-  // Try Steam first (using Steam App ID 1812410)
-  QString steamPath = findInRegistry(HKEY_LOCAL_MACHINE,
-                                     L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1812410",
-                                     L"InstallLocation");
-  if (!steamPath.isEmpty()) {
-    // Verify it has the Steam DOSBox structure
-    if (QDir(steamPath + "/DOSBox-0.73").exists() &&
-        QFile::exists(steamPath + "/DOSBox-0.73/dosbox.exe") &&
-        QFile::exists(steamPath + "/Redguard/REDGUARD.EXE")) {
-      qInfo().noquote() << "[GameRedguard] Steam path verified";
-      OutputDebugStringA("[GameRedguard] Steam path verified\n");
-      return steamPath;
+    const QString steamPath = findInRegistry(
+        HKEY_LOCAL_MACHINE,
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1812410",
+        L"InstallLocation");
+    if (!steamPath.isEmpty()) {
+      if (QDir(steamPath + "/DOSBox-0.73").exists() &&
+          QFile::exists(steamPath + "/DOSBox-0.73/dosbox.exe") &&
+          QFile::exists(steamPath + "/Redguard/REDGUARD.EXE")) {
+        return steamPath;
+      }
     }
-  }
 
-  // Try GOG registry (using GOG Game ID 1435829617)
-  QString gogPath = findInRegistry(HKEY_LOCAL_MACHINE,
-                                   L"Software\\GOG.com\\Games\\1435829617",
-                                   L"path");
-  if (!gogPath.isEmpty()) {
-    // Verify it has the GOG DOSBox structure
-    if (QDir(gogPath + "/DOSBOX").exists() &&
-        QFile::exists(gogPath + "/DOSBOX/dosbox.exe") &&
-        QFile::exists(gogPath + "/Redguard/REDGUARD.EXE")) {
-      qInfo().noquote() << "[GameRedguard] GOG registry path verified";
-      OutputDebugStringA("[GameRedguard] GOG registry path verified\n");
-      return gogPath;
+    const QString gogPath = findInRegistry(HKEY_LOCAL_MACHINE,
+                                           L"Software\\GOG.com\\Games\\1435829617",
+                                           L"path");
+    if (!gogPath.isEmpty()) {
+      if (QDir(gogPath + "/DOSBOX").exists() &&
+          QFile::exists(gogPath + "/DOSBOX/dosbox.exe") &&
+          QFile::exists(gogPath + "/Redguard/REDGUARD.EXE")) {
+        return gogPath;
+      }
     }
-  }
 
-  qWarning().noquote() << "[GameRedguard] identifyGamePath() EXIT (not found)";
-  OutputDebugStringA("[GameRedguard] identifyGamePath() EXIT (not found)\n");
-  return {};
+    return {};
   } catch (const std::exception&) {
-    OutputDebugStringA("[GameRedguard] EXCEPTION in identifyGamePath()\n");
     return {};
   } catch (...) {
-    OutputDebugStringA("[GameRedguard] UNKNOWN EXCEPTION in identifyGamePath()\n");
     return {};
   }
 }
 
 QString GameRedguard::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const
 {
-  qInfo().noquote() << "[GameRedguard] findInRegistry() ENTRY";
   DWORD size = 0;
   HKEY subKey;
   LONG res = ::RegOpenKeyExW(baseKey, path, 0, KEY_QUERY_VALUE | KEY_WOW64_32KEY, &subKey);
@@ -502,33 +452,19 @@ QString GameRedguard::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) 
 
 bool GameRedguard::looksValid(QDir const& path) const
 {
-  qInfo().noquote() << "[GameRedguard] looksValid() called";
-  OutputDebugStringA("[GameRedguard] looksValid() called\n");
-  
-  // Redguard has a unique structure - the executable is in a Redguard subdirectory
-  // Check for either Steam structure (DOSBox-0.73) or GOG structure (DOSBOX)
-  bool valid = (QDir(path.absolutePath() + "/DOSBox-0.73").exists() &&
-                QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE")) ||
-               (QDir(path.absolutePath() + "/DOSBOX").exists() &&
-                QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE"));
-  
-  return valid;
+  return (QDir(path.absolutePath() + "/DOSBox-0.73").exists() &&
+          QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE")) ||
+         (QDir(path.absolutePath() + "/DOSBOX").exists() &&
+          QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE"));
 }
 
 QDir GameRedguard::dataDirectory() const
 {
-  qInfo().noquote() << "[GameRedguard] dataDirectory() ENTRY";
-  OutputDebugStringA("[GameRedguard] dataDirectory() ENTRY\n");
   QDir gameDir = gameDirectory();
   if (gameDir.path().isEmpty() || !gameDir.exists()) {
-    qWarning().noquote() << "[GameRedguard] dataDirectory() - game directory invalid:" << gameDir.absolutePath();
-    OutputDebugStringA("[GameRedguard] dataDirectory() - game directory invalid\n");
     return QDir();
   }
-  QDir redguardDir = gameDir.absoluteFilePath("Redguard");
-  qInfo().noquote() << "[GameRedguard] dataDirectory() using Redguard subdirectory:" << redguardDir.absolutePath();
-  OutputDebugStringA(("[GameRedguard] dataDirectory() path='" + redguardDir.absolutePath().toStdString() + "'\n").c_str());
-  return redguardDir;
+  return gameDir.absoluteFilePath("Redguard");
 }
 
 QDir GameRedguard::savesDirectory() const
@@ -584,19 +520,16 @@ MappingType GameRedguard::mappings() const
 
 QString GameRedguard::savegameExtension() const
 {
-  OutputDebugStringA("[GameRedguard] savegameExtension() called\n");
   return "sav";
 }
 
 QString GameRedguard::savegameSEExtension() const
 {
-  OutputDebugStringA("[GameRedguard] savegameSEExtension() called\n");
   return "sav";
 }
 
 std::shared_ptr<const XngineSaveGame> GameRedguard::makeSaveGame(QString filepath) const
 {
-  OutputDebugStringA("[GameRedguard] makeSaveGame() called\n");
   return std::make_shared<RedguardsSaveGame>(filepath, this);
 }
 
@@ -619,34 +552,22 @@ QString GameRedguard::saveGameId() const
 
 bool GameRedguard::prepareIni(const QString& exec)
 {
-  qInfo().noquote() << "[GameRedguard] prepareIni() ENTRY";
-  OutputDebugStringA("[GameRedguard] prepareIni() ENTRY\n");
-  
-  // First call parent implementation
   if (!GameXngine::prepareIni(exec)) {
-    qWarning().noquote() << "[GameRedguard] GameXngine::prepareIni() FAILED";
+    qWarning().noquote() << "Redguard: GameXngine::prepareIni() failed";
     return false;
   }
-  
-  // Apply patch-based mods.
+
   if (!applyPatchMods()) {
-    qWarning().noquote() << "[GameRedguard] applyPatchMods() FAILED";
-    // Don't fail launch - file replacement mods should still work
-    OutputDebugStringA("[GameRedguard] WARNING: Patch mod application failed but continuing launch\n");
+    qWarning().noquote() << "Redguard: patch mod application failed, continuing launch";
   }
-  
-  qInfo().noquote() << "[GameRedguard] prepareIni() EXIT SUCCESS";
-  OutputDebugStringA("[GameRedguard] prepareIni() EXIT\n");
+
   return true;
 }
 
 bool GameRedguard::applyPatchMods()
 {
-  qInfo().noquote() << "[GameRedguard] applyPatchMods() ENTRY";
-  OutputDebugStringA("[GameRedguard] applyPatchMods() ENTRY\n");
-  
   if (!m_Organizer) {
-    qWarning().noquote() << "[GameRedguard] m_Organizer is NULL";
+    qWarning().noquote() << "Redguard: organizer is null";
     return false;
   }
 
@@ -656,6 +577,5 @@ bool GameRedguard::applyPatchMods()
       applyRedguardPatchMods(m_Organizer, name(), profilePath(),
                              gameDirectory().absolutePath(), allowDillon241, allowExeMods);
 
-  qInfo().noquote() << "[GameRedguard] applyPatchMods() EXIT";
   return success;
 }

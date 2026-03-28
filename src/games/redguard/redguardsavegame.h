@@ -7,6 +7,7 @@
 #include <QString>
 #include <QStringList>
 #include <QSet>
+#include <QVector>
 
 class GameRedguard;
 
@@ -19,6 +20,7 @@ class RedguardsSaveGame : public XngineSaveGame
 public:
   RedguardsSaveGame(const QString& saveFolder, const GameRedguard* game);
   virtual QString getName() const override;
+  virtual QString getPCLevelText() const override;
   virtual QString getGameDetails() const override;
   virtual QStringList allFiles() const override;
   QString chunkTableDebugText() const;
@@ -36,6 +38,7 @@ private:
   void resolveLocationFromCode();
   static QString readFixedCString(const QByteArray& data, qsizetype offset, qsizetype maxLen);
   static bool isWeakLocationToken(const QString& code, const QString& subtitle);
+  static quint32 readSvitCurrentCount(const uchar* svit, quint32 svitLen, int itemId);
 
 private:
   QString m_SaveFolder;
@@ -47,7 +50,10 @@ private:
   quint64 m_FileSize = 0;
   bool m_HasThumbnail = false;
   quint32 m_Gold = 0;
+  quint32 m_IronSkinPotions = 0;
   quint32 m_HealthPotions = 0;
+  quint32 m_StrengthPotions = 0;
+  QVector<quint32> m_SvitCurrentCounts;
   QString m_LocationCode;
   QStringList m_LocationCodes;
   QString m_AreaToken;

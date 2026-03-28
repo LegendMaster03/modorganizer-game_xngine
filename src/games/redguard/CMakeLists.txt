@@ -35,8 +35,6 @@ set(REDGUARD_GAME_SOURCES
     redguardssoupflag.h
     redguardssoupfunction.cpp
     redguardssoupfunction.h
-    redguardsitem.cpp
-    redguardsitem.h
     redguardsrtxdatabase.cpp
     redguardsrtxdatabase.h
     redguards3d.cpp

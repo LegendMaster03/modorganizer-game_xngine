@@ -33,6 +33,8 @@ private:
   bool parseOperator(const QString& line);
   void parseObjectName(const QString& line);
   void parseReferenceName(const QString& line);
+  static QString stripTrailingComment(const QString& line);
+  static QStringList splitTopLevel(const QString& text, QChar delimiter);
 
   void addString(const QString& str);
   void addInt(int num, bool littleEndian);

@@ -10,8 +10,15 @@
 class RedguardsMapFile;
 class RedguardsSoupFunction;
 class RedguardsSoupFlag;
-class RedguardsItem;
 class RedguardsRtxDatabase;
+
+struct RedguardsItemData
+{
+  QString nameId;
+  QString name;
+  QString descriptionId;
+  QString description;
+};
 
 class RedguardsMapDatabase
 {
@@ -26,9 +33,9 @@ public:
   RedguardsMapFile* mapFileFromName(const QString& name) const;
   RedguardsMapFile* mapFileFromId(int id) const;
 
-  const QList<RedguardsSoupFunction*>& functions() const { return mFunctions; }
-  const QList<RedguardsSoupFlag*>& flags() const { return mFlags; }
-  const QList<RedguardsItem*>& items() const { return mItems; }
+  const QList<RedguardsSoupFunction>& functions() const { return mFunctions; }
+  const QList<RedguardsSoupFlag>& flags() const { return mFlags; }
+  const QList<RedguardsItemData>& items() const { return mItems; }
   const QList<QString>& references() const { return mReferences; }
   const QList<QString>& attributes() const { return mAttributes; }
 
@@ -38,9 +45,9 @@ public:
 
 private:
   QList<RedguardsMapFile*> mMapFiles;
-  QList<RedguardsSoupFunction*> mFunctions;
-  QList<RedguardsSoupFlag*> mFlags;
-  QList<RedguardsItem*> mItems;
+  QList<RedguardsSoupFunction> mFunctions;
+  QList<RedguardsSoupFlag> mFlags;
+  QList<RedguardsItemData> mItems;
   QList<QString> mReferences;
   QList<QString> mAttributes;
 
