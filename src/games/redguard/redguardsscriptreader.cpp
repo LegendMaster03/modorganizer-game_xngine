@@ -211,6 +211,21 @@ void RedguardsScriptReader::getTaskText(int taskType)
   }
   const auto& functions = mMapDatabase->functions();
   if (id < 0 || id >= functions.size()) {
+    mCurrentTask = QString("UNKNOWN%1").arg(id);
+    mCurrentInstruction->appendText(mCurrentTask + "(");
+    int numParams = (id == 0) ? 0 : readByte();
+    if (numParams > 0) {
+      for (int i = 0; i < numParams; ++i) {
+        if (i != 0) {
+          mCurrentInstruction->appendText(", ");
+        }
+        mTaskParamNum = i;
+        getValue(ValueMode::PARAMETER);
+      }
+      mTaskParamNum = 9;
+    }
+    mCurrentInstruction->appendText(")");
+    mCurrentTask.clear();
     return;
   }
   const auto& function = functions[id];

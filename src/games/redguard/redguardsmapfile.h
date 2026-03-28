@@ -8,13 +8,13 @@
 
 class RedguardsMapDatabase;
 class RedguardsMapChanges;
-class RedguardsMapHeader;
+
+#include "redguardsmapheader.h"
 
 class RedguardsMapFile
 {
 public:
   RedguardsMapFile(RedguardsMapDatabase* mapDatabase, const QString& name);
-  ~RedguardsMapFile();
 
   QString fullName() const { return mFullName; }
   QString name() const { return mName; }
@@ -36,7 +36,7 @@ private:
   QString mFullName;
   QList<int> mIds;
   QMap<QString, QByteArray> mRecords;
-  QList<RedguardsMapHeader*> mMapHeaders;
+  QList<RedguardsMapHeader> mMapHeaders;
   int mScriptDataOffset = 0;
 
   void parseMapHeaders();

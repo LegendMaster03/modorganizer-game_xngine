@@ -309,6 +309,14 @@ void RedguardsScriptParser::parseValue(const QString& value, ValueMode mode)
     addByte(18);
   } else if (value == "Endint") {
     addByte(19);
+  } else if (value.contains('.') && valueSplit.size() >= 2 &&
+             (valueSplit.last() == "++" || valueSplit.last() == "--")) {
+    QStringList dotSplit = valueSplit[0].split('.');
+    if (dotSplit.size() == 2) {
+      addByte(valueSplit.last() == "++" ? 15 : 16);
+      parseObjectName(dotSplit[0]);
+      parseReferenceName(dotSplit[1]);
+    }
   } else if (value.startsWith("<Anchor>=")) {
     QStringList equalSplit = value.split('=');
     addByte(equalSplit[1].toInt());

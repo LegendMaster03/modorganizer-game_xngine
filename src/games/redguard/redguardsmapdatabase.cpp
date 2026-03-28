@@ -9,49 +9,57 @@
 #include <QRegularExpression>
 #include <QTextStream>
 
+#include <array>
+
 namespace
 {
 QString redguardItemNameOverride(int index)
 {
-  static const QMap<int, QString> overrides = {
-      {7, "GUARD SWORD"},
-      {15, "RUNE (2 LINES AND A DOT)"},
-      {16, "RUNE (2 LINES)"},
-      {17, "RUNE (A LINE AND DOT)"},
-      {20, "ORC'S BLOOD (SUBLIMATED)"},
-      {22, "SPIDER'S MILK (SUBLIMATED)"},
-      {24, "ECTOPLASM (SUBLIMATED)"},
-      {26, "HIST SAP (SUBLIMATED)"},
-      {30, "GLASS VIAL (WITH ELIXIR)"},
-      {34, "RUNE (fist)"},
-      {35, "'ELVEN ARTIFACTS VIII' (COPY)"},
-      {53, "ISZARA'S JOURNAL (OPEN)"},
-      {57, "ISZARA'S JOURNAL (LOCKED)"},
-      {59, "KEY TO KRISANDRA'S STOREROOM"},
-      {60, "KEY TO ISZARA'S LODGE"},
-      {61, "N'GASTA'S NECROMANCY BOOK"},
-      {62, "BAR MUG"},
-      {63, "MARIAH'S WATERING CAN"},
-      {69, "BLOODY BANDAGE"},
-      {70, "SKELETON SWORD"},
-      {71, "KEEP OUT"},
-      {72, "NO TRESPASSING"},
-      {73, "TOBIAS' BAR MUG"},
-      {74, "BONE KEY"},
-      {75, "FLAMING SABRE"},
-      {76, "GOBLIN SWORD"},
-      {77, "OGRE'S AXE"},
-      {78, "DRAM'S SWORD"},
-      {79, "SILVER KEY (PALACE)"},
-      {80, "DRAM'S BOW"},
-      {81, "DRAM'S ARROW"},
-      {82, "SILVER LOCKET (COPY)"},
-      {84, "WANTED POSTER"},
-      {85, "PALACE DIAGRAM"},
-      {86, "LAST"},
-  };
+  constexpr std::array<const char*, 87> overrides = [] {
+    std::array<const char*, 87> values{};
+    values[7] = "GUARD SWORD";
+    values[15] = "RUNE (2 LINES AND A DOT)";
+    values[16] = "RUNE (2 LINES)";
+    values[17] = "RUNE (A LINE AND DOT)";
+    values[20] = "ORC'S BLOOD (SUBLIMATED)";
+    values[22] = "SPIDER'S MILK (SUBLIMATED)";
+    values[24] = "ECTOPLASM (SUBLIMATED)";
+    values[26] = "HIST SAP (SUBLIMATED)";
+    values[30] = "GLASS VIAL (WITH ELIXIR)";
+    values[34] = "RUNE (fist)";
+    values[35] = "'ELVEN ARTIFACTS VIII' (COPY)";
+    values[53] = "ISZARA'S JOURNAL (OPEN)";
+    values[57] = "ISZARA'S JOURNAL (LOCKED)";
+    values[59] = "KEY TO KRISANDRA'S STOREROOM";
+    values[60] = "KEY TO ISZARA'S LODGE";
+    values[61] = "N'GASTA'S NECROMANCY BOOK";
+    values[62] = "BAR MUG";
+    values[63] = "MARIAH'S WATERING CAN";
+    values[69] = "BLOODY BANDAGE";
+    values[70] = "SKELETON SWORD";
+    values[71] = "KEEP OUT";
+    values[72] = "NO TRESPASSING";
+    values[73] = "TOBIAS' BAR MUG";
+    values[74] = "BONE KEY";
+    values[75] = "FLAMING SABRE";
+    values[76] = "GOBLIN SWORD";
+    values[77] = "OGRE'S AXE";
+    values[78] = "DRAM'S SWORD";
+    values[79] = "SILVER KEY (PALACE)";
+    values[80] = "DRAM'S BOW";
+    values[81] = "DRAM'S ARROW";
+    values[82] = "SILVER LOCKET (COPY)";
+    values[84] = "WANTED POSTER";
+    values[85] = "PALACE DIAGRAM";
+    values[86] = "LAST";
+    return values;
+  }();
 
-  return overrides.value(index);
+  if (index < 0 || index >= static_cast<int>(overrides.size())) {
+    return {};
+  }
+  const char* name = overrides[static_cast<std::size_t>(index)];
+  return name != nullptr ? QString::fromLatin1(name) : QString();
 }
 }
 

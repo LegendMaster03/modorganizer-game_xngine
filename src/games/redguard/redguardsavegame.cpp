@@ -14,6 +14,7 @@
 #include <QtEndian>
 
 #include <iterator>
+#include <limits>
 
 namespace
 {
@@ -32,6 +33,12 @@ struct RtxSubtitleCache
 {
   QMutex mutex;
   QHash<QString, QHash<QString, QString>> subtitlesByDataPath;
+};
+
+struct AreaTokenCandidate
+{
+  QString token;
+  int score = (std::numeric_limits<int>::lowest)();
 };
 
 QStringList buildDefaultSvitItemNames()
@@ -342,7 +349,7 @@ bool findLastChunkPayload(const QByteArray& bytes, const char tag[4], qsizetype 
   return true;
 }
 
-QString extractAreaTokenFromTsg(const QByteArray& bytes)
+AreaTokenCandidate extractAreaTokenFromTsg(const QByteArray& bytes)
 {
   static const QRegularExpression tokenRx(R"(\b([A-Z]{2}[A-Z]{4}\d{2})\b)");
   QHash<QString, int> counts;
@@ -355,8 +362,7 @@ QString extractAreaTokenFromTsg(const QByteArray& bytes)
     counts[token] += 1;
   }
 
-  QString bestToken;
-  int bestScore = -9999;
+  AreaTokenCandidate best;
   for (auto cIt = counts.cbegin(); cIt != counts.cend(); ++cIt) {
     int score = 0;
     if (cIt.key().startsWith(QStringLiteral("HB"))) {
@@ -367,12 +373,12 @@ QString extractAreaTokenFromTsg(const QByteArray& bytes)
     } else {
       score -= cIt.value();
     }
-    if (score > bestScore) {
-      bestScore = score;
-      bestToken = cIt.key();
+    if (score > best.score) {
+      best.score = score;
+      best.token = cIt.key();
     }
   }
-  return bestToken;
+  return best;
 }
 }  // namespace
 
@@ -531,18 +537,26 @@ void RedguardsSaveGame::parseAuxiliaryMetadata()
     return;
   }
 
-  QFile f(tsgFiles.first().absoluteFilePath());
-  if (!f.open(QIODevice::ReadOnly)) {
-    return;
-  }
-  const QByteArray bytes = f.readAll();
-  f.close();
+  AreaTokenCandidate bestCandidate;
+  for (const auto& tsgInfo : tsgFiles) {
+    QFile f(tsgInfo.absoluteFilePath());
+    if (!f.open(QIODevice::ReadOnly)) {
+      continue;
+    }
+    const QByteArray bytes = f.readAll();
+    f.close();
 
-  if (bytes.size() < 16) {
-    return;
+    if (bytes.size() < 16) {
+      continue;
+    }
+
+    const AreaTokenCandidate candidate = extractAreaTokenFromTsg(bytes);
+    if (!candidate.token.isEmpty() && candidate.score > bestCandidate.score) {
+      bestCandidate = candidate;
+    }
   }
 
-  m_AreaToken = extractAreaTokenFromTsg(bytes);
+  m_AreaToken = bestCandidate.token;
 }
 
 void RedguardsSaveGame::detectSlotFromFolder()
@@ -687,7 +701,7 @@ quint32 RedguardsSaveGame::readSvitCurrentCount(const uchar* svit, quint32 svitL
 
 void RedguardsSaveGame::resolveLocationFromCode()
 {
-  if (m_LocationCode.isEmpty() && m_LocationCodes.isEmpty()) {
+  if (m_LocationCode.isEmpty() && m_LocationCodes.isEmpty() && m_AreaToken.isEmpty()) {
     return;
   }
 
@@ -730,6 +744,11 @@ void RedguardsSaveGame::resolveLocationFromCode()
   }
   if (!fallbackSubtitle.isEmpty()) {
     m_PCLocation = fallbackSubtitle;
+    return;
+  }
+
+  if (!m_AreaToken.isEmpty()) {
+    m_PCLocation = m_AreaToken.toUpper();
     return;
   }
 

@@ -17,11 +17,6 @@ RedguardsMapFile::RedguardsMapFile(RedguardsMapDatabase* mapDatabase, const QStr
 {
 }
 
-RedguardsMapFile::~RedguardsMapFile()
-{
-  qDeleteAll(mMapHeaders);
-}
-
 bool RedguardsMapFile::readMap(const QString& filePath)
 {
   QFile file(filePath);
@@ -30,7 +25,6 @@ bool RedguardsMapFile::readMap(const QString& filePath)
   }
 
   mRecords.clear();
-  qDeleteAll(mMapHeaders);
   mMapHeaders.clear();
 
   QDataStream in(&file);
@@ -92,7 +86,7 @@ bool RedguardsMapFile::writeMap(const QString& filePath, const QString& script)
 
   for (int i = 0; i < mMapHeaders.size() && i < parsedHeaders.size(); ++i) {
     RedguardsParsedMapHeader& parsedHeader = parsedHeaders[i];
-    QByteArray data = mMapHeaders[i]->data();
+    QByteArray data = mMapHeaders[i].data();
 
     QByteArray scriptLengthBytes = RedguardsUtils::intToByteArray(parsedHeader.scriptBytes().size(), true);
     data.replace(77, 4, scriptLengthBytes);
@@ -149,9 +143,9 @@ bool RedguardsMapFile::writeMap(const QString& filePath, const QString& script)
   // RAVA
   QByteArray ravaBytes;
   ravaBytes.append(QByteArray(4, 0));
-  for (const auto* header : mMapHeaders) {
-    for (int instance = 0; instance < header->instances(); ++instance) {
-      for (int32_t var : header->variables()) {
+  for (const auto& header : mMapHeaders) {
+    for (int instance = 0; instance < header.instances(); ++instance) {
+      for (int32_t var : header.variables()) {
         ravaBytes.append(RedguardsUtils::intToByteArray(var, true));
       }
     }
@@ -223,26 +217,26 @@ QString RedguardsMapFile::getScript() const
   output.append("\n\n");
 
   for (int i = 0; i < mMapHeaders.size(); ++i) {
-    const RedguardsMapHeader* mapHeader = mMapHeaders[i];
+    const RedguardsMapHeader& mapHeader = mMapHeaders[i];
     if (i > 0) {
       output.append("\n\n");
     }
 
-    if (mapHeader->variables().size() > 4) {
-      for (int j = 2; j < mapHeader->variables().size() - 2; ++j) {
+    if (mapHeader.variables().size() > 4) {
+      for (int j = 2; j < mapHeader.variables().size() - 2; ++j) {
         output.append("var");
         output.append(QString::number(j));
         output.append(" = ");
-        output.append(QString::number(mapHeader->variables()[j]));
+        output.append(QString::number(mapHeader.variables()[j]));
         output.append("\n");
-        if (j == mapHeader->variables().size() - 3) {
+        if (j == mapHeader.variables().size() - 3) {
           output.append("\n");
         }
       }
     }
 
     bool hasAttribute = false;
-    const QByteArray& attrBytes = mapHeader->attributeBytes();
+    const QByteArray& attrBytes = mapHeader.attributeBytes();
     for (int j = 0; j < attrBytes.size(); ++j) {
       const int value = static_cast<unsigned char>(attrBytes[j]);
       if (value != 0) {
@@ -258,7 +252,7 @@ QString RedguardsMapFile::getScript() const
       output.append("\n");
     }
 
-    output.append(mapHeader->script());
+    output.append(mapHeader.script());
   }
 
   return output;
@@ -323,7 +317,7 @@ void RedguardsMapFile::parseMapHeaders()
   for (int i = 0; i < numMapHeaders; ++i) {
     int start = 8 + i * 165;
     QByteArray subrecord = headerBytes.mid(start, 165);
-    mMapHeaders.append(new RedguardsMapHeader(subrecord));
+    mMapHeaders.append(RedguardsMapHeader(subrecord));
   }
 
   QString allStrings = QString::fromLatin1(mRecords.value("RAST"));
@@ -339,26 +333,26 @@ void RedguardsMapFile::parseMapHeaders()
   if (mMapHeaders.isEmpty()) {
     return;
   }
-  mScriptDataOffset = mMapHeaders.first()->scriptDataOffset();
+  mScriptDataOffset = mMapHeaders.first().scriptDataOffset();
   int scriptPos = mScriptDataOffset;
 
-  for (auto* header : mMapHeaders) {
-    header->initStrings(allStrings, stringOffsets);
-    header->initVariables(variables);
+  for (auto& header : mMapHeaders) {
+    header.initStrings(allStrings, stringOffsets);
+    header.initVariables(variables);
 
-    QByteArray headerScript = scriptBytes.mid(scriptPos, header->scriptLength());
-    scriptPos += header->scriptLength();
-    header->setScriptBytes(headerScript);
+    QByteArray headerScript = scriptBytes.mid(scriptPos, header.scriptLength());
+    scriptPos += header.scriptLength();
+    header.setScriptBytes(headerScript);
   }
 
   QByteArray attributeBytes = mRecords.value("RAAT");
   for (int i = 0; i < mMapHeaders.size(); ++i) {
     QByteArray attr = attributeBytes.mid(i * 256, 256);
-    mMapHeaders[i]->setAttributeBytes(attr);
+    mMapHeaders[i].setAttributeBytes(attr);
   }
 
-  for (auto* header : mMapHeaders) {
-    RedguardsScriptReader reader(mMapDatabase, header);
-    header->setScript(reader.read());
+  for (auto& header : mMapHeaders) {
+    RedguardsScriptReader reader(mMapDatabase, &header);
+    header.setScript(reader.read());
   }
 }
