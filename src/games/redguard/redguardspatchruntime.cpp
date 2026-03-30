@@ -12,6 +12,7 @@
 #include <QFile>
 #include <QDebug>
 #include <QSettings>
+#include <QSet>
 #include <QTextStream>
 
 #include "utility.h"
@@ -32,6 +33,54 @@ QString profileSuffix(const QString& profilePath)
 
   const QString name = QDir(profilePath).dirName();
   return name.isEmpty() ? QString("Default") : name;
+}
+
+QStringList findExistingRedguardArtRoots(const QString& gameDir)
+{
+  const QStringList candidates = {
+      QStringLiteral("Redguard/3dart"),
+      QStringLiteral("Redguard/fxart"),
+      QStringLiteral("3dart"),
+      QStringLiteral("fxart"),
+  };
+
+  QStringList roots;
+  for (const QString& relPath : candidates) {
+    if (QDir(QDir(gameDir).filePath(relPath)).exists()) {
+      roots.push_back(relPath);
+    }
+  }
+  return roots;
+}
+
+bool stageDirectoryVariants(const QString& modPath, const QString& tempModPath,
+                            const QStringList& sourceDirs, const QStringList& destDirs,
+                            const QString& label, const QString& modName)
+{
+  bool anySource = false;
+  bool success = true;
+
+  for (const QString& sourceDirName : sourceDirs) {
+    const QString sourcePath = QDir(modPath).filePath(sourceDirName);
+    if (!QDir(sourcePath).exists()) {
+      continue;
+    }
+
+    anySource = true;
+    for (const QString& destDirName : destDirs) {
+      const QString destPath = QDir(tempModPath).filePath(destDirName);
+      qInfo().noquote() << "[GameRedguard] Staging" << label << sourceDirName << "->"
+                        << destPath;
+      if (!copyDirectoryContents(sourcePath, destPath)) {
+        qWarning().noquote() << "[GameRedguard] Failed to stage" << label << "for mod:"
+                             << modName << "(" << sourceDirName << "->" << destDirName
+                             << ")";
+        success = false;
+      }
+    }
+  }
+
+  return !anySource || success;
 }
 }
 
@@ -324,13 +373,36 @@ bool applyRedguardPatchModsInOrder(IOrganizer* organizer,
       }
     }
 
-    const QString texturesSource = QDir(modPath).filePath("Textures");
-    if (QDir(texturesSource).exists()) {
-      const QString texturesDest = QDir(tempModPath).filePath("Textures");
-      qInfo().noquote() << "[GameRedguard] Staging Textures ->" << texturesDest;
-      if (!copyDirectoryContents(texturesSource, texturesDest)) {
-        qWarning().noquote() << "[GameRedguard] Failed to stage Textures for mod:" << modName;
+    const QStringList artRoots = findExistingRedguardArtRoots(gameDir);
+    if (!artRoots.isEmpty()) {
+      if (!stageDirectoryVariants(modPath, tempModPath, {QStringLiteral("Textures")}, artRoots,
+                                  QStringLiteral("renderer art"), modName)) {
         success = false;
+      }
+
+      QStringList explicitSourceDirs;
+      QSet<QString> seenSources;
+      for (const QString& relPath : artRoots) {
+        const QString dirName = QFileInfo(relPath).fileName();
+        const QString normalized = dirName.trimmed().toLower();
+        if (!normalized.isEmpty() && !seenSources.contains(normalized)) {
+          seenSources.insert(normalized);
+          explicitSourceDirs.push_back(dirName);
+        }
+      }
+      if (!stageDirectoryVariants(modPath, tempModPath, explicitSourceDirs, artRoots,
+                                  QStringLiteral("renderer art"), modName)) {
+        success = false;
+      }
+    } else {
+      const QString texturesSource = QDir(modPath).filePath("Textures");
+      if (QDir(texturesSource).exists()) {
+        const QString texturesDest = QDir(tempModPath).filePath("Textures");
+        qInfo().noquote() << "[GameRedguard] Staging Textures ->" << texturesDest;
+        if (!copyDirectoryContents(texturesSource, texturesDest)) {
+          qWarning().noquote() << "[GameRedguard] Failed to stage Textures for mod:" << modName;
+          success = false;
+        }
       }
     }
 

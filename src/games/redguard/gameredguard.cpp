@@ -18,6 +18,7 @@
 #include <QByteArray>
 #include <QFile>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QIcon>
 #include <QDir>
 
@@ -108,6 +109,50 @@ QString detectRedguardVersionFromText(const QDir& root, const QStringList& candi
   }
 
   return {};
+}
+
+QString firstExistingAbsoluteFile(const QStringList& candidates)
+{
+  for (const QString& path : candidates) {
+    if (!path.isEmpty() && QFileInfo::exists(path)) {
+      return path;
+    }
+  }
+  return {};
+}
+
+QString findSystemIniForRoot(const QDir& root)
+{
+  return firstExistingFile(root, {"Redguard/SYSTEM.INI", "SYSTEM.INI"});
+}
+
+QString readConfiguredSystemRelativePath(const QDir& root, const QString& key,
+                                        const QString& fallback)
+{
+  const QString systemIniPath = findSystemIniForRoot(root);
+  if (!systemIniPath.isEmpty()) {
+    QSettings settings(systemIniPath, QSettings::IniFormat);
+    const QString configured =
+        QDir::fromNativeSeparators(settings.value(QStringLiteral("system/%1").arg(key))
+                                       .toString()
+                                       .trimmed());
+    if (!configured.isEmpty()) {
+      return configured;
+    }
+  }
+
+  return QDir::fromNativeSeparators(fallback);
+}
+
+bool declaredRedguardFileExists(const QDir& root, const QString& relativePath)
+{
+  if (relativePath.isEmpty()) {
+    return false;
+  }
+
+  const QString normalized = QDir::fromNativeSeparators(relativePath);
+  return QFileInfo::exists(root.filePath(normalized)) ||
+         QFileInfo::exists(root.filePath(QStringLiteral("Redguard/%1").arg(normalized)));
 }
 
 }  // namespace
@@ -221,11 +266,9 @@ QStringList GameRedguard::validShortNames() const
 
 QStringList GameRedguard::iniFiles() const
 {
-  const QStringList candidates = {
+  QStringList candidates = {
       "COMBAT.INI",
       "Redguard/COMBAT.INI",
-      "ITEM.INI",
-      "Redguard/ITEM.INI",
       "KEYS.INI",
       "Redguard/KEYS.INI",
       "MENU.INI",
@@ -236,9 +279,25 @@ QStringList GameRedguard::iniFiles() const
       "Redguard/surface.ini",
       "SYSTEM.INI",
       "Redguard/SYSTEM.INI",
-      "WORLD.INI",
-      "Redguard/WORLD.INI",
   };
+
+  const auto appendConfiguredIni = [&](const QString& configuredRelativePath) {
+    if (configuredRelativePath.isEmpty()) {
+      return;
+    }
+
+    const QString normalized = QDir::fromNativeSeparators(configuredRelativePath);
+    candidates.push_back(normalized);
+
+    if (!normalized.startsWith(QStringLiteral("Redguard/"), Qt::CaseInsensitive)) {
+      candidates.push_back(QStringLiteral("Redguard/%1").arg(normalized));
+    }
+  };
+
+  appendConfiguredIni(configuredSystemRelativePath(QStringLiteral("item_ini"),
+                                                   QStringLiteral("ITEM.INI")));
+  appendConfiguredIni(configuredSystemRelativePath(QStringLiteral("world_ini"),
+                                                   QStringLiteral("WORLD.INI")));
 
   QStringList ordered;
   const QDir root = gameDirectory();
@@ -401,6 +460,109 @@ bool GameRedguard::showFullSvitInventory() const
   return m_Organizer->pluginSetting(name(), "show_full_svit_inventory").toBool();
 }
 
+QString GameRedguard::configuredSystemFilename(const QString& key,
+                                               const QString& fallback) const
+{
+  return QFileInfo(configuredSystemRelativePath(key, fallback)).fileName();
+}
+
+QString GameRedguard::configuredSystemRelativePath(const QString& key,
+                                                   const QString& fallback) const
+{
+  const QDir dataDir = dataDirectory();
+  const QString overwritePath = (m_Organizer != nullptr) ? m_Organizer->overwritePath() : QString{};
+  const QString relativeDataDir = dataDir.dirName();
+  const QString systemIniPath = firstExistingAbsoluteFile({
+      QDir(overwritePath).filePath(QStringLiteral("Root/%1/SYSTEM.INI").arg(relativeDataDir)),
+      QDir(overwritePath).filePath(QStringLiteral("Root/SYSTEM.INI")),
+      QDir(overwritePath).filePath(QStringLiteral("%1/SYSTEM.INI").arg(relativeDataDir)),
+      QDir(overwritePath).filePath(QStringLiteral("SYSTEM.INI")),
+      dataDir.absoluteFilePath(QStringLiteral("SYSTEM.INI")),
+  });
+  if (!systemIniPath.isEmpty() && QFileInfo::exists(systemIniPath)) {
+    QSettings settings(systemIniPath, QSettings::IniFormat);
+    QString relativePath =
+        QDir::fromNativeSeparators(settings.value(QStringLiteral("system/%1").arg(key))
+                                       .toString()
+                                       .trimmed());
+    if (!relativePath.isEmpty()) {
+      return relativePath;
+    }
+  }
+
+  return QDir::fromNativeSeparators(fallback);
+}
+
+QString GameRedguard::configuredSystemPath(const QString& key,
+                                           const QString& fallback) const
+{
+  const QDir dataDir = dataDirectory();
+  if (!dataDir.exists()) {
+    return {};
+  }
+
+  const QString configuredRelativePath = configuredSystemRelativePath(key, fallback);
+  const QString overwritePath = (m_Organizer != nullptr) ? m_Organizer->overwritePath() : QString{};
+  const QString relativeDataDir = dataDir.dirName();
+  const QString configuredPath = firstExistingAbsoluteFile({
+      QDir(overwritePath).filePath(
+          QStringLiteral("Root/%1/%2").arg(relativeDataDir, configuredRelativePath)),
+      QDir(overwritePath).filePath(QStringLiteral("Root/%1").arg(configuredRelativePath)),
+      QDir(overwritePath).filePath(
+          QStringLiteral("%1/%2").arg(relativeDataDir, configuredRelativePath)),
+      QDir(overwritePath).filePath(configuredRelativePath),
+      dataDir.absoluteFilePath(configuredRelativePath),
+  });
+  if (!configuredPath.isEmpty()) {
+    return configuredPath;
+  }
+
+  const QString fallbackPath = firstExistingAbsoluteFile({
+      QDir(overwritePath).filePath(QStringLiteral("Root/%1/%2").arg(relativeDataDir, fallback)),
+      QDir(overwritePath).filePath(QStringLiteral("Root/%1").arg(fallback)),
+      QDir(overwritePath).filePath(QStringLiteral("%1/%2").arg(relativeDataDir, fallback)),
+      QDir(overwritePath).filePath(fallback),
+      dataDir.absoluteFilePath(fallback),
+  });
+  if (!fallbackPath.isEmpty()) {
+    return fallbackPath;
+  }
+
+  return dataDir.absoluteFilePath(configuredRelativePath);
+}
+
+QString GameRedguard::configuredWorldIniFilename() const
+{
+  return configuredSystemFilename(QStringLiteral("world_ini"), QStringLiteral("WORLD.INI"));
+}
+
+QString GameRedguard::configuredWorldIniPath() const
+{
+  return configuredSystemPath(QStringLiteral("world_ini"), QStringLiteral("WORLD.INI"));
+}
+
+QString GameRedguard::configuredItemIniFilename() const
+{
+  return configuredSystemFilename(QStringLiteral("item_ini"), QStringLiteral("ITEM.INI"));
+}
+
+QString GameRedguard::configuredItemIniPath() const
+{
+  return configuredSystemPath(QStringLiteral("item_ini"), QStringLiteral("ITEM.INI"));
+}
+
+QString GameRedguard::configuredRtxFilename() const
+{
+  return configuredSystemFilename(QStringLiteral("rtx_filename"),
+                                  QStringLiteral("ENGLISH.RTX"));
+}
+
+QString GameRedguard::configuredRtxPath() const
+{
+  return configuredSystemPath(QStringLiteral("rtx_filename"),
+                              QStringLiteral("ENGLISH.RTX"));
+}
+
 QString GameRedguard::identifyGamePath() const
 {
   try {
@@ -464,10 +626,45 @@ QString GameRedguard::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) 
 
 bool GameRedguard::looksValid(QDir const& path) const
 {
-  return (QDir(path.absolutePath() + "/DOSBox-0.73").exists() &&
-          QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE")) ||
-         (QDir(path.absolutePath() + "/DOSBOX").exists() &&
-          QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE"));
+  const bool hasSteamLayout =
+      QDir(path.absolutePath() + "/DOSBox-0.73").exists() &&
+      QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE");
+  const bool hasGogLayout =
+      QDir(path.absolutePath() + "/DOSBOX").exists() &&
+      QFile::exists(path.absolutePath() + "/Redguard/REDGUARD.EXE");
+
+  if (!hasSteamLayout && !hasGogLayout) {
+    return false;
+  }
+
+  const QStringList requiredDeclaredFiles = {
+      readConfiguredSystemRelativePath(path, QStringLiteral("rtx_filename"),
+                                       QStringLiteral("ENGLISH.RTX")),
+      readConfiguredSystemRelativePath(path, QStringLiteral("world_ini"),
+                                       QStringLiteral("WORLD.INI")),
+      readConfiguredSystemRelativePath(path, QStringLiteral("item_ini"),
+                                       QStringLiteral("ITEM.INI")),
+      readConfiguredSystemRelativePath(path, QStringLiteral("game_bitmap"),
+                                       QStringLiteral("system/powerup.gxa")),
+      readConfiguredSystemRelativePath(path, QStringLiteral("pointers"),
+                                       QStringLiteral("system/pointers.bmp")),
+      readConfiguredSystemRelativePath(path, QStringLiteral("system_font"),
+                                       QStringLiteral("fonts/redguard.fnt")),
+      readConfiguredSystemRelativePath(path, QStringLiteral("icon_font"),
+                                       QStringLiteral("fonts/arialvs.fnt")),
+      readConfiguredSystemRelativePath(path, QStringLiteral("gui_font"),
+                                       QStringLiteral("fonts/arialbg.fnt")),
+      readConfiguredSystemRelativePath(path, QStringLiteral("gui_low_font"),
+                                       QStringLiteral("fonts/arialvb.fnt")),
+  };
+
+  for (const QString& relativePath : requiredDeclaredFiles) {
+    if (!declaredRedguardFileExists(path, relativePath)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 QDir GameRedguard::dataDirectory() const

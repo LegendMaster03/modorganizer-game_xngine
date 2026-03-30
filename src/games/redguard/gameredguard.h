@@ -52,6 +52,15 @@ public:  // IPlugin interface
   bool allowDillon241PatchInstall() const;
   bool showDeveloperSaveDetails() const;
   bool showFullSvitInventory() const;
+  QString configuredSystemRelativePath(const QString& key, const QString& fallback) const;
+  QString configuredSystemFilename(const QString& key, const QString& fallback) const;
+  QString configuredSystemPath(const QString& key, const QString& fallback) const;
+  QString configuredWorldIniFilename() const;
+  QString configuredWorldIniPath() const;
+  QString configuredItemIniFilename() const;
+  QString configuredItemIniPath() const;
+  QString configuredRtxFilename() const;
+  QString configuredRtxPath() const;
 
 protected:
   QString identifyGamePath() const override;

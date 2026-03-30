@@ -240,9 +240,11 @@ bool RedguardsMapDatabase::readItemsFile(const QString& itemsFilePath)
     item.nameId = fields.nameId;
     item.descriptionId = fields.descriptionId;
     item.playerMax = fields.playerMax;
-    item.name = redguardItemNameOverride(index);
-    if (item.name.isEmpty() && !item.nameId.isEmpty()) {
+    if (!item.nameId.isEmpty()) {
       item.name = rtxEntry(item.nameId);
+    }
+    if (item.name.isEmpty()) {
+      item.name = redguardItemNameOverride(index);
     }
     if (!item.descriptionId.isEmpty()) {
       item.description = rtxEntry(item.descriptionId);

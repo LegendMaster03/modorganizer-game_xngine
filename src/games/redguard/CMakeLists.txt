@@ -77,9 +77,16 @@ add_executable(redguard3dscan
     ../daggerfall/daggerfallformatutils.h
 )
 
+add_executable(redguardrtxapply
+    redguardrtxapply.cpp
+    redguardsrtxdatabase.cpp
+    redguardsrtxdatabase.h
+)
+
 # Link against Qt6
 target_link_libraries(game_redguard Qt6::Core Qt6::Gui Qt6::Widgets)
 target_link_libraries(redguard3dscan Qt6::Core xngine)
+target_link_libraries(redguardrtxapply Qt6::Core)
 target_include_directories(redguard3dscan PRIVATE
     ${MO2_UIBASE_PATH}
     ${MO2_SRC_PATH}
@@ -87,6 +94,10 @@ target_include_directories(redguard3dscan PRIVATE
     ${CMAKE_SOURCE_DIR}/src/games/battlespire
     ${CMAKE_SOURCE_DIR}/src/games/daggerfall
  )
+target_include_directories(redguardrtxapply PRIVATE
+    ${MO2_UIBASE_PATH}
+    ${MO2_SRC_PATH}
+)
 
 # Link against xngine and MO2
 target_link_libraries(game_redguard

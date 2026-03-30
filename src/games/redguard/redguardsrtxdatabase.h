@@ -32,7 +32,8 @@ struct RedguardsRtxEntry
 };
 
 /**
- * Represents the ENGLISH.RTX database file for Redguard.
+ * Represents a Redguard RTX database file, typically the file configured by
+ * SYSTEM.INI `rtx_filename`.
  * Handles reading, modifying, and writing texture/dialogue data.
  * File format: entries with label, subtitle, optional audio, then reverse index.
  * Based on the Java RtxDatabase implementation from Redguard Mod Manager.

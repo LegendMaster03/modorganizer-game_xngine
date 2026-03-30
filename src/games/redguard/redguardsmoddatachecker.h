@@ -53,10 +53,14 @@ protected:
   virtual const FileNameSet& possibleFolderNames() const override
   {
     static FileNameSet result{"data",
+                              "3dart",
+                              "fxart",
                               "maps",
                               "textures",
                               "textures/sky",
                               "textures/ui",
+                              "fonts",
+                              "system",
                               "sounds",
                               "sound",
                               "audio",
@@ -73,8 +77,14 @@ protected:
   {
     // Redguard-specific extensions
     static FileNameSet result{
+        "3d",      // Redguard 3D mesh files
+        "3dc",     // Redguard compressed/variant 3D mesh files
+        "rob",     // Redguard object container files
         "rgm",     // Redguard module files
         "rtx",     // Redguard texture format
+        "gxa",     // Redguard graphics archive
+        "col",     // Redguard palette files
+        "bsi",     // Redguard texture sky data
         "wld",     // Redguard world height/texture maps
         "sav",     // Savegame files
         "dat",     // Data files

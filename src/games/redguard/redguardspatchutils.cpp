@@ -10,6 +10,7 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QSettings>
 #include <QSet>
 #include <QTextStream>
 #include <QDebug>
@@ -128,6 +129,41 @@ QString findMapsRoot(const QString& gameDir)
     }
   }
   return QString();
+}
+
+QString resolveConfiguredSystemFilename(const QString& tempModPath, const QString& gameDir,
+                                        const QString& key, const QString& fallback)
+{
+  QString systemIniPath;
+  QString systemIniSubdir;
+  if (resolveBaseFilePath(tempModPath, gameDir, "SYSTEM.INI", systemIniPath, systemIniSubdir)) {
+    QSettings settings(systemIniPath, QSettings::IniFormat);
+    const QString configuredFileName =
+        settings.value(QStringLiteral("system/%1").arg(key)).toString().trimmed();
+    if (!configuredFileName.isEmpty()) {
+      return QFileInfo(configuredFileName).fileName();
+    }
+  }
+
+  return fallback;
+}
+
+QString resolveConfiguredRtxFilename(const QString& tempModPath, const QString& gameDir)
+{
+  return resolveConfiguredSystemFilename(tempModPath, gameDir, QStringLiteral("rtx_filename"),
+                                         QStringLiteral("ENGLISH.RTX"));
+}
+
+QString resolveConfiguredWorldIniFilename(const QString& tempModPath, const QString& gameDir)
+{
+  return resolveConfiguredSystemFilename(tempModPath, gameDir, QStringLiteral("world_ini"),
+                                         QStringLiteral("WORLD.INI"));
+}
+
+QString resolveConfiguredItemIniFilename(const QString& tempModPath, const QString& gameDir)
+{
+  return resolveConfiguredSystemFilename(tempModPath, gameDir, QStringLiteral("item_ini"),
+                                         QStringLiteral("ITEM.INI"));
 }
 
 QMap<QString, QMap<QString, QMap<QString, QString>>>
@@ -349,10 +385,12 @@ bool applyRtxChanges(const QString& modPath, const QString& tempModPath,
 {
   const QString changesFilePath = QDir(modPath).filePath("RTX Changes.txt");
   qInfo().noquote() << "[GameRedguard] Applying RTX changes from" << changesFilePath;
+  const QString rtxFileName = resolveConfiguredRtxFilename(tempModPath, gameDir);
   QString basePath;
   QString relativeSubdir;
-  if (!resolveBaseFilePath(tempModPath, gameDir, "ENGLISH.RTX", basePath, relativeSubdir)) {
-    qWarning().noquote() << "[GameRedguard] ENGLISH.RTX not found in game path";
+  if (!resolveBaseFilePath(tempModPath, gameDir, rtxFileName, basePath, relativeSubdir)) {
+    qWarning().noquote() << "[GameRedguard]" << rtxFileName
+                         << "not found in game path";
     return false;
   }
 
@@ -371,7 +409,7 @@ bool applyRtxChanges(const QString& modPath, const QString& tempModPath,
   if (modSubdir.startsWith("Redguard/", Qt::CaseInsensitive)) {
     modSubdir = modSubdir.mid(9);
   }
-  const QString destPath = QDir(tempModPath).filePath(modSubdir + "ENGLISH.RTX");
+  const QString destPath = QDir(tempModPath).filePath(modSubdir + rtxFileName);
   qInfo().noquote() << "[GameRedguard] Writing RTX patch output:" << destPath;
   if (!modSubdir.isEmpty()) {
     if (!ensureDir(QDir(tempModPath).filePath(modSubdir))) {
@@ -397,10 +435,12 @@ bool applyMapChanges(const RedguardsMapChanges& mapChanges, const QString& tempM
     return true;
   }
 
+  const QString rtxFileName = resolveConfiguredRtxFilename(tempModPath, gameDir);
   QString rtxBasePath;
   QString rtxSubdir;
-  if (!resolveBaseFilePath(tempModPath, gameDir, "ENGLISH.RTX", rtxBasePath, rtxSubdir)) {
-    qWarning().noquote() << "[GameRedguard] ENGLISH.RTX not found for map pipeline";
+  if (!resolveBaseFilePath(tempModPath, gameDir, rtxFileName, rtxBasePath, rtxSubdir)) {
+    qWarning().noquote() << "[GameRedguard]" << rtxFileName
+                         << "not found for map pipeline";
     return false;
   }
 
@@ -412,17 +452,21 @@ bool applyMapChanges(const RedguardsMapChanges& mapChanges, const QString& tempM
 
   RedguardsMapDatabase mapDb(rtxDb);
 
+  const QString worldFileName = resolveConfiguredWorldIniFilename(tempModPath, gameDir);
   QString worldPath;
   QString worldSubdir;
-  if (!resolveBaseFilePath(tempModPath, gameDir, "WORLD.INI", worldPath, worldSubdir)) {
-    qWarning().noquote() << "[GameRedguard] WORLD.INI not found for map pipeline";
+  if (!resolveBaseFilePath(tempModPath, gameDir, worldFileName, worldPath, worldSubdir)) {
+    qWarning().noquote() << "[GameRedguard]" << worldFileName
+                         << "not found for map pipeline";
     return false;
   }
 
+  const QString itemFileName = resolveConfiguredItemIniFilename(tempModPath, gameDir);
   QString itemPath;
   QString itemSubdir;
-  if (!resolveBaseFilePath(tempModPath, gameDir, "ITEM.INI", itemPath, itemSubdir)) {
-    qWarning().noquote() << "[GameRedguard] ITEM.INI not found for map pipeline";
+  if (!resolveBaseFilePath(tempModPath, gameDir, itemFileName, itemPath, itemSubdir)) {
+    qWarning().noquote() << "[GameRedguard]" << itemFileName
+                         << "not found for map pipeline";
     return false;
   }
 
