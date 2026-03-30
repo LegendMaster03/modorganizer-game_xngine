@@ -104,6 +104,7 @@ private:
   // Utility functions for binary format parsing
   int readLittleEndianInt(const QByteArray& data, int offset) const;
   int readLittleEndianShort(const QByteArray& data, int offset) const;
+  static void writeBigEndianInt(QByteArray& data, int offset, int value);
   static void writeLittleEndianInt(QByteArray& data, int offset, int value);
   static void writeLittleEndianShort(QByteArray& data, int offset, short value);
   QString readString(const QByteArray& data, int offset, int length) const;

@@ -35,6 +35,7 @@ private:
   void parseReferenceName(const QString& line);
   static QString stripTrailingComment(const QString& line);
   static QStringList splitTopLevel(const QString& text, QChar delimiter);
+  static QStringList splitTopLevelWords(const QString& text);
 
   void addString(const QString& str);
   void addInt(int num, bool littleEndian);

@@ -118,9 +118,9 @@ QStringList RedguardsScriptParser::splitTopLevel(const QString& text, QChar deli
   QString current;
   bool inQuote = false;
   int parenDepth = 0;
-  int angleDepth = 0;
 
-  for (QChar ch : text) {
+  for (int index = 0; index < text.length(); ++index) {
+    const QChar ch = text[index];
     if (ch == '"') {
       inQuote = !inQuote;
       current.append(ch);
@@ -132,11 +132,7 @@ QStringList RedguardsScriptParser::splitTopLevel(const QString& text, QChar deli
         ++parenDepth;
       } else if (ch == ')' && parenDepth > 0) {
         --parenDepth;
-      } else if (ch == '<') {
-        ++angleDepth;
-      } else if (ch == '>' && angleDepth > 0) {
-        --angleDepth;
-      } else if (ch == delimiter && parenDepth == 0 && angleDepth == 0) {
+      } else if (ch == delimiter && parenDepth == 0) {
         parts.append(current.trimmed());
         current.clear();
         continue;
@@ -148,6 +144,45 @@ QStringList RedguardsScriptParser::splitTopLevel(const QString& text, QChar deli
 
   if (!current.isEmpty() || text.endsWith(delimiter)) {
     parts.append(current.trimmed());
+  }
+
+  return parts;
+}
+
+QStringList RedguardsScriptParser::splitTopLevelWords(const QString& text)
+{
+  QStringList parts;
+  QString current;
+  bool inQuote = false;
+  int parenDepth = 0;
+
+  for (int index = 0; index < text.length(); ++index) {
+    const QChar ch = text[index];
+    if (ch == '"') {
+      inQuote = !inQuote;
+      current.append(ch);
+      continue;
+    }
+
+    if (!inQuote) {
+      if (ch == '(') {
+        ++parenDepth;
+      } else if (ch == ')' && parenDepth > 0) {
+        --parenDepth;
+      } else if (ch.isSpace() && parenDepth == 0) {
+        if (!current.isEmpty()) {
+          parts.append(current);
+          current.clear();
+        }
+        continue;
+      }
+    }
+
+    current.append(ch);
+  }
+
+  if (!current.isEmpty()) {
+    parts.append(current);
   }
 
   return parts;
@@ -170,7 +205,7 @@ QList<RedguardsParsedMapHeader> RedguardsScriptParser::parse()
           attributeBytes[index] = static_cast<char>(split[1].toInt());
         }
       } else {
-        QStringList split = line.split(QRegularExpression(" +"));
+        QStringList split = splitTopLevelWords(line);
         mParsedHeaders.append(RedguardsParsedMapHeader(split[0]));
         mCurrentHeader = &mParsedHeaders.last();
         mCurrentHeader->setAttributeBytes(attributeBytes);
@@ -231,7 +266,7 @@ void RedguardsScriptParser::parseBlock()
 
 void RedguardsScriptParser::parseValue(const QString& value, ValueMode mode)
 {
-  QStringList valueSplit = value.split(QRegularExpression(" +"));
+  QStringList valueSplit = splitTopLevelWords(value);
 
   if (value.startsWith('#')) {
     parseLabel(value, false, true);
@@ -464,7 +499,7 @@ int RedguardsScriptParser::parseLabel(const QString& label, bool writeBytes, boo
 
 void RedguardsScriptParser::parseFormula(const QString& line)
 {
-  QStringList lineSplit = line.split(QRegularExpression(" +"));
+  QStringList lineSplit = splitTopLevelWords(line);
   int counter = 1;
   do {
     parseValue(lineSplit[counter++], ValueMode::FORMULA);

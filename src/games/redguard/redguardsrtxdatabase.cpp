@@ -188,8 +188,10 @@ bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
     output.append(QByteArray(4, 0));
     totalBytes += 4;
 
-    // Save position for reverse index (this is where the entry STARTS)
-    entryPositions.append(totalBytes - 8);  // Back up to start of label
+    // Save position for reverse index.
+    // The Java/reference implementation stores the offset immediately after
+    // the label+length header, not the entry start.
+    entryPositions.append(totalBytes);
 
     // Write hasAudio flag (2 bytes)
     QByteArray audioFlag;
@@ -234,7 +236,7 @@ bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
     }
 
     // Update length field
-    writeLittleEndianInt(output, lengthPos, entry.length());
+    writeBigEndianInt(output, lengthPos, entry.length());
   }
 
   // Write END marker
@@ -263,11 +265,16 @@ bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
       writeLittleEndianInt(posBytes, 0, entryPositions[i]);
     }
     output.append(posBytes);
+
+    // Write length (4 bytes, little endian)
+    QByteArray lenBytes(4, 0);
+    writeLittleEndianInt(lenBytes, 0, mEntries[label].length());
+    output.append(lenBytes);
   }
 
   // Write footer
   output.append("RNAV");
-  QByteArray footerBytes(12, 0);
+  QByteArray footerBytes(8, 0);
   writeLittleEndianInt(footerBytes, 0, totalBytes);
   writeLittleEndianInt(footerBytes, 4, mEntries.size());
   output.append(footerBytes);
@@ -331,10 +338,11 @@ RedguardsRtxEntry* RedguardsRtxDatabase::getEntry(const QString& label)
 
 RedguardsRtxEntry* RedguardsRtxDatabase::getEntry(int index)
 {
-  if (index >= 0 && index < mEntries.size()) {
-    auto it = mEntries.begin();
-    std::advance(it, index);
-    return &it.value();
+  if (index >= 0 && index < mEntryOrder.size()) {
+    const QString& label = mEntryOrder.at(index);
+    if (mEntries.contains(label)) {
+      return &mEntries[label];
+    }
   }
   return nullptr;
 }
@@ -359,6 +367,17 @@ int RedguardsRtxDatabase::readLittleEndianShort(const QByteArray& data, int offs
     value |= (static_cast<unsigned char>(data[offset + i]) << (8 * i));
   }
   return value;
+}
+
+void RedguardsRtxDatabase::writeBigEndianInt(QByteArray& data, int offset, int value)
+{
+  if (offset + 4 > data.size()) {
+    data.resize(offset + 4);
+  }
+  data[offset + 0] = static_cast<char>((value >> 24) & 0xFF);
+  data[offset + 1] = static_cast<char>((value >> 16) & 0xFF);
+  data[offset + 2] = static_cast<char>((value >> 8) & 0xFF);
+  data[offset + 3] = static_cast<char>(value & 0xFF);
 }
 
 void RedguardsRtxDatabase::writeLittleEndianInt(QByteArray& data, int offset, int value)

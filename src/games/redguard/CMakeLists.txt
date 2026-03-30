@@ -39,6 +39,10 @@ set(REDGUARD_GAME_SOURCES
     redguardsrtxdatabase.h
     redguards3d.cpp
     redguards3d.h
+    redguardsfntformat.cpp
+    redguardsfntformat.h
+    redguardsgxaformat.cpp
+    redguardsgxaformat.h
     redguardswld.cpp
     redguardswld.h
     redguardsutils.cpp
@@ -57,6 +61,7 @@ add_library(game_redguard SHARED
     ${REDGUARD_GAME_SOURCES}
     gameredguard.json
 )
+
 
 add_executable(redguard3dscan
     redguard3dscan.cpp
@@ -79,7 +84,7 @@ target_include_directories(redguard3dscan PRIVATE
     ${CMAKE_SOURCE_DIR}/src/xngine
     ${CMAKE_SOURCE_DIR}/src/games/battlespire
     ${CMAKE_SOURCE_DIR}/src/games/daggerfall
-)
+ )
 
 # Link against xngine and MO2
 target_link_libraries(game_redguard
