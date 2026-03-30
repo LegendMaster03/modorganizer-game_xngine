@@ -18,6 +18,7 @@ struct RedguardsItemData
   QString name;
   QString descriptionId;
   QString description;
+  int playerMax = 0;
 };
 
 class RedguardsMapDatabase

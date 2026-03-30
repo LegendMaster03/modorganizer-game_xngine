@@ -50,6 +50,7 @@ public:  // IPlugin interface
   QList<MOBase::PluginSetting> settings() const override;
   bool allowExeModInstall() const;
   bool allowDillon241PatchInstall() const;
+  bool showDeveloperSaveDetails() const;
   bool showFullSvitInventory() const;
 
 protected:

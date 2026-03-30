@@ -6,6 +6,7 @@
 #include "redguardsrtxdatabase.h"
 
 #include <QFile>
+#include <QHash>
 #include <QRegularExpression>
 #include <QTextStream>
 
@@ -184,34 +185,69 @@ bool RedguardsMapDatabase::readItemsFile(const QString& itemsFilePath)
     return false;
   }
 
+  mItems.clear();
+
+  struct RawItemFields
+  {
+    QString nameId;
+    QString descriptionId;
+    int playerMax = 0;
+  };
+
+  QHash<int, RawItemFields> rawItems;
+  int maxIndex = -1;
+  const QRegularExpression fieldRe(
+      QStringLiteral("^\\s*([A-Za-z_]+)\\[(\\d+)\\]\\s*=\\s*(.*?)\\s*$"));
+
   QTextStream in(&file);
   while (!in.atEnd()) {
-    QString line = in.readLine();
-    if (line.startsWith("name")) {
-      int eqPos = line.indexOf('=');
-      if (eqPos < 0) {
-        continue;
-      }
-      QString nameId = line.mid(eqPos + 1).trimmed().toLower();
-      if (in.atEnd()) {
-        break;
-      }
-      QString descLine = in.readLine();
-      int descEq = descLine.indexOf('=');
-      if (descEq < 0) {
-        continue;
-      }
-      QString descId = descLine.mid(descEq + 1).trimmed().toLower();
-      RedguardsItemData item;
-      item.nameId = nameId;
-      item.descriptionId = descId;
-      item.name = redguardItemNameOverride(mItems.size());
-      if (item.name.isEmpty()) {
-        item.name = rtxEntry(nameId);
-      }
-      item.description = rtxEntry(descId);
-      mItems.append(item);
+    const QString line = in.readLine();
+    const QRegularExpressionMatch match = fieldRe.match(line);
+    if (!match.hasMatch()) {
+      continue;
     }
+
+    bool ok = false;
+    const int index = match.captured(2).toInt(&ok);
+    if (!ok || index < 0) {
+      continue;
+    }
+
+    RawItemFields& item = rawItems[index];
+    const QString key = match.captured(1).trimmed().toLower();
+    const QString value = match.captured(3).trimmed();
+    if (key == QStringLiteral("name")) {
+      item.nameId = value.toLower();
+    } else if (key == QStringLiteral("description")) {
+      item.descriptionId = value.toLower();
+    } else if (key == QStringLiteral("player_max")) {
+      item.playerMax = value.toInt();
+    }
+
+    if (index > maxIndex) {
+      maxIndex = index;
+    }
+  }
+
+  if (maxIndex < 0) {
+    return true;
+  }
+
+  mItems.reserve(maxIndex + 1);
+  for (int index = 0; index <= maxIndex; ++index) {
+    const RawItemFields fields = rawItems.value(index);
+    RedguardsItemData item;
+    item.nameId = fields.nameId;
+    item.descriptionId = fields.descriptionId;
+    item.playerMax = fields.playerMax;
+    item.name = redguardItemNameOverride(index);
+    if (item.name.isEmpty() && !item.nameId.isEmpty()) {
+      item.name = rtxEntry(item.nameId);
+    }
+    if (!item.descriptionId.isEmpty()) {
+      item.description = rtxEntry(item.descriptionId);
+    }
+    mItems.append(item);
   }
 
   return true;

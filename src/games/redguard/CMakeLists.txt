@@ -39,6 +39,8 @@ set(REDGUARD_GAME_SOURCES
     redguardsrtxdatabase.h
     redguards3d.cpp
     redguards3d.h
+    redguardsrobformat.cpp
+    redguardsrobformat.h
     redguardsfntformat.cpp
     redguardsfntformat.h
     redguardsgxaformat.cpp

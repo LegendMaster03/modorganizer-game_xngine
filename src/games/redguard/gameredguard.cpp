@@ -350,6 +350,10 @@ QList<PluginSetting> GameRedguard::settings() const
 {
   return {
       PluginSetting(
+          "show_developer_save_details",
+          tr("Show internal Redguard save debug details (raw area tokens and parse evidence) in save info."),
+          false),
+      PluginSetting(
           "allow_dillon241_patch_mod_install",
           tr("Allow Dillon241 patch mods (About.txt / INI Changes.txt / Map Changes.txt / RTX Changes.txt)."),
           true),
@@ -379,6 +383,14 @@ bool GameRedguard::allowDillon241PatchInstall() const
     return false;
   }
   return m_Organizer->pluginSetting(name(), "allow_dillon241_patch_mod_install").toBool();
+}
+
+bool GameRedguard::showDeveloperSaveDetails() const
+{
+  if (m_Organizer == nullptr) {
+    return false;
+  }
+  return m_Organizer->pluginSetting(name(), "show_developer_save_details").toBool();
 }
 
 bool GameRedguard::showFullSvitInventory() const

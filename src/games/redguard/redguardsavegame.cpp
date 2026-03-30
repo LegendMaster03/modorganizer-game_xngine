@@ -29,6 +29,18 @@ struct SvitItemNameCache
   QHash<QString, QStringList> namesByDataPath;
 };
 
+struct SvitItemDisplayInfo
+{
+  QString name;
+  int playerMax = 0;
+};
+
+struct SvitItemDisplayInfoCache
+{
+  QMutex mutex;
+  QHash<QString, QVector<SvitItemDisplayInfo>> itemsByDataPath;
+};
+
 struct RtxSubtitleCache
 {
   QMutex mutex;
@@ -52,9 +64,21 @@ QStringList buildDefaultSvitItemNames()
   return names;
 }
 
+QVector<SvitItemDisplayInfo> buildDefaultSvitItemDisplayInfo()
+{
+  QVector<SvitItemDisplayInfo> items;
+  items.reserve(kSvitItemCount + 1);
+  for (int i = 0; i < kSvitItemCount; ++i) {
+    items.push_back({QStringLiteral("Item %1").arg(i), 0});
+  }
+  items.push_back({QStringLiteral("LAST"), 0});
+  return items;
+}
+
 QStringList loadSvitItemNamesFromDataDirectory(const QDir& dataDir)
 {
   QStringList names = buildDefaultSvitItemNames();
+  const QVector<SvitItemDisplayInfo> defaults = buildDefaultSvitItemDisplayInfo();
   if (!dataDir.exists()) {
     return names;
   }
@@ -74,12 +98,41 @@ QStringList loadSvitItemNamesFromDataDirectory(const QDir& dataDir)
 
   const auto& items = mapDatabase.items();
   for (int i = 0; i < items.size() && i < kSvitItemCount; ++i) {
-    if (!items[i].name.trimmed().isEmpty()) {
-      names[i] = items[i].name.trimmed();
-    }
+    names[i] = items[i].name.trimmed().isEmpty() ? defaults[i].name : items[i].name.trimmed();
   }
 
   return names;
+}
+
+QVector<SvitItemDisplayInfo> loadSvitItemDisplayInfoFromDataDirectory(const QDir& dataDir)
+{
+  QVector<SvitItemDisplayInfo> items = buildDefaultSvitItemDisplayInfo();
+  if (!dataDir.exists()) {
+    return items;
+  }
+
+  const QString rtxPath = dataDir.absoluteFilePath("ENGLISH.RTX");
+  const QString itemPath = dataDir.absoluteFilePath("ITEM.INI");
+
+  RedguardsRtxDatabase rtxDatabase;
+  if (!rtxDatabase.readFile(rtxPath)) {
+    return items;
+  }
+
+  RedguardsMapDatabase mapDatabase(rtxDatabase);
+  if (!mapDatabase.readItemsFile(itemPath)) {
+    return items;
+  }
+
+  const auto& mapItems = mapDatabase.items();
+  for (int i = 0; i < mapItems.size() && i < kSvitItemCount; ++i) {
+    if (!mapItems[i].name.trimmed().isEmpty()) {
+      items[i].name = mapItems[i].name.trimmed();
+    }
+    items[i].playerMax = mapItems[i].playerMax;
+  }
+
+  return items;
 }
 
 QStringList loadCachedSvitItemNames(const QDir& dataDir)
@@ -112,6 +165,39 @@ QStringList loadSvitItemNames(const GameRedguard* game)
   }
 
   return loadCachedSvitItemNames(game->dataDirectory());
+}
+
+QVector<SvitItemDisplayInfo> loadCachedSvitItemDisplayInfo(const QDir& dataDir)
+{
+  if (!dataDir.exists()) {
+    return buildDefaultSvitItemDisplayInfo();
+  }
+
+  const QString cacheKey = dataDir.absolutePath();
+  if (cacheKey.isEmpty()) {
+    return buildDefaultSvitItemDisplayInfo();
+  }
+
+  static SvitItemDisplayInfoCache cache;
+  QMutexLocker lock(&cache.mutex);
+  const auto cacheIt = cache.itemsByDataPath.constFind(cacheKey);
+  if (cacheIt != cache.itemsByDataPath.cend()) {
+    return cacheIt.value();
+  }
+
+  const QVector<SvitItemDisplayInfo> items =
+      loadSvitItemDisplayInfoFromDataDirectory(dataDir);
+  cache.itemsByDataPath.insert(cacheKey, items);
+  return items;
+}
+
+QVector<SvitItemDisplayInfo> loadSvitItemDisplayInfo(const GameRedguard* game)
+{
+  if (game == nullptr) {
+    return buildDefaultSvitItemDisplayInfo();
+  }
+
+  return loadCachedSvitItemDisplayInfo(game->dataDirectory());
 }
 
 QHash<QString, QString> loadEnglishRtxSubtitlesFromDataDirectory(const QDir& dataDir)
@@ -195,6 +281,39 @@ QStringList buildFullInventoryDetails(const QVector<quint32>& counts, const QStr
   const int limit = qMin(counts.size(), names.size());
   for (int itemId = 0; itemId < limit; ++itemId) {
     lines << QString("%1: %2").arg(names[itemId]).arg(counts[itemId]);
+  }
+  return lines;
+}
+
+QStringList buildFullInventoryDetails(const QVector<quint32>& counts,
+                                      const QVector<SvitItemDisplayInfo>& items)
+{
+  QStringList lines;
+  if (counts.isEmpty()) {
+    return lines;
+  }
+
+  QStringList itemLines;
+  const int limit = qMin(counts.size(), items.size());
+  for (int itemId = 0; itemId < limit; ++itemId) {
+    const quint32 count = counts[itemId];
+    if (count == 0) {
+      continue;
+    }
+
+    const QString label = items[itemId].name.trimmed().isEmpty()
+                              ? QStringLiteral("Item %1").arg(itemId)
+                              : items[itemId].name.trimmed();
+    if (items[itemId].playerMax == 1) {
+      itemLines << label;
+    } else {
+      itemLines << QString("%1: %2").arg(label).arg(count);
+    }
+  }
+
+  if (!itemLines.isEmpty()) {
+    lines << QStringLiteral("Inventory:");
+    lines.append(itemLines);
   }
   return lines;
 }
@@ -417,16 +536,19 @@ QString RedguardsSaveGame::getPCLevelText() const
 
 QString RedguardsSaveGame::getGameDetails() const
 {
+  const bool showDeveloperDetails =
+      (m_Game != nullptr) ? m_Game->showDeveloperSaveDetails() : false;
   const bool showFullInventory =
       (m_Game != nullptr) ? m_Game->showFullSvitInventory() : false;
 
   QStringList lines;
-  if (!m_AreaToken.isEmpty()) {
+  if (showDeveloperDetails && !m_AreaToken.isEmpty()) {
     lines << QString("Area: %1").arg(m_AreaToken);
   }
 
   const QStringList inventoryLines =
-      showFullInventory ? buildFullInventoryDetails(m_SvitCurrentCounts, loadSvitItemNames(m_Game))
+      showFullInventory ? buildFullInventoryDetails(m_SvitCurrentCounts,
+                                                    loadSvitItemDisplayInfo(m_Game))
                         : buildCompactInventoryDetails(m_Gold, m_IronSkinPotions,
                                                         m_HealthPotions, m_StrengthPotions);
 
