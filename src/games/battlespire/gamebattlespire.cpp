@@ -82,6 +82,86 @@ void writeGlobalXdeltaPath(const QString& path)
   s.setValue(kGlobalXdeltaPathKey, path.trimmed());
   s.sync();
 }
+
+QString readBattlespireCfgValue(const QDir& root, const QString& relativePath, const QString& key)
+{
+  QFile file(root.filePath(relativePath));
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    return {};
+  }
+
+  const QByteArray keyBytes = key.trimmed().toUtf8().toLower();
+  while (!file.atEnd()) {
+    const QByteArray rawLine = file.readLine().trimmed();
+    if (rawLine.isEmpty() || rawLine.startsWith(';')) {
+      continue;
+    }
+
+    const QList<QByteArray> parts = rawLine.split(' ');
+    if (parts.isEmpty()) {
+      continue;
+    }
+
+    const QByteArray lineKey = parts.first().trimmed().toLower();
+    if (lineKey != keyBytes) {
+      continue;
+    }
+
+    return QString::fromLocal8Bit(rawLine.mid(parts.first().size())).trimmed();
+  }
+
+  return {};
+}
+
+bool hasBattlespireDeclaredFiles(const QDir& root)
+{
+  if (!QFileInfo::exists(root.filePath("SPIRE.CFG"))) {
+    return false;
+  }
+
+  const QString digIniRelative = QStringLiteral("MSS/DIG.INI");
+  if (!QFileInfo::exists(root.filePath(digIniRelative))) {
+    return false;
+  }
+
+  const QString driverName =
+      readBattlespireCfgValue(root, digIniRelative, QStringLiteral("DRIVER"));
+  if (driverName.isEmpty()) {
+    return false;
+  }
+
+  return QFileInfo::exists(QDir(root.filePath("MSS")).filePath(driverName));
+}
+
+QStringList findMissingBattlespireDeclaredFiles(const QDir& root)
+{
+  QStringList missing;
+
+  if (!QFileInfo::exists(root.filePath("SPIRE.CFG"))) {
+    missing.push_back(QStringLiteral("SPIRE.CFG"));
+    return missing;
+  }
+
+  const QString digIniRelative = QStringLiteral("MSS/DIG.INI");
+  if (!QFileInfo::exists(root.filePath(digIniRelative))) {
+    missing.push_back(digIniRelative);
+    return missing;
+  }
+
+  const QString driverName =
+      readBattlespireCfgValue(root, digIniRelative, QStringLiteral("DRIVER"));
+  if (driverName.trimmed().isEmpty()) {
+    missing.push_back(QStringLiteral("MSS/DIG.INI:DRIVER"));
+    return missing;
+  }
+
+  const QString driverPath = QDir(root.filePath("MSS")).filePath(driverName);
+  if (!QFileInfo::exists(driverPath)) {
+    missing.push_back(QStringLiteral("MSS/%1").arg(driverName));
+  }
+
+  return missing;
+}
 }  // namespace
 
 GameBattlespire::GameBattlespire()
@@ -357,7 +437,22 @@ int GameBattlespire::nexusGameID() const
 
 bool GameBattlespire::looksValid(QDir const& path) const
 {
-  return path.exists("GAME.EXE") || path.exists("SPIRE.BAT");
+  if (!path.exists()) {
+    return false;
+  }
+
+  const bool hasExecutable = path.exists("GAME.EXE") || path.exists("SPIRE.BAT");
+  if (!hasExecutable) {
+    return false;
+  }
+
+  if (!hasBattlespireDeclaredFiles(path)) {
+    qWarning().noquote()
+        << "[GameBattlespire] Config-declared files are missing, but the install still looks valid:"
+        << findMissingBattlespireDeclaredFiles(path).join(", ");
+  }
+
+  return true;
 }
 
 QString GameBattlespire::gameVersion() const

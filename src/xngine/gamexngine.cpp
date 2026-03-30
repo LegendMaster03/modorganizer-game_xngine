@@ -67,6 +67,70 @@ static QString normalizeVersionString(const QString& raw)
       .arg(match.captured(1), match.captured(2), match.captured(3), match.captured(4));
 }
 
+struct IniBinding
+{
+  QString profileName;
+  QString targetPath;
+};
+
+static QVector<IniBinding> resolveIniBindings(const GameXngine* game)
+{
+  QVector<IniBinding> bindings;
+  if (game == nullptr) {
+    return bindings;
+  }
+
+  const QDir gameDir = game->gameDirectory();
+  const QDir dataDir = game->dataDirectory();
+  if (!gameDir.exists()) {
+    return bindings;
+  }
+
+  QSet<QString> seenProfileNames;
+  for (const QString& entry : game->iniFiles()) {
+    const QString trimmed = QDir::fromNativeSeparators(entry.trimmed());
+    if (trimmed.isEmpty()) {
+      continue;
+    }
+
+    const QString profileName = QFileInfo(trimmed).fileName();
+    const QString dedupeKey = profileName.toLower();
+    if (seenProfileNames.contains(dedupeKey)) {
+      continue;
+    }
+
+    const QStringList targetCandidates = {
+        gameDir.filePath(trimmed),
+        dataDir.filePath(trimmed),
+        dataDir.filePath(profileName),
+        gameDir.filePath(profileName),
+    };
+
+    QString resolvedTarget;
+    for (const QString& candidate : targetCandidates) {
+      if (!candidate.isEmpty() && QFileInfo::exists(candidate)) {
+        resolvedTarget = candidate;
+        break;
+      }
+    }
+
+    if (resolvedTarget.isEmpty()) {
+      if (QDir::fromNativeSeparators(trimmed).contains('/')) {
+        resolvedTarget = gameDir.filePath(trimmed);
+      } else if (dataDir.exists() && dataDir.absolutePath() != gameDir.absolutePath()) {
+        resolvedTarget = dataDir.filePath(profileName);
+      } else {
+        resolvedTarget = gameDir.filePath(profileName);
+      }
+    }
+
+    bindings.push_back({profileName, resolvedTarget});
+    seenProfileNames.insert(dedupeKey);
+  }
+
+  return bindings;
+}
+
 GameXngine::GameXngine() {
   if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] Constructor ENTRY";
   OutputDebugStringA("[GameXngine] Constructor ENTRY\n");
@@ -138,8 +202,18 @@ void GameXngine::initializeProfile(const QDir& profile,
                                    MOBase::IPluginGame::ProfileSettings settings) const
 {
   if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] initializeProfile() ENTRY";
-  // Stub implementation - XnGine games typically don't need special profile initialization
-  // Override in derived classes if needed
+
+  if (!settings.testFlag(IPluginGame::CONFIGURATION)) {
+    return;
+  }
+
+  for (const IniBinding& binding : resolveIniBindings(this)) {
+    const QFileInfo sourceInfo(binding.targetPath);
+    if (!sourceInfo.exists()) {
+      continue;
+    }
+    copyToProfile(sourceInfo.absolutePath(), profile, sourceInfo.fileName(), binding.profileName);
+  }
 }
 
 QList<MOBase::ExecutableForcedLoadSetting> GameXngine::executableForcedLoads() const
@@ -819,6 +893,16 @@ MappingType GameXngine::mappings() const
 
     MappingType out;
     const QDir gameDir = gameDirectory();
+
+    if (m_Organizer != nullptr && m_Organizer->profile() != nullptr &&
+        m_Organizer->profile()->localSettingsEnabled()) {
+      for (const IniBinding& binding : resolveIniBindings(this)) {
+        out.push_back({m_Organizer->profile()->absoluteIniFilePath(binding.profileName),
+                       binding.targetPath,
+                       false,
+                       true});
+      }
+    }
 
     if (layout.maxSlotHint) {
       for (int i = 0; i <= *layout.maxSlotHint; ++i) {

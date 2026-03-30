@@ -11,12 +11,13 @@ public:
   explicit XngineArchiveExtractorFeature(const GameXngine* game);
 
   virtual QStringList supportedArchiveNameFilters() const override;
-  virtual QStringList knownArchiveNames() const override;
-  virtual QString describeArchive(const QString& archiveName) const override;
-  virtual bool canExtractArchive(const QString& archivePath,
-                                 QString* errorMessage = nullptr) const override;
+  virtual bool supportsArchive(const QString& archivePath) const override;
   virtual bool extractArchive(const QString& archivePath, const QString& outputDirectory,
-                              QString* errorMessage = nullptr) const override;
+                              const ProgressCallback& progress = {},
+                              QString* errorMessage            = nullptr) const override;
+  virtual bool canCreateArchive(const QString& archivePath) const override;
+  virtual bool createArchive(const QString& sourceDirectory, const QString& archivePath,
+                             QString* errorMessage = nullptr) const override;
 
 private:
   const GameXngine* m_Game;

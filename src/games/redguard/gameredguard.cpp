@@ -155,6 +155,56 @@ bool declaredRedguardFileExists(const QDir& root, const QString& relativePath)
          QFileInfo::exists(root.filePath(QStringLiteral("Redguard/%1").arg(normalized)));
 }
 
+QStringList missingDeclaredRedguardFiles(const QDir& root, const QStringList& relativePaths)
+{
+  QStringList missing;
+  for (const QString& relativePath : relativePaths) {
+    if (!declaredRedguardFileExists(root, relativePath)) {
+      missing.push_back(QDir::fromNativeSeparators(relativePath));
+    }
+  }
+  return missing;
+}
+
+QVector<QPair<QString, QString>> redguardIniBindings(const GameRedguard* game)
+{
+  QVector<QPair<QString, QString>> bindings;
+  if (game == nullptr) {
+    return bindings;
+  }
+
+  const QStringList relativePaths = {
+      QStringLiteral("COMBAT.INI"),
+      QStringLiteral("KEYS.INI"),
+      QStringLiteral("MENU.INI"),
+      QStringLiteral("REGISTRY.INI"),
+      QStringLiteral("surface.ini"),
+      QStringLiteral("SYSTEM.INI"),
+      game->configuredSystemRelativePath(QStringLiteral("item_ini"), QStringLiteral("ITEM.INI")),
+      game->configuredSystemRelativePath(QStringLiteral("world_ini"), QStringLiteral("WORLD.INI")),
+  };
+
+  QSet<QString> seenProfileNames;
+  for (const QString& relativePath : relativePaths) {
+    const QString normalized = QDir::fromNativeSeparators(relativePath.trimmed());
+    if (normalized.isEmpty()) {
+      continue;
+    }
+
+    const QString profileName = QFileInfo(normalized).fileName();
+    const QString dedupeKey =
+        profileName.toLower() + QStringLiteral("|") + normalized.toLower();
+    if (seenProfileNames.contains(dedupeKey)) {
+      continue;
+    }
+
+    seenProfileNames.insert(dedupeKey);
+    bindings.push_back({profileName, normalized});
+  }
+
+  return bindings;
+}
+
 }  // namespace
 
 bool GameRedguard::init(IOrganizer* moInfo)
@@ -266,49 +316,10 @@ QStringList GameRedguard::validShortNames() const
 
 QStringList GameRedguard::iniFiles() const
 {
-  QStringList candidates = {
-      "COMBAT.INI",
-      "Redguard/COMBAT.INI",
-      "KEYS.INI",
-      "Redguard/KEYS.INI",
-      "MENU.INI",
-      "Redguard/MENU.INI",
-      "REGISTRY.INI",
-      "Redguard/REGISTRY.INI",
-      "surface.ini",
-      "Redguard/surface.ini",
-      "SYSTEM.INI",
-      "Redguard/SYSTEM.INI",
-  };
-
-  const auto appendConfiguredIni = [&](const QString& configuredRelativePath) {
-    if (configuredRelativePath.isEmpty()) {
-      return;
-    }
-
-    const QString normalized = QDir::fromNativeSeparators(configuredRelativePath);
-    candidates.push_back(normalized);
-
-    if (!normalized.startsWith(QStringLiteral("Redguard/"), Qt::CaseInsensitive)) {
-      candidates.push_back(QStringLiteral("Redguard/%1").arg(normalized));
-    }
-  };
-
-  appendConfiguredIni(configuredSystemRelativePath(QStringLiteral("item_ini"),
-                                                   QStringLiteral("ITEM.INI")));
-  appendConfiguredIni(configuredSystemRelativePath(QStringLiteral("world_ini"),
-                                                   QStringLiteral("WORLD.INI")));
-
   QStringList ordered;
-  const QDir root = gameDirectory();
-  for (const auto& candidate : candidates) {
-    if (QFileInfo::exists(root.filePath(candidate))) {
-      ordered.push_back(candidate);
-    }
-  }
-  for (const auto& candidate : candidates) {
-    if (!ordered.contains(candidate)) {
-      ordered.push_back(candidate);
+  for (const auto& binding : redguardIniBindings(this)) {
+    if (!ordered.contains(binding.first, Qt::CaseInsensitive)) {
+      ordered.push_back(binding.first);
     }
   }
   return ordered;
@@ -658,10 +669,12 @@ bool GameRedguard::looksValid(QDir const& path) const
                                        QStringLiteral("fonts/arialvb.fnt")),
   };
 
-  for (const QString& relativePath : requiredDeclaredFiles) {
-    if (!declaredRedguardFileExists(path, relativePath)) {
-      return false;
-    }
+  const QStringList missingDeclaredFiles =
+      missingDeclaredRedguardFiles(path, requiredDeclaredFiles);
+  if (!missingDeclaredFiles.isEmpty()) {
+    qWarning().noquote()
+        << "[GameRedguard] Config-declared files are missing, but the install still looks valid:"
+        << missingDeclaredFiles.join(", ");
   }
 
   return true;

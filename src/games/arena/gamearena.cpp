@@ -86,6 +86,39 @@ QString firstExistingPath(const QDir& root, const QStringList& relativePaths)
   return {};
 }
 
+QString readArenaInstallCfgValue(const QDir& root, const QString& key)
+{
+  const QString installCfgPath =
+      firstExistingPath(root, {"INSTALL.CFG", "ARENA/INSTALL.CFG", "Arena/INSTALL.CFG"});
+  if (installCfgPath.isEmpty()) {
+    return {};
+  }
+
+  QFile file(installCfgPath);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    return {};
+  }
+
+  const QByteArray keyBytes = key.trimmed().toUtf8().toUpper();
+  while (!file.atEnd()) {
+    const QByteArray rawLine = file.readLine().trimmed();
+    if (rawLine.isEmpty()) {
+      continue;
+    }
+    const int separator = rawLine.indexOf(':');
+    if (separator <= 0) {
+      continue;
+    }
+    const QByteArray lineKey = rawLine.left(separator).trimmed().toUpper();
+    if (lineKey != keyBytes) {
+      continue;
+    }
+    return QString::fromLocal8Bit(rawLine.mid(separator + 1)).trimmed();
+  }
+
+  return {};
+}
+
 bool hasArenaExe(const QDir& root)
 {
   if (QFile::exists(root.filePath("ARENA.EXE")) ||
@@ -627,8 +660,11 @@ MappingType GameArena::mappings() const
   }
 
   // Optional slot names table.
-  out.push_back({QDir(sourceRoot).filePath("NAMES.DAT"),
-                 QDir(targetRoot).filePath("NAMES.DAT"),
+  const QString namesDataFile = readArenaInstallCfgValue(gameDir, "DATAFILE");
+  const QString namesFileName = namesDataFile.isEmpty() ? QStringLiteral("NAMES.DAT")
+                                                        : QFileInfo(namesDataFile).fileName();
+  out.push_back({QDir(sourceRoot).filePath(namesFileName),
+                 QDir(targetRoot).filePath(namesFileName),
                  false,
                  false});
 

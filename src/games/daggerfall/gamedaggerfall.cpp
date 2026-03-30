@@ -47,6 +47,154 @@ namespace
 constexpr const char* kGlobalXdeltaPathKey = "xngine/global_xdelta_exe_path";
 constexpr const char* kDefaultUnityNexusName = "daggerfallunity";
 
+QString firstExistingRelativePath(const QDir& root, const QStringList& candidates)
+{
+  for (const QString& candidate : candidates) {
+    if (QFileInfo::exists(root.filePath(candidate))) {
+      return candidate;
+    }
+  }
+  return {};
+}
+
+QString readDaggerfallSetupValue(const QDir& root, const QString& key)
+{
+  const QString setupRelative =
+      firstExistingRelativePath(root, {"SETUP.INI", "DF/DAGGER/SETUP.INI"});
+  if (setupRelative.isEmpty()) {
+    return {};
+  }
+
+  QSettings settings(root.filePath(setupRelative), QSettings::IniFormat);
+  const QString value = settings.value(QStringLiteral("PROGRAM/%1").arg(key)).toString().trimmed();
+  return value;
+}
+
+QString readDaggerfallZCfgValue(const QDir& root, const QString& key)
+{
+  const QString zCfgRelative = firstExistingRelativePath(root, {"Z.CFG", "DF/DAGGER/Z.CFG"});
+  if (zCfgRelative.isEmpty()) {
+    return {};
+  }
+
+  QFile file(root.filePath(zCfgRelative));
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    return {};
+  }
+
+  const QByteArray keyBytes = key.trimmed().toUtf8().toLower();
+  while (!file.atEnd()) {
+    const QByteArray rawLine = file.readLine().trimmed();
+    if (rawLine.isEmpty()) {
+      continue;
+    }
+    const QList<QByteArray> parts = rawLine.split(' ');
+    if (parts.isEmpty()) {
+      continue;
+    }
+    if (parts.first().trimmed().toLower() != keyBytes) {
+      continue;
+    }
+    const QByteArray valueBytes = rawLine.mid(parts.first().size()).trimmed();
+    return QString::fromLocal8Bit(valueBytes).trimmed();
+  }
+
+  return {};
+}
+
+bool hasDaggerfallExeLayout(const QDir& root)
+{
+  return QFileInfo::exists(root.filePath("DF/DAGGER/DAGGER.EXE")) ||
+         QFileInfo::exists(root.filePath("DAGGER.EXE"));
+}
+
+bool hasDaggerfallDosboxLayout(const QDir& root)
+{
+  return (QDir(root.filePath("DOSBox-0.74")).exists() &&
+          QFileInfo::exists(root.filePath("DOSBox-0.74/dosbox.exe"))) ||
+         (QDir(root.filePath("DOSBOX")).exists() &&
+          QFileInfo::exists(root.filePath("DOSBOX/dosbox.exe")));
+}
+
+bool hasDaggerfallDeclaredFiles(const QDir& root)
+{
+  const QString setupRelative =
+      firstExistingRelativePath(root, {"SETUP.INI", "DF/DAGGER/SETUP.INI"});
+  const QString zCfgRelative = firstExistingRelativePath(root, {"Z.CFG", "DF/DAGGER/Z.CFG"});
+  if (setupRelative.isEmpty() || zCfgRelative.isEmpty()) {
+    return false;
+  }
+
+  const QFileInfo setupInfo(root.filePath(setupRelative));
+  if (!setupInfo.exists()) {
+    return false;
+  }
+  const QDir setupDir = setupInfo.dir();
+
+  const QString configFile = readDaggerfallSetupValue(root, QStringLiteral("ConfigFile"));
+  const QString digitalTest = readDaggerfallSetupValue(root, QStringLiteral("DigitalTest"));
+  const QString midiTest = readDaggerfallSetupValue(root, QStringLiteral("MIDITest"));
+  const QString midiMelodic = readDaggerfallSetupValue(root, QStringLiteral("MIDIMelodic"));
+  const QString midiDrum = readDaggerfallSetupValue(root, QStringLiteral("MIDIDrum"));
+
+  const QStringList requiredRelative = {
+      setupRelative,
+      zCfgRelative,
+      configFile,
+      digitalTest,
+      midiTest,
+      midiMelodic,
+      midiDrum,
+  };
+
+  for (const QString& entry : requiredRelative) {
+    if (entry.trimmed().isEmpty()) {
+      return false;
+    }
+    if (!QFileInfo::exists(setupDir.filePath(entry.trimmed()))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+QStringList findMissingDaggerfallDeclaredFiles(const QDir& root)
+{
+  QStringList missing;
+
+  const QString setupRelative =
+      firstExistingRelativePath(root, {"SETUP.INI", "DF/DAGGER/SETUP.INI"});
+  const QString zCfgRelative = firstExistingRelativePath(root, {"Z.CFG", "DF/DAGGER/Z.CFG"});
+  if (setupRelative.isEmpty()) {
+    missing.push_back(QStringLiteral("SETUP.INI"));
+    return missing;
+  }
+  if (zCfgRelative.isEmpty()) {
+    missing.push_back(QStringLiteral("Z.CFG"));
+    return missing;
+  }
+
+  const QFileInfo setupInfo(root.filePath(setupRelative));
+  const QDir setupDir = setupInfo.dir();
+
+  const QStringList declared = {
+      readDaggerfallSetupValue(root, QStringLiteral("ConfigFile")),
+      readDaggerfallSetupValue(root, QStringLiteral("DigitalTest")),
+      readDaggerfallSetupValue(root, QStringLiteral("MIDITest")),
+      readDaggerfallSetupValue(root, QStringLiteral("MIDIMelodic")),
+      readDaggerfallSetupValue(root, QStringLiteral("MIDIDrum")),
+  };
+
+  for (const QString& entry : declared) {
+    if (entry.trimmed().isEmpty() || !QFileInfo::exists(setupDir.filePath(entry.trimmed()))) {
+      missing.push_back(entry.trimmed().isEmpty() ? QStringLiteral("(empty declared path)") : entry.trimmed());
+    }
+  }
+
+  return missing;
+}
+
 QString readGlobalXdeltaPath()
 {
   QSettings s;
@@ -295,26 +443,44 @@ QStringList GameDaggerfall::validShortNames() const
 
 QStringList GameDaggerfall::iniFiles() const
 {
-  const QStringList candidates = {
+  QStringList ordered;
+  const QDir root = gameDirectory();
+  const QString setupRelative =
+      firstExistingRelativePath(root, {"SETUP.INI", "DF/DAGGER/SETUP.INI"});
+  const QString zCfgRelative = firstExistingRelativePath(root, {"Z.CFG", "DF/DAGGER/Z.CFG"});
+
+  if (!setupRelative.isEmpty()) {
+    ordered.push_back(setupRelative);
+  }
+  if (!zCfgRelative.isEmpty()) {
+    ordered.push_back(zCfgRelative);
+  }
+
+  const QString configFile = readDaggerfallSetupValue(root, QStringLiteral("ConfigFile"));
+  if (!configFile.isEmpty()) {
+    const QString configRelative =
+        QDir(QFileInfo(root.filePath(setupRelative)).path()).relativeFilePath(
+            QFileInfo(root.filePath(setupRelative)).dir().filePath(configFile));
+    if (!ordered.contains(configRelative, Qt::CaseInsensitive)) {
+      ordered.push_back(QDir::cleanPath(configRelative));
+    }
+  }
+
+  const QStringList fallbackCandidates = {
       "SETUP.INI",
       "DF/DAGGER/SETUP.INI",
-      // CASTER.CFG is a possible candidate but does not open in a text editor and may not be a true CFG file - excluding for now
-      //"CASTER.CFG",
-      //"DF/DAGGER/CASTER.CFG",
       "HMISET.CFG",
       "DF/DAGGER/HMISET.CFG",
       "Z.CFG",
       "DF/DAGGER/Z.CFG"};
-
-  QStringList ordered;
-  const QDir root = gameDirectory();
-  for (const auto& candidate : candidates) {
-    if (QFileInfo::exists(root.filePath(candidate))) {
+  for (const auto& candidate : fallbackCandidates) {
+    if (QFileInfo::exists(root.filePath(candidate)) &&
+        !ordered.contains(candidate, Qt::CaseInsensitive)) {
       ordered.push_back(candidate);
     }
   }
-  for (const auto& candidate : candidates) {
-    if (!ordered.contains(candidate)) {
+  for (const auto& candidate : fallbackCandidates) {
+    if (!ordered.contains(candidate, Qt::CaseInsensitive)) {
       ordered.push_back(candidate);
     }
   }
@@ -626,6 +792,28 @@ QString GameDaggerfall::identifyGamePath() const
   }
 }
 
+bool GameDaggerfall::looksValid(QDir const& path) const
+{
+  if (!path.exists()) {
+    return false;
+  }
+
+  if (hasDaggerfallExeLayout(path)) {
+    return true;
+  }
+
+  if (hasDaggerfallDosboxLayout(path)) {
+    if (!hasDaggerfallDeclaredFiles(path)) {
+      qWarning().noquote()
+          << "[GameDaggerfall] Config-declared files are missing, but the install still looks valid:"
+          << findMissingDaggerfallDeclaredFiles(path).join(", ");
+    }
+    return true;
+  }
+
+  return false;
+}
+
 QDir GameDaggerfall::savesDirectory() const
 {
   return GameXngine::savesDirectory();
@@ -704,6 +892,12 @@ XngineBSAFormat::Traits GameDaggerfall::bsaTraits() const
 
 QVector<XngineBSAFormat::FileSpec> GameDaggerfall::bsaFileSpecs() const
 {
+  const QString configuredMapSave =
+      readDaggerfallZCfgValue(gameDirectory(), QStringLiteral("maps"));
+  const QString mapSaveArchive =
+      configuredMapSave.isEmpty() ? QStringLiteral("MAPSAVE.SAV")
+                                  : QFileInfo(configuredMapSave).fileName();
+
   return {
       {"ARCH3D.BSA", true, XngineBSAFormat::IndexType::NumberRecord, false,
        "3D object/mesh records."},
@@ -717,7 +911,7 @@ QVector<XngineBSAFormat::FileSpec> GameDaggerfall::bsaFileSpecs() const
        "Music records."},
       {"DAGGER.SND", true, XngineBSAFormat::IndexType::NumberRecord, false,
        "Raw PCM audio records.", XngineBSAFormat::ArchiveVariant::Snd},
-      {"MAPSAVE.SAV", true, XngineBSAFormat::IndexType::NameRecord, true,
+      {mapSaveArchive, true, XngineBSAFormat::IndexType::NameRecord, true,
        "Automap archive (NameRecord 0x0100; MAPSAVE.0## regional records).",
        XngineBSAFormat::ArchiveVariant::Sav},
   };

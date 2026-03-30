@@ -4,6 +4,8 @@
 #include "gameredguard.h"
 #include <xnginemoddatachecker.h>
 #include <QDebug>
+#include <QFileInfo>
+#include <QSet>
 
 /**
  * Redguard-specific mod data checker.
@@ -43,6 +45,10 @@ public:
       return CheckReturn::VALID;
     }
     if (hasExePayload) {
+      return CheckReturn::VALID;
+    }
+
+    if (containsConfiguredDeclaredPayload(fileTree)) {
       return CheckReturn::VALID;
     }
 
@@ -91,8 +97,11 @@ protected:
         "mif",     // Map interchange format
         "img",     // Image resources
         "pal",     // Palette files
+        "bmp",     // Bitmap resources declared by SYSTEM.INI
         "fnt",     // Font files
         "ini",     // Configuration files (for About.txt mods)
+        "smk",     // Smacker videos declared by SYSTEM/ MENU config
+        "noo",     // World/scene files declared by WORLD.INI
         "txt",     // Text files (including Changes.txt)
         "cfg",     // Config files
         "bsa",     // BSA archive (less common for Redguard)
@@ -136,6 +145,47 @@ private:
       } else if (entry->isDir()) {
         auto subtree = fileTree->findDirectory(entry->name());
         if (subtree && containsExecutablePayload(subtree)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool containsConfiguredDeclaredPayload(std::shared_ptr<const MOBase::IFileTree> fileTree) const
+  {
+    if (!fileTree) {
+      return false;
+    }
+
+    QSet<QString> declaredNames;
+    declaredNames.insert(QStringLiteral("SYSTEM.INI"));
+    declaredNames.insert(QStringLiteral("MENU.INI"));
+    declaredNames.insert(QStringLiteral("COMBAT.INI"));
+    declaredNames.insert(QStringLiteral("KEYS.INI"));
+    declaredNames.insert(QStringLiteral("REGISTRY.INI"));
+
+    const auto* g = dynamic_cast<const GameRedguard*>(game());
+    if (g != nullptr) {
+      declaredNames.insert(QFileInfo(g->configuredRtxFilename()).fileName());
+      declaredNames.insert(QFileInfo(g->configuredWorldIniFilename()).fileName());
+      declaredNames.insert(QFileInfo(g->configuredItemIniFilename()).fileName());
+    }
+
+    for (const auto& entry : *fileTree) {
+      if (!entry) {
+        continue;
+      }
+      if (entry->isFile()) {
+        const QString entryName = entry->name();
+        for (const QString& declaredName : declaredNames) {
+          if (declaredName.compare(entryName, Qt::CaseInsensitive) == 0) {
+            return true;
+          }
+        }
+      } else if (entry->isDir()) {
+        auto subtree = fileTree->findDirectory(entry->name());
+        if (subtree && containsConfiguredDeclaredPayload(subtree)) {
           return true;
         }
       }

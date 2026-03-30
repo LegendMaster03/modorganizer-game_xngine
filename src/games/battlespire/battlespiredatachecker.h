@@ -60,7 +60,7 @@ protected:
   {
     static FileNameSet result{
         "gamedata", "data",  "textures", "sound",  "audio", "maps",
-        "fonts",    "video", "dosbox",   "dosbox-0.73", "dosbox-0.74"};
+        "fonts",    "video", "dosbox",   "dosbox-0.73", "dosbox-0.74", "mss"};
     return result;
   }
 
@@ -68,7 +68,7 @@ protected:
   {
     static FileNameSet result{
         "bat", "bsa", "bs6", "bsi", "cfg", "conf", "dat", "exe", "flc", "ini",
-        "pal", "snd", "txt", "wav", "rtx", "xdelta", "xdelta3", "vcdiff"};
+        "pal", "snd", "txt", "wav", "rtx", "dig", "xdelta", "xdelta3", "vcdiff"};
     return result;
   }
 
@@ -117,7 +117,8 @@ private:
 
     static const QStringList kKnownRootFiles = {
         "GAME.EXE", "SPIRE.BAT", "SPIRE.CFG", "PATCH.TXT", "README.TXT", "3D.BSA",
-        "BS6.BSA",  "BSI.BSA",   "TXT.BSA",   "FLC.BSA",   "SPIRE.SND", "WAVES.BSA"};
+        "BS6.BSA",  "BSI.BSA",   "TXT.BSA",   "FLC.BSA",   "SPIRE.SND", "WAVES.BSA",
+        "DIG.INI",  "SB16.DIG"};
 
     for (const auto& entry : *fileTree) {
       if (!entry || entry->isDir()) {

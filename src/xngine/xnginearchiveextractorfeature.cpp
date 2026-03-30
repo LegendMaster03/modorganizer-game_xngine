@@ -8,11 +8,6 @@
 namespace
 {
 
-QString normalizeArchiveName(const QString& pathOrName)
-{
-  return QFileInfo(pathOrName).fileName().toUpper();
-}
-
 QString suffixFilterForName(const QString& archiveName)
 {
   const QString suffix = QFileInfo(archiveName).suffix().toLower();
@@ -48,70 +43,39 @@ QStringList XngineArchiveExtractorFeature::supportedArchiveNameFilters() const
   return filters;
 }
 
-QStringList XngineArchiveExtractorFeature::knownArchiveNames() const
-{
-  QStringList names;
-
-  if (!m_Game) {
-    return names;
-  }
-
-  for (const auto& spec : m_Game->bsaFileSpecs()) {
-    names.push_back(spec.archiveName);
-  }
-
-  return names;
-}
-
-QString XngineArchiveExtractorFeature::describeArchive(const QString& archiveName) const
+bool XngineArchiveExtractorFeature::supportsArchive(const QString& archivePath) const
 {
   if (!m_Game) {
-    return {};
-  }
-
-  const auto spec = m_Game->bsaFileSpecForArchiveName(normalizeArchiveName(archiveName));
-  if (!spec.has_value()) {
-    return {};
-  }
-
-  return spec->usage;
-}
-
-bool XngineArchiveExtractorFeature::canExtractArchive(const QString& archivePath,
-                                                      QString* errorMessage) const
-{
-  if (!m_Game) {
-    if (errorMessage != nullptr) {
-      *errorMessage = QStringLiteral("XnGine archive extractor is not attached to a game");
-    }
     return false;
   }
 
   const QFileInfo archiveInfo(archivePath);
   if (!archiveInfo.exists() || !archiveInfo.isFile()) {
-    if (errorMessage != nullptr) {
-      *errorMessage = QStringLiteral("Archive file does not exist: %1").arg(archivePath);
-    }
     return false;
   }
 
   const QString fileName = archiveInfo.fileName();
   const auto spec = m_Game->bsaFileSpecForArchiveName(fileName);
   XngineBSAFormat::Archive archive;
+  QString errorMessage;
 
   if (spec.has_value()) {
     auto traits = m_Game->bsaTraits();
     traits.variantHint = spec->archiveVariant;
-    return XngineBSAFormat::readArchive(archivePath, archive, errorMessage, traits);
+    return XngineBSAFormat::readArchive(archivePath, archive, &errorMessage, traits);
   }
 
-  return XngineBSAFormat::readArchive(archivePath, archive, errorMessage, m_Game->bsaTraits());
+  return XngineBSAFormat::readArchive(archivePath, archive, &errorMessage,
+                                      m_Game->bsaTraits());
 }
 
 bool XngineArchiveExtractorFeature::extractArchive(const QString& archivePath,
                                                    const QString& outputDirectory,
+                                                   const ProgressCallback& progress,
                                                    QString* errorMessage) const
 {
+  Q_UNUSED(progress);
+
   if (!m_Game) {
     if (errorMessage != nullptr) {
       *errorMessage = QStringLiteral("XnGine archive extractor is not attached to a game");
@@ -124,4 +88,25 @@ bool XngineArchiveExtractorFeature::extractArchive(const QString& archivePath,
   }
 
   return m_Game->unpackXngineBsaArchive(archivePath, outputDirectory, errorMessage);
+}
+
+bool XngineArchiveExtractorFeature::canCreateArchive(const QString& archivePath) const
+{
+  return m_Game != nullptr &&
+         m_Game->bsaFileSpecForArchiveName(QFileInfo(archivePath).fileName()).has_value();
+}
+
+bool XngineArchiveExtractorFeature::createArchive(const QString& sourceDirectory,
+                                                  const QString& archivePath,
+                                                  QString* errorMessage) const
+{
+  if (!canCreateArchive(archivePath)) {
+    if (errorMessage != nullptr) {
+      *errorMessage = QStringLiteral("Archive packing is not supported for %1")
+                          .arg(QFileInfo(archivePath).fileName());
+    }
+    return false;
+  }
+
+  return m_Game->packKnownXngineBsaArchive(sourceDirectory, archivePath, errorMessage);
 }

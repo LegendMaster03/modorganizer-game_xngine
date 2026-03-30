@@ -227,6 +227,8 @@ protected:
         "vid",     // Video resources
         "flc",     // Legacy animation/video resources
         "wav",     // Sound effects / voice files
+        "hmi",     // HMI MIDI test/resource files declared by SETUP.INI
+        "bnk",     // MIDI bank files declared by SETUP.INI
         "ico",     // Icon resources
         "cps",     // Compressed image resources
         "lip",     // Lip/portrait resources
@@ -488,7 +490,7 @@ private:
         "MIDI.BSA",   "SPELLS.STD", "MAGIC.DEF",  "WOODS.WLD",   "POLITIC.PAK", "CLIMATE.PAK",
         "FLATS.CFG",
         "FALL.EXE",   "DAGGER.EXE", "DAGGER.ICO", "SETUP.INI",  "Z.CFG", "HMISET.CFG",
-        "CASTER.CFG",
+        "CASTER.CFG", "TEST.WAV", "TEST.HMI", "MELODIC.BNK", "DRUM.BNK",
         "MAPSAVE.SAV", "PAL.RAW", "PAL.PAL", "OLDPAL.PAL", "MAP.PAL", "ART_PAL.COL",
         "FMAP_PAL.COL", "SAVENAME.TXT", "SAVETREE.DAT", "SAVEVARS.DAT", "IMAGE.RAW",
         "FACES.CIF", "FRAM00I0.IMG", "TALK00I0.IMG"};

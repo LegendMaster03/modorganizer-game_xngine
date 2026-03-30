@@ -60,6 +60,7 @@ public:  // IPlugin interface
 
 protected:
   virtual QString identifyGamePath() const override;
+  virtual bool looksValid(QDir const& path) const override;
   virtual QDir dataDirectory() const override;
   virtual QDir savesDirectory() const override;
   virtual bool prepareIni(const QString& exec) override;
