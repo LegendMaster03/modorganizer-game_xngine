@@ -39,15 +39,18 @@ You can keep one workspace configured for both the retail MO2 SDK and a newer de
 - Put shared/default values in the unsuffixed variables.
 - Put retail-specific values in `*_RETAIL`.
 - Put dev-specific values in `*_DEV`.
-- Set `MO2_TARGET=retail` or `MO2_TARGET=dev`, or use the helper scripts below.
+- Put archive-experiment values in `*_ARCHIVE`.
+- Set `MO2_TARGET=retail`, `MO2_TARGET=dev`, or `MO2_TARGET=archive`, or use the helper scripts below.
 
 Helper scripts:
 
 ```bat
 build_ms_retail.bat
 build_ms_dev.bat
+build_ms_archive.bat
 build_and_deploy_retail.bat
 build_and_deploy_dev.bat
+build_and_deploy_archive.bat
 ```
 
 The active target overrides:

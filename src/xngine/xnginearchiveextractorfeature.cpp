@@ -98,8 +98,11 @@ bool XngineArchiveExtractorFeature::canCreateArchive(const QString& archivePath)
 
 bool XngineArchiveExtractorFeature::createArchive(const QString& sourceDirectory,
                                                   const QString& archivePath,
+                                                  const ProgressCallback& progress,
                                                   QString* errorMessage) const
 {
+  Q_UNUSED(progress);
+
   if (!canCreateArchive(archivePath)) {
     if (errorMessage != nullptr) {
       *errorMessage = QStringLiteral("Archive packing is not supported for %1")

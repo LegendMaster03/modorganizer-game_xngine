@@ -17,7 +17,8 @@ public:
                               QString* errorMessage            = nullptr) const override;
   virtual bool canCreateArchive(const QString& archivePath) const override;
   virtual bool createArchive(const QString& sourceDirectory, const QString& archivePath,
-                             QString* errorMessage = nullptr) const override;
+                             const ProgressCallback& progress = {},
+                             QString* errorMessage            = nullptr) const override;
 
 private:
   const GameXngine* m_Game;

@@ -17,7 +17,8 @@ public:
   virtual bool canCreateArchive(const QString& archivePath) const = 0;
 
   virtual bool createArchive(const QString& sourceDirectory, const QString& archivePath,
-                             QString* errorMessage = nullptr) const = 0;
+                             const ProgressCallback& progress = {},
+                             QString* errorMessage            = nullptr) const = 0;
 };
 
 #endif  // XNGINEARCHIVEEXTRACTOR_H
