@@ -215,6 +215,10 @@ bool GameRedguard::init(IOrganizer* moInfo)
       return false;
     }
 
+    if (!shouldRegisterManagedGameFeatures(QStringLiteral("Redguard"))) {
+      return true;
+    }
+
     const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
     registerFeature(std::make_shared<XngineSaveGameInfo>(this));
     registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));

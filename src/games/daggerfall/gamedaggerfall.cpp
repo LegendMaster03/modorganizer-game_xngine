@@ -320,6 +320,10 @@ bool GameDaggerfall::init(IOrganizer* moInfo)
     }
     DF_TRACE("[GameDaggerfall] GameXngine::init() SUCCESS\n");
 
+    if (!shouldRegisterManagedGameFeatures(QStringLiteral("Daggerfall"))) {
+      return true;
+    }
+
     const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
     registerFeature(std::make_shared<DaggerfallsModDataChecker>(this));
     registerFeature(std::make_shared<DaggerfallsModDataContent>(m_Organizer->gameFeatures()));

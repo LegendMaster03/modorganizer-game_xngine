@@ -6,6 +6,8 @@ set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
 set "LOCAL_ENV=%SCRIPT_DIR%\config\local.env.bat"
 if exist "%LOCAL_ENV%" call "%LOCAL_ENV%"
+set "TARGET_ENV=%SCRIPT_DIR%\config\resolve-target-env.bat"
+if exist "%TARGET_ENV%" call "%TARGET_ENV%"
 
 if "%CMAKE_EXE%"=="" set "CMAKE_EXE=cmake"
 if /I "%CMAKE_EXE%"=="cmake" (
@@ -46,12 +48,14 @@ if not "%VCVARS_BAT%"=="" (
 cd /d "%SCRIPT_DIR%"
 if errorlevel 1 goto error_cd
 
-if exist build (
-    rmdir /s /q build
-    if exist build goto error_build_busy
+if "%BUILD_DIR%"=="" set "BUILD_DIR=build"
+
+if exist "%BUILD_DIR%" (
+    rmdir /s /q "%BUILD_DIR%"
+    if exist "%BUILD_DIR%" goto error_build_busy
 )
-mkdir build
-cd build
+mkdir "%BUILD_DIR%"
+cd /d "%BUILD_DIR%"
 if errorlevel 1 goto error_build_cd
 
 echo.
@@ -79,7 +83,7 @@ echo.
 echo ==========================================
 echo SUCCESS: Build completed
 echo ==========================================
-echo Build output: build\bin\Release\plugins\
+echo Build output: %BUILD_DIR%\bin\Release\plugins\
 echo.
 pause
 exit /b 0
@@ -101,7 +105,7 @@ exit /b 1
 
 :error_build_busy
 echo ERROR: Failed to remove existing build directory.
-echo Make sure no terminal, Explorer window, or process is using files under %SCRIPT_DIR%\build
+echo Make sure no terminal, Explorer window, or process is using files under %SCRIPT_DIR%\%BUILD_DIR%
 pause
 exit /b 1
 

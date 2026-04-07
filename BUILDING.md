@@ -32,6 +32,33 @@ build_ms.bat
 
 `build_ms.bat` reads `config/local.env.bat` automatically if it exists.
 
+### Dual-Target Local Setup
+
+You can keep one workspace configured for both the retail MO2 SDK and a newer dev SDK.
+
+- Put shared/default values in the unsuffixed variables.
+- Put retail-specific values in `*_RETAIL`.
+- Put dev-specific values in `*_DEV`.
+- Set `MO2_TARGET=retail` or `MO2_TARGET=dev`, or use the helper scripts below.
+
+Helper scripts:
+
+```bat
+build_ms_retail.bat
+build_ms_dev.bat
+build_and_deploy_retail.bat
+build_and_deploy_dev.bat
+```
+
+The active target overrides:
+
+- `MO2_UIBASE_PATH`
+- `MO2_UIBASE_LIB`
+- `MO2_SRC_PATH`
+- `MO2_PLUGINS_DIR`
+- `MO2_INSTALL_DIR`
+- `QT_ROOT`
+
 ## Optional
 
 Install/refresh vcpkg dependencies:

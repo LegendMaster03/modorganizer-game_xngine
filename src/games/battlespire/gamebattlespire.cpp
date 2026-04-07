@@ -211,6 +211,10 @@ bool GameBattlespire::init(IOrganizer* moInfo)
     if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameBattlespire] GameXngine::init() SUCCESS";
     OutputDebugStringA("[GameBattlespire] GameXngine::init() SUCCESS\n");
 
+    if (!shouldRegisterManagedGameFeatures(QStringLiteral("Battlespire"))) {
+      return true;
+    }
+
     const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
     registerFeature(std::make_shared<BattlespiresModDataChecker>(this));
     registerFeature(std::make_shared<BattlespireModDataContent>(m_Organizer->gameFeatures()));

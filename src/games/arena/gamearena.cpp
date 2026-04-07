@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <algorithm>
+#include <exception>
 
 using namespace MOBase;
 
@@ -178,19 +179,32 @@ GameArena::GameArena() = default;
 
 bool GameArena::init(IOrganizer* moInfo)
 {
-  if (!GameXngine::init(moInfo)) {
+  try {
+    if (!GameXngine::init(moInfo)) {
+      qWarning().noquote() << "Arena: GameXngine::init() failed";
+      return false;
+    }
+
+    if (!shouldRegisterManagedGameFeatures(QStringLiteral("Arena"))) {
+      return true;
+    }
+
+    const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
+    registerFeature(std::make_shared<ArenaModDataChecker>(this));
+    registerFeature(std::make_shared<ArenaModDataContent>(m_Organizer->gameFeatures()));
+    registerFeature(std::make_shared<XngineSaveGameInfo>(this));
+    registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
+    registerFeature(std::make_shared<XngineUnmanagedMods>(this));
+    ensureExePatchCleanupHook();
+
+    return true;
+  } catch (const std::exception& e) {
+    qWarning().noquote() << "Arena: init() failed:" << e.what();
+    return false;
+  } catch (...) {
+    qWarning().noquote() << "Arena: init() failed";
     return false;
   }
-
-  const QString iniForLocalSaves = iniFiles().isEmpty() ? QString{} : iniFiles().first();
-  registerFeature(std::make_shared<ArenaModDataChecker>(this));
-  registerFeature(std::make_shared<ArenaModDataContent>(m_Organizer->gameFeatures()));
-  registerFeature(std::make_shared<XngineSaveGameInfo>(this));
-  registerFeature(std::make_shared<XngineLocalSavegames>(this, iniForLocalSaves));
-  registerFeature(std::make_shared<XngineUnmanagedMods>(this));
-  ensureExePatchCleanupHook();
-
-  return true;
 }
 
 QString GameArena::gameName() const

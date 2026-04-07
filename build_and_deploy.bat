@@ -6,6 +6,8 @@ set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
 set "LOCAL_ENV=%SCRIPT_DIR%\config\local.env.bat"
 if exist "%LOCAL_ENV%" call "%LOCAL_ENV%"
+set "TARGET_ENV=%SCRIPT_DIR%\config\resolve-target-env.bat"
+if exist "%TARGET_ENV%" call "%TARGET_ENV%"
 
 if "%CMAKE_EXE%"=="" set "CMAKE_EXE=cmake"
 if /I "%CMAKE_EXE%"=="cmake" (
@@ -49,9 +51,11 @@ if not "%VCVARS_BAT%"=="" (
 	if errorlevel 1 goto error_vcvars
 )
 
-if exist build rmdir /s /q build
-mkdir build
-cd build
+if "%BUILD_DIR%"=="" set "BUILD_DIR=build"
+
+if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
+mkdir "%BUILD_DIR%"
+cd /d "%BUILD_DIR%"
 if errorlevel 1 goto error_build_cd
 
 echo Configuring CMake...
@@ -150,7 +154,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "Get-Process -Name 'ModOrganizer' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1
 
 for /L %%I in (1,1,20) do (
-  tasklist /FI "IMAGENAME eq ModOrganizer.exe" 2>nul | find /I "ModOrganizer.exe" >nul
+  tasklist /FI "IMAGENAME eq ModOrganizer.exe" 2>nul | findstr /I /C:"ModOrganizer.exe" >nul
   if errorlevel 1 goto :stop_mo2_done
   timeout /T 1 /NOBREAK >nul
 )

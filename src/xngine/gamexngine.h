@@ -174,6 +174,7 @@ protected:
       const QList<QRegularExpression>& patterns,
       int minStringLength = 6);
   bool shouldLogForCurrentProfile() const;
+  bool shouldRegisterManagedGameFeatures(const QString& pluginName) const;
   QString detectGameVersion(const QStringList& executableCandidates,
                             const QStringList& textCandidates,
                             const QList<QRegularExpression>& patterns,
@@ -195,6 +196,7 @@ protected:
   QString m_MyGamesPath;
   QString m_GameVariant;
   MOBase::IOrganizer* m_Organizer = nullptr;
+  bool m_ArchiveHandlerFeatureRegistered = false;
   mutable bool m_LoggedResolvedVersion = false;
   mutable qint64 m_LastLoadOrderLogMs = 0;
 };

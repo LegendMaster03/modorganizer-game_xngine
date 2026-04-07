@@ -6,7 +6,9 @@
 #include "scopeguard.h"
 #include "utility.h"
 #include "vdf_parser.h"
+#if XNGINE_HAS_GAMEARCHIVEHANDLER
 #include "xnginearchiveextractorfeature.h"
+#endif
 
 #include <QDir>
 #include <QDirIterator>
@@ -33,6 +35,7 @@
 #include <set>
 #include <QRegularExpression>
 #include <QDateTime>
+#include <QProcessEnvironment>
 
 static bool isPeExecutable(const QString& path)
 {
@@ -140,6 +143,14 @@ GameXngine::GameXngine() {
 
 bool GameXngine::shouldLogForCurrentProfile() const
 {
+  const auto env = QProcessEnvironment::systemEnvironment();
+  const QString enabled =
+      env.value(QStringLiteral("XNGINE_DEBUG_LOGGING")).trimmed().toLower();
+  if (!(enabled == QStringLiteral("1") || enabled == QStringLiteral("true") ||
+        enabled == QStringLiteral("yes") || enabled == QStringLiteral("on"))) {
+    return false;
+  }
+
   if (!m_Organizer) {
     return false;
   }
@@ -148,6 +159,24 @@ bool GameXngine::shouldLogForCurrentProfile() const
     return false;
   }
   return managedGame == this;
+}
+
+bool GameXngine::shouldRegisterManagedGameFeatures(const QString& pluginName) const
+{
+  if (m_Organizer == nullptr) {
+    qWarning().noquote() << pluginName
+                         << ": skipping feature registration because organizer is null";
+    return false;
+  }
+
+  const auto* managedGame = m_Organizer->managedGame();
+  if (managedGame != nullptr && managedGame != this) {
+    qInfo().noquote() << pluginName
+                      << ": skipping feature registration for non-managed game plugin";
+    return false;
+  }
+
+  return true;
 }
 
 void GameXngine::detectGame()
@@ -172,7 +201,71 @@ bool GameXngine::init(MOBase::IOrganizer* moInfo)
     OutputDebugStringA("[GameXngine] WARNING: m_Organizer is NULL in init()\n");
     return false;
   }
+#if XNGINE_HAS_GAMEARCHIVEHANDLER
+  const auto env = QProcessEnvironment::systemEnvironment();
+  const bool forceArchiveHandlerFeature =
+      env.value(QStringLiteral("XNGINE_FORCE_ARCHIVE_HANDLER_FEATURE")) ==
+      QStringLiteral("1");
+#if defined(XNGINE_DISABLE_BSA_UNPACK_HOOK_CHAIN_DEFAULT)
+  const bool disableArchiveHandlerFeatureDefault = true;
+#else
+  const bool disableArchiveHandlerFeatureDefault = false;
+#endif
+  const bool disableArchiveHandlerFeature =
+      !forceArchiveHandlerFeature &&
+      (disableArchiveHandlerFeatureDefault ||
+       env.value(QStringLiteral("XNGINE_DISABLE_BSA_UNPACK_HOOK_CHAIN")) ==
+           QStringLiteral("1") ||
+       env.value(QStringLiteral("XNGINE_DISABLE_ARCHIVE_HANDLER_FEATURE")) ==
+           QStringLiteral("1"));
+
+  const auto tryRegisterArchiveHandlerFeature =
+      [this, forceArchiveHandlerFeature]() -> bool {
+    if (m_ArchiveHandlerFeatureRegistered || m_Organizer == nullptr) {
+      return m_ArchiveHandlerFeatureRegistered;
+    }
+
+    if (!forceArchiveHandlerFeature) {
+      const auto* managedGame = m_Organizer->managedGame();
+      if (managedGame != this) {
+        return false;
+      }
+    }
+
+    registerFeature(std::make_shared<XngineArchiveExtractorFeature>(this));
+    m_ArchiveHandlerFeatureRegistered = true;
+    return true;
+  };
+#endif
   m_Organizer->onAboutToRun([this](const auto& binary) {
+#if XNGINE_HAS_GAMEARCHIVEHANDLER
+    if (!m_ArchiveHandlerFeatureRegistered) {
+      const auto env = QProcessEnvironment::systemEnvironment();
+      const bool forceArchiveHandlerFeature =
+          env.value(QStringLiteral("XNGINE_FORCE_ARCHIVE_HANDLER_FEATURE")) ==
+          QStringLiteral("1");
+#if defined(XNGINE_DISABLE_BSA_UNPACK_HOOK_CHAIN_DEFAULT)
+      const bool disableArchiveHandlerFeatureDefault = true;
+#else
+      const bool disableArchiveHandlerFeatureDefault = false;
+#endif
+      const bool disableArchiveHandlerFeature =
+          !forceArchiveHandlerFeature &&
+          (disableArchiveHandlerFeatureDefault ||
+           env.value(QStringLiteral("XNGINE_DISABLE_BSA_UNPACK_HOOK_CHAIN")) ==
+               QStringLiteral("1") ||
+           env.value(QStringLiteral("XNGINE_DISABLE_ARCHIVE_HANDLER_FEATURE")) ==
+               QStringLiteral("1"));
+
+      if (!disableArchiveHandlerFeature) {
+        if (forceArchiveHandlerFeature ||
+            (m_Organizer != nullptr && m_Organizer->managedGame() == this)) {
+          registerFeature(std::make_shared<XngineArchiveExtractorFeature>(this));
+          m_ArchiveHandlerFeatureRegistered = true;
+        }
+      }
+    }
+#endif
     const auto profile = profilePath();
     if (!profile.isEmpty()) {
       const auto layout = saveLayout();
@@ -181,7 +274,23 @@ bool GameXngine::init(MOBase::IOrganizer* moInfo)
     }
     return prepareIni(binary);
   });
-  registerFeature(std::make_shared<XngineArchiveExtractorFeature>(this));
+#if XNGINE_HAS_GAMEARCHIVEHANDLER
+  if (!disableArchiveHandlerFeature) {
+    if (!tryRegisterArchiveHandlerFeature()) {
+      m_Organizer->onUserInterfaceInitialized(
+          [this, tryRegisterArchiveHandlerFeature](auto*) {
+            tryRegisterArchiveHandlerFeature();
+          });
+      qWarning().noquote()
+          << "[GameXngine] archive handler feature registration deferred";
+    }
+  } else {
+    qWarning().noquote()
+        << "[GameXngine] archive handler feature registration skipped"
+        << "(set by XNGINE_DISABLE_BSA_UNPACK_HOOK_CHAIN=1 or"
+        << "XNGINE_DISABLE_ARCHIVE_HANDLER_FEATURE=1)";
+  }
+#endif
   const QString resolvedVersion = gameVersion();
   if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] init() resolved game version for"
                     << gameName() << ":" << resolvedVersion;
