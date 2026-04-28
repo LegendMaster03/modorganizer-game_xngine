@@ -61,11 +61,11 @@ For issues, questions, or contributions, see the development documentation in `d
 3. Follow build instructions above
 4. Test thoroughly using [TESTING_GUIDE.md](TESTING_GUIDE.md)
 
-## 📄 License
+## License
 
 See project license file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Dillonn241 for starting the Redguard modding scene
 - ModOrganizer 2 team for the plugin system
