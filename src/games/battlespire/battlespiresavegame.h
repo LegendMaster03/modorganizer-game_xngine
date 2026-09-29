@@ -20,6 +20,7 @@ protected:
   virtual std::unique_ptr<DataFields> fetchDataFields() const override;
 
 private:
+  void resetValidationState();
   bool parseSaveName();
   bool parseSaveTree();
   bool parseSaveVars();
@@ -53,7 +54,8 @@ private:
   bool m_PlayerRecordFound = false;
   bool m_PlayerRecordByTypeFound = false;
   bool m_PlayerRecordByIdFound = false;
-  bool m_LevelReadFromAlternateOffset = false;
+  bool m_PlayerRecordCanonicalFound = false;
+  bool m_PlayerRecordRecoveryUsed = false;
   bool m_ValidationLikelyModified = false;
   quint32 m_SaveTreeVersion = 0;
   quint32 m_SaveTreeTailBytes = 0;

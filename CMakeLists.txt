@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 
 project(game_xngine)
 
+include(CTest)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -78,6 +80,10 @@ add_subdirectory(src/games/redguard)
 add_subdirectory(src/games/daggerfall)
 add_subdirectory(src/games/battlespire)
 add_subdirectory(src/games/arena)
+
+if(BUILD_TESTING)
+  add_subdirectory(tests)
+endif()
 
 # Temporary extraction tooling is intentionally kept out of the main build.
 # Build it separately from src/temp_bsa_extract when needed.

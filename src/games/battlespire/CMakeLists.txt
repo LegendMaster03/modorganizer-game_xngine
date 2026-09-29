@@ -3,6 +3,7 @@ add_library(game_battlespire MODULE)
 target_sources(game_battlespire PRIVATE
   gamebattlespire.h
   gamebattlespire.cpp
+  battlespiresaveformat.h
   battlespiresavegame.h
   battlespiresavegame.cpp
   battlespiretextrsc.h

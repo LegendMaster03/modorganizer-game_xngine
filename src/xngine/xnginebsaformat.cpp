@@ -69,6 +69,20 @@ int descriptorSizeForType(XngineBSAFormat::IndexType type)
   return (type == XngineBSAFormat::IndexType::NameRecord) ? 18 : 8;
 }
 
+XngineBSAFormat::DescriptorLayout resolvedDescriptorLayout(
+    const XngineBSAFormat::Traits& traits)
+{
+  if (traits.descriptorLayout != XngineBSAFormat::DescriptorLayout::Auto) {
+    return traits.descriptorLayout;
+  }
+
+  // Existing Battlespire callers already select its LZSS mode. Use that trait as the
+  // backwards-compatible discriminator while allowing callers to request a layout explicitly.
+  return traits.compressionMode == XngineBSAFormat::CompressionMode::BattlespireLzss
+             ? XngineBSAFormat::DescriptorLayout::Battlespire
+             : XngineBSAFormat::DescriptorLayout::Daggerfall;
+}
+
 void lzssOutByte(QByteArray& out, std::array<quint8, 4096>& window, int& windowPos,
                  quint8 value)
 {
@@ -157,6 +171,8 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
     dataStartOffset = 2;
   }
 
+  const DescriptorLayout descriptorLayout = resolvedDescriptorLayout(traits);
+  const bool battlespireDescriptors = descriptorLayout == DescriptorLayout::Battlespire;
   const int descriptorSize = descriptorSizeForType(type);
   const qint64 footerSize = static_cast<qint64>(recordCount) * descriptorSize;
   const qint64 footerOffset = file.size() - footerSize;
@@ -167,7 +183,7 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
   struct Descriptor
   {
     QString name;
-    quint16 id = 0;
+    quint32 id = 0;
     qint16 compressed = 0;
     qint32 size = 0;
   };
@@ -181,25 +197,32 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
   for (quint16 i = 0; i < recordCount; ++i) {
     Descriptor descriptor;
     if (type == IndexType::NameRecord) {
-      std::array<char, 12> rawName{};
-      if (file.read(rawName.data(), static_cast<qint64>(rawName.size())) !=
-          static_cast<qint64>(rawName.size())) {
+      const int nameLength = battlespireDescriptors ? 12 : 14;
+      std::array<char, 14> rawName{};
+      if (file.read(rawName.data(), nameLength) != nameLength) {
         return setError(errorMessage, "Failed to read name descriptor");
       }
 
-      int nullPos = 12;
-      for (int c = 0; c < 12; ++c) {
-        if (rawName[c] == '\0') {
+      int nullPos = nameLength;
+      for (int c = 0; c < nameLength; ++c) {
+        if (rawName[static_cast<size_t>(c)] == '\0') {
           nullPos = c;
           break;
         }
       }
       descriptor.name = QString::fromLatin1(rawName.data(), nullPos);
+      if (battlespireDescriptors) {
+        stream >> descriptor.compressed;
+      }
+      stream >> descriptor.size;
+    } else if (battlespireDescriptors) {
+      quint16 id = 0;
+      stream >> id;
+      descriptor.id = id;
       stream >> descriptor.compressed;
       stream >> descriptor.size;
     } else {
       stream >> descriptor.id;
-      stream >> descriptor.compressed;
       stream >> descriptor.size;
     }
 
@@ -223,7 +246,7 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
   for (int i = 0; i < descriptors.size(); ++i) {
     const auto& descriptor = descriptors.at(i);
     const qint64 recordSize = static_cast<qint64>(descriptor.size);
-    if (recordOffset + recordSize > footerOffset) {
+    if (recordSize > footerOffset - recordOffset) {
       return setError(errorMessage, "Record data exceeds footer boundary");
     }
     if (!file.seek(recordOffset)) {
@@ -245,6 +268,9 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
         entry.data = data;
       } else if (traits.compressionMode == CompressionMode::BattlespireLzss) {
         entry.data = decompressBattlespireLzss(data);
+        // The in-memory payload is now decoded. Do not retain a descriptor flag that
+        // would make writeArchive claim these decoded bytes are still compressed.
+        entry.compressed = 0;
       } else {
         return setError(errorMessage,
                         "Compressed record encountered but no decompressor is configured");
@@ -287,6 +313,9 @@ bool XngineBSAFormat::writeArchive(const QString& filePath, const Archive& archi
     return setError(errorMessage, "BSA entry count exceeds UInt16 limit");
   }
 
+  const DescriptorLayout descriptorLayout = resolvedDescriptorLayout(traits);
+  const bool battlespireDescriptors = descriptorLayout == DescriptorLayout::Battlespire;
+
   const ArchiveVariant variant =
       (traits.variantHint != ArchiveVariant::Standard) ? traits.variantHint : archive.variant;
   if (variant == ArchiveVariant::Snd) {
@@ -319,6 +348,10 @@ bool XngineBSAFormat::writeArchive(const QString& filePath, const Archive& archi
 
   for (const auto& entry : archive.entries) {
     if (entry.compressed != 0) {
+      if (!battlespireDescriptors) {
+        return setError(errorMessage,
+                        "Daggerfall BSA descriptors do not contain a compression field");
+      }
       if (!traits.allowCompressed) {
         return setError(errorMessage,
                         "Compressed records are not supported for this game");
@@ -350,25 +383,35 @@ bool XngineBSAFormat::writeArchive(const QString& filePath, const Archive& archi
                             .arg(name));
       }
 
+      const int nameLength = battlespireDescriptors ? 12 : 14;
       const QByteArray nameBytes = name.toLatin1();
-      if (nameBytes.size() > 12) {
+      if (nameBytes.size() > nameLength) {
         return setError(errorMessage,
                         QString("Record name too long for NameRecord: %1")
                             .arg(name));
       }
 
-      std::array<char, 12> rawName{};
+      std::array<char, 14> rawName{};
       memcpy(rawName.data(), nameBytes.constData(),
              static_cast<size_t>(nameBytes.size()));
-      if (file.write(rawName.data(), static_cast<qint64>(rawName.size())) !=
-          static_cast<qint64>(rawName.size())) {
+      if (file.write(rawName.data(), nameLength) != nameLength) {
         return setError(errorMessage, "Failed writing name descriptor");
       }
+      if (battlespireDescriptors) {
+        stream << compressed;
+      }
+      stream << size;
+    } else if (battlespireDescriptors) {
+      if (entry.recordId > std::numeric_limits<quint16>::max()) {
+        return setError(errorMessage,
+                        QString("Battlespire NumberRecord ID exceeds UInt16: %1")
+                            .arg(entry.recordId));
+      }
+      stream << static_cast<quint16>(entry.recordId);
       stream << compressed;
       stream << size;
     } else {
       stream << entry.recordId;
-      stream << compressed;
       stream << size;
     }
   }
@@ -505,8 +548,7 @@ bool XngineBSAFormat::packFromDirectory(const QString& inputDirectory,
       }
     } else {
       bool ok = false;
-      const quint16 id =
-          fileInfo.completeBaseName().toUShort(&ok, 10);
+      const quint32 id = fileInfo.completeBaseName().toUInt(&ok, 10);
       if (!ok) {
         return setError(errorMessage,
                         QString("NumberRecord input filename must be a numeric ID: %1")
@@ -544,7 +586,7 @@ bool XngineBSAFormat::packFromManifestFile(const QString& inputDirectory,
   struct ManifestRow
   {
     QString name;
-    quint16 recordId = 0;
+    quint32 recordId = 0;
     qint16 compressed = 0;
     QString sourceFile;
   };
@@ -572,7 +614,7 @@ bool XngineBSAFormat::packFromManifestFile(const QString& inputDirectory,
     row.name = cols.at(2);
     if (type == IndexType::NumberRecord) {
       bool ok = false;
-      const ushort id = cols.at(3).toUShort(&ok, 10);
+      const quint32 id = cols.at(3).toUInt(&ok, 10);
       if (!ok) {
         return setError(errorMessage,
                         QString("Invalid record_id in manifest at line %1")

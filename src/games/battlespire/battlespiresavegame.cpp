@@ -1,15 +1,17 @@
 #include "battlespiresavegame.h"
 
+#include "battlespiresaveformat.h"
 #include "gamebattlespire.h"
 #include "xnginepaletteformat.h"
+#include "xnginerecordgraph.h"
 
+#include <QColor>
+#include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QColor>
 #include <QImage>
 #include <QRegularExpression>
-#include <QDebug>
 #include <QStringList>
 #include <QtEndian>
 
@@ -20,8 +22,6 @@
 
 namespace {
 constexpr qsizetype kSaveNameLength = 32;
-constexpr quint8 kRecordTypePlayer = 3;
-constexpr quint8 kRecordTypeItem = 2;
 constexpr qsizetype kImageWidth = 80;
 constexpr qsizetype kImageHeight = 50;
 constexpr qsizetype kImageBytesPerPixel8 = 1;
@@ -29,8 +29,6 @@ constexpr qsizetype kImageBytesPerPixel = 2;
 constexpr qsizetype kImageRawSize8 = kImageWidth * kImageHeight * kImageBytesPerPixel8;
 constexpr qsizetype kImageRawSize = kImageWidth * kImageHeight * kImageBytesPerPixel;
 constexpr bool kLogSaveParsing = false;
-constexpr quint32 kPlayerRecordId = 50000U;  // 0x0000C350
-constexpr quint16 kItemIdGoldPieces = 33;
 
 int expectedRecordLength(quint8 type)
 {
@@ -49,10 +47,18 @@ int expectedRecordLength(quint8 type)
   }
 }
 
+bool hasRange(const QByteArray& data, qsizetype offset, qsizetype size)
+{
+  if (offset < 0 || size < 0 || offset > data.size()) {
+    return false;
+  }
+  return size <= data.size() - offset;
+}
+
 template <typename T>
 bool readLE(const QByteArray& data, qsizetype offset, T& value)
 {
-  if (offset < 0 || offset + static_cast<qsizetype>(sizeof(T)) > data.size()) {
+  if (!hasRange(data, offset, static_cast<qsizetype>(sizeof(T)))) {
     return false;
   }
 
@@ -168,6 +174,7 @@ BattlespireSaveGame::BattlespireSaveGame(QString const& folder,
   QFileInfo info(folder);
   m_DisplayName = info.fileName();
 
+  resetValidationState();
   parseSaveName();
   parseSaveTree();
   parseSaveVars();
@@ -247,15 +254,10 @@ QString BattlespireSaveGame::getGameDetails() const
         lines.push_back(QString(" - ... %1 more").arg(m_ValidationNotes.size() - shown));
       }
     }
-    if (m_LevelReadFromAlternateOffset || m_SaveTreeTailBytes > 0) {
+    if (m_SaveTreeTailBytes > 0) {
       lines.push_back("Parse Notes:");
-      if (m_LevelReadFromAlternateOffset) {
-        lines.push_back(" - CurrentLevel read from alternate offset 1051");
-      }
-      if (m_SaveTreeTailBytes > 0) {
-        lines.push_back(
-            QString(" - SAVETREE trailing section present (%1 bytes)").arg(m_SaveTreeTailBytes));
-      }
+      lines.push_back(
+          QString(" - SAVETREE trailing section present (%1 bytes)").arg(m_SaveTreeTailBytes));
     }
     lines.push_back(QString("Payload Files: SAVENAME=%1, SAVETREE=%2, SAVEVARS=%3, IMAGE=%4")
                         .arg(m_HasSaveName ? "yes" : "no")
@@ -273,19 +275,21 @@ QString BattlespireSaveGame::getGameDetails() const
       lines.push_back(QString("SAVETREE Types: %1").arg(typeCounts.join(", ")));
     }
     lines.push_back(
-        QString("Player Record Found: %1 (type=%2, id=%3)")
+        QString("Player Record Found: %1 (canonical=%2, type=%3, id=%4, recovery=%5)")
             .arg(m_PlayerRecordFound ? "yes" : "no")
+            .arg(m_PlayerRecordCanonicalFound ? "yes" : "no")
             .arg(m_PlayerRecordByTypeFound ? "yes" : "no")
-            .arg(m_PlayerRecordByIdFound ? "yes" : "no"));
-    lines.push_back(QString("Gold Scan: total=%1 from %2 item records")
+            .arg(m_PlayerRecordByIdFound ? "yes" : "no")
+            .arg(m_PlayerRecordRecoveryUsed ? "yes" : "no"));
+    lines.push_back(QString("Gold Scan: total=%1 from %2 player-owned item records")
                         .arg(m_GoldAccumulator)
                         .arg(m_GoldItemRecordCount));
-    lines.push_back(QString("Current Level ID: %1 (offset %2)")
+    lines.push_back(QString("Current Map ID: %1 (offset %2)")
                         .arg(m_CurrentLevelId)
                         .arg(m_CurrentLevelOffset >= 0 ? QString::number(m_CurrentLevelOffset)
                                                        : QString("?")));
     if (m_CurrentTimestamp > 0) {
-    lines.push_back(QString("Current Timestamp: %1").arg(m_CurrentTimestamp));
+      lines.push_back(QString("Current Timestamp: %1").arg(m_CurrentTimestamp));
     }
     lines.push_back(QString("Active Spells Mask: 0x%1")
                         .arg(m_ActiveSpellsMask, 8, 16, QChar('0')).toUpper());
@@ -366,6 +370,18 @@ std::unique_ptr<XngineSaveGame::DataFields> BattlespireSaveGame::fetchDataFields
   return fields;
 }
 
+void BattlespireSaveGame::resetValidationState()
+{
+  m_ValidationLikelyModified = false;
+  m_ValidationNotes.clear();
+  m_PlayerRecordFound = false;
+  m_PlayerRecordByTypeFound = false;
+  m_PlayerRecordByIdFound = false;
+  m_PlayerRecordCanonicalFound = false;
+  m_PlayerRecordRecoveryUsed = false;
+  m_SaveTreeTailBytes = 0;
+}
+
 bool BattlespireSaveGame::parseSaveName()
 {
   QFile saveNameFile(saveFilePath("SAVENAME.DAT"));
@@ -395,6 +411,8 @@ bool BattlespireSaveGame::parseSaveName()
 
 bool BattlespireSaveGame::parseSaveTree()
 {
+  using namespace BattlespireSaveFormat;
+
   QFile saveTreeFile(saveFilePath("SAVETREE.DAT"));
   if (!saveTreeFile.open(QIODevice::ReadOnly)) {
     return false;
@@ -403,13 +421,25 @@ bool BattlespireSaveGame::parseSaveTree()
 
   const QByteArray data = saveTreeFile.readAll();
   if (data.size() < 8) {
+    m_ValidationNotes.push_back("SAVETREE.DAT is too small to contain records");
     return false;
   }
 
   readLE(data, 0, m_SaveTreeVersion);
   qsizetype pos = 4;  // 4-byte file version/header
-  bool foundPlayerRecord = false;
   quint64 goldTotal = 0;
+  int selectedPlayerRank = 0;
+  int canonicalPlayerCount = 0;
+  XngineRecordGraph recordGraph;
+
+  struct GoldCandidate
+  {
+    quint32 recordId = 0;
+    quint32 parentId = 0;
+    quint32 quantity = 0;
+  };
+  QVector<GoldCandidate> goldCandidates;
+
   m_Gold = 0;
   m_RecordCountTotal = 0;
   m_RecordTypeCounts.clear();
@@ -417,23 +447,79 @@ bool BattlespireSaveGame::parseSaveTree()
   m_PlayerRecordByIdFound = false;
   m_GoldItemRecordCount = 0;
   m_GoldAccumulator = 0;
+
+  auto parsePlayerRecord = [&](qsizetype recordPos, qsizetype recordEnd) {
+    auto hasBytes = [recordEnd](qsizetype at, qsizetype size) {
+      return at >= 0 && size >= 0 && at <= recordEnd && size <= recordEnd - at;
+    };
+
+    if (hasBytes(recordPos + PlayerTreeOffset::Name, 32)) {
+      const QString name = readFixedString(data, recordPos + PlayerTreeOffset::Name, 32);
+      if (!name.isEmpty()) {
+        m_PCName = name;
+      }
+    }
+
+    float posX = 0.0F;
+    float posY = 0.0F;
+    float posZ = 0.0F;
+    if (hasBytes(recordPos + 11, 12) && readF32LE(data, recordPos + 11, posX) &&
+        readF32LE(data, recordPos + 15, posY) && readF32LE(data, recordPos + 19, posZ) &&
+        std::isfinite(posX) && std::isfinite(posY) && std::isfinite(posZ)) {
+      m_PositionText = QString("X %1, Y %2, Z %3")
+                           .arg(QString::number(posX, 'f', 2))
+                           .arg(QString::number(posY, 'f', 2))
+                           .arg(QString::number(posZ, 'f', 2));
+    }
+
+    quint32 level = 0;
+    if (hasBytes(recordPos + PlayerTreeOffset::Level, 4) &&
+        readLE(data, recordPos + PlayerTreeOffset::Level, level) && level > 0 && level < 200) {
+      m_PCLevel = static_cast<unsigned short>(level);
+    }
+
+    qint32 wounds = 0;
+    qint32 woundsMax = 0;
+    quint16 sp = 0;
+    quint16 spMax = 0;
+    if (hasBytes(recordPos + PlayerTreeOffset::SpellPoints, 14) &&
+        readLE(data, recordPos + PlayerTreeOffset::Wounds, wounds) &&
+        readLE(data, recordPos + PlayerTreeOffset::WoundsMax, woundsMax) &&
+        readLE(data, recordPos + PlayerTreeOffset::SpellPoints, sp) &&
+        readLE(data, recordPos + PlayerTreeOffset::SpellPointsMax, spMax) && woundsMax >= 0) {
+      m_Wounds = wounds;
+      m_WoundsMax = woundsMax;
+      m_SpellPoints = sp;
+      m_SpellPointsMax = spMax;
+    }
+  };
+
   while (pos + 5 <= data.size()) {
     quint32 recordLength = 0;
     if (!readLE(data, pos, recordLength)) {
+      m_ValidationNotes.push_back(QString("Unable to read SAVETREE record length at %1").arg(pos));
       break;
     }
     if (recordLength == 0) {
       break;
     }
 
-    const qsizetype totalLength = static_cast<qsizetype>(recordLength) + 4;
-    if (pos + totalLength > data.size()) {
+    const qsizetype bytesAvailableAfterLength = data.size() - pos - 4;
+    if (recordLength > static_cast<quint64>(bytesAvailableAfterLength)) {
+      m_ValidationNotes.push_back(
+          QString("SAVETREE record at %1 declares %2 bytes but only %3 remain")
+              .arg(pos)
+              .arg(recordLength)
+              .arg(bytesAvailableAfterLength));
       break;
     }
 
+    const qsizetype totalLength = static_cast<qsizetype>(recordLength) + 4;
+    const qsizetype recordEnd = pos + totalLength;
     const quint8 recordType = static_cast<quint8>(data.at(pos + 4));
     ++m_RecordCountTotal;
     m_RecordTypeCounts[recordType] = m_RecordTypeCounts.value(recordType) + 1;
+
     const int expectedLength = expectedRecordLength(recordType);
     if (expectedLength > 0 && static_cast<int>(recordLength) != expectedLength) {
       m_ValidationNotes.push_back(
@@ -442,76 +528,99 @@ bool BattlespireSaveGame::parseSaveTree()
               .arg(recordLength)
               .arg(expectedLength));
     }
-    const qsizetype recordEnd = pos + totalLength;
+
     auto hasBytes = [recordEnd](qsizetype at, qsizetype size) {
-        return at >= 0 && size >= 0 && at + size <= recordEnd;
+      return at >= 0 && size >= 0 && at <= recordEnd && size <= recordEnd - at;
     };
 
     quint32 recordId = 0;
-    const bool hasRecordId = hasBytes(pos + 33, 4) && readLE(data, pos + 33, recordId);
-    const bool isPlayerRecordByType = (recordType == kRecordTypePlayer);
-    const bool isPlayerRecordById = hasRecordId && (recordId == 50000U);
+    quint32 parentId = 0;
+    const bool hasRecordId = hasBytes(pos + PlayerTreeOffset::RecordId, 4) &&
+                             readLE(data, pos + PlayerTreeOffset::RecordId, recordId);
+    const bool hasParentId = hasBytes(pos + PlayerTreeOffset::ParentId, 4) &&
+                             readLE(data, pos + PlayerTreeOffset::ParentId, parentId);
 
-    if (isPlayerRecordByType || isPlayerRecordById) {
-      foundPlayerRecord = true;
-      m_PlayerRecordByTypeFound = m_PlayerRecordByTypeFound || isPlayerRecordByType;
-      m_PlayerRecordByIdFound = m_PlayerRecordByIdFound || isPlayerRecordById;
+    if (hasRecordId && recordId != 0) {
+      recordGraph.addNode({recordId, hasParentId ? parentId : 0,
+                           static_cast<qint32>(recordType), -1},
+                          &m_ValidationNotes);
+    }
 
-      if (hasBytes(pos + 65, 32)) {
-        const QString name = readFixedString(data, pos + 65, 32);
-        if (!name.isEmpty()) {
-          m_PCName = name;
-        }
+    const PlayerRecordMatch playerMatch =
+        classifyPlayerRecord(recordType, hasRecordId, recordId);
+    m_PlayerRecordByTypeFound = m_PlayerRecordByTypeFound || playerMatch.byType;
+    m_PlayerRecordByIdFound = m_PlayerRecordByIdFound || playerMatch.byId;
+
+    if (playerMatch.canonical()) {
+      ++canonicalPlayerCount;
+      m_PlayerRecordCanonicalFound = true;
+      if (selectedPlayerRank < 3) {
+        parsePlayerRecord(pos, recordEnd);
+        selectedPlayerRank = 3;
       }
+    } else if (playerMatch.recoveryCandidate()) {
+      const QString idText = hasRecordId ? QString::number(recordId) : QString("<missing>");
+      m_ValidationNotes.push_back(
+          QString("Damaged player-record candidate: type=%1 id=%2; expected type=3 id=50000")
+              .arg(recordType)
+              .arg(idText));
 
-      float posX = 0.0F;
-      float posY = 0.0F;
-      float posZ = 0.0F;
-      if (hasBytes(pos + 11, 12) && readF32LE(data, pos + 11, posX) &&
-          readF32LE(data, pos + 15, posY) && readF32LE(data, pos + 19, posZ) &&
-          std::isfinite(posX) && std::isfinite(posY) && std::isfinite(posZ)) {
-        m_PositionText = QString("X %1, Y %2, Z %3")
-                             .arg(QString::number(posX, 'f', 2))
-                             .arg(QString::number(posY, 'f', 2))
-                             .arg(QString::number(posZ, 'f', 2));
+      const int recoveryRank = playerMatch.byType ? 2 : 1;
+      if (selectedPlayerRank < recoveryRank) {
+        parsePlayerRecord(pos, recordEnd);
+        selectedPlayerRank = recoveryRank;
       }
-
-      quint32 level = 0;
-      if (hasBytes(pos + 736, 4) && readLE(data, pos + 736, level) && level > 0 &&
-          level < 200) {
-        m_PCLevel = static_cast<unsigned short>(level);
-      }
-
-      qint32 wounds = 0;
-      qint32 woundsMax = 0;
-      quint16 sp = 0;
-      quint16 spMax = 0;
-      if (hasBytes(pos + 161, 12) && readLE(data, pos + 167, wounds) &&
-          readLE(data, pos + 171, woundsMax) && readLE(data, pos + 161, sp) &&
-          readLE(data, pos + 163, spMax) && woundsMax >= 0) {
-        m_Wounds = wounds;
-        m_WoundsMax = woundsMax;
-        m_SpellPoints = sp;
-        m_SpellPointsMax = spMax;
-      }
-
-      // Keep scanning; in malformed files we want the last valid player-like record.
     }
 
     if (recordType == kRecordTypeItem) {
       quint16 itemId = 0;
       quint32 quantity = 0;
-      quint32 parentId = 0;
-      if (hasBytes(pos + 97, 2) && hasBytes(pos + 127, 4) && hasBytes(pos + 61, 4) &&
-          readLE(data, pos + 97, itemId) && readLE(data, pos + 127, quantity) &&
-          readLE(data, pos + 61, parentId) && itemId == kItemIdGoldPieces &&
-          parentId == kPlayerRecordId) {
-        goldTotal += quantity;
-        ++m_GoldItemRecordCount;
+      if (hasBytes(pos + PlayerTreeOffset::GoldItemId, 2) &&
+          hasBytes(pos + PlayerTreeOffset::GoldQuantity, 4) && hasParentId &&
+          readLE(data, pos + PlayerTreeOffset::GoldItemId, itemId) &&
+          readLE(data, pos + PlayerTreeOffset::GoldQuantity, quantity) &&
+          itemId == kItemIdGoldPieces) {
+        goldCandidates.push_back({hasRecordId ? recordId : 0, parentId, quantity});
       }
     }
 
-    pos += totalLength;
+    pos = recordEnd;
+  }
+
+  if (canonicalPlayerCount > 1) {
+    m_ValidationNotes.push_back(
+        QString("SAVETREE contains %1 canonical player records").arg(canonicalPlayerCount));
+  }
+
+  m_PlayerRecordFound = selectedPlayerRank > 0;
+  m_PlayerRecordRecoveryUsed = selectedPlayerRank > 0 && selectedPlayerRank < 3;
+
+  const QStringList graphNotes = recordGraph.validateLinks();
+  for (const QString& note : graphNotes) {
+    if (!m_ValidationNotes.contains(note)) {
+      m_ValidationNotes.push_back(note);
+    }
+  }
+
+  for (const GoldCandidate& gold : goldCandidates) {
+    const auto ownership =
+        recordGraph.traceParentToAncestor(gold.parentId, kPlayerRecordId);
+    if (ownership.reachesAncestor) {
+      goldTotal += gold.quantity;
+      ++m_GoldItemRecordCount;
+      continue;
+    }
+
+    if (ownership.cycleDetected) {
+      m_ValidationNotes.push_back(
+          QString("Gold item record %1 has a cyclic ownership chain")
+              .arg(gold.recordId));
+    } else if (ownership.missingReference) {
+      m_ValidationNotes.push_back(
+          QString("Gold item record %1 ownership chain references missing record %2")
+              .arg(gold.recordId)
+              .arg(ownership.missingId));
+    }
   }
 
   if (pos < data.size()) {
@@ -519,13 +628,14 @@ bool BattlespireSaveGame::parseSaveTree()
   }
   m_Gold = static_cast<quint32>(std::min<quint64>(goldTotal, 0xFFFFFFFFULL));
   m_GoldAccumulator = goldTotal;
-  m_PlayerRecordFound = foundPlayerRecord;
 
-  return foundPlayerRecord;
+  return m_PlayerRecordFound;
 }
 
 bool BattlespireSaveGame::parseSaveVars()
 {
+  using namespace BattlespireSaveFormat;
+
   QFile saveVarsFile(saveFilePath("SAVEVARS.DAT"));
   if (!saveVarsFile.open(QIODevice::ReadOnly)) {
     return false;
@@ -533,44 +643,37 @@ bool BattlespireSaveGame::parseSaveVars()
   m_HasSaveVars = true;
 
   const QByteArray data = saveVarsFile.readAll();
-  if (data.size() < 1072) {
+  if (data.size() < kCurrentTimestampOffset + static_cast<qsizetype>(sizeof(quint32))) {
+    m_ValidationNotes.push_back("SAVEVARS.DAT is too small to contain the player and misc blocks");
     return false;
   }
 
   // The first block is a copy of the player record without the 65-byte SAVETREE header.
   parsePlayerBlockFromSaveVars(data);
 
-  // Misc block starts right after the 1052-byte player block.
+  // UESP documents the Miscellaneous block, and therefore CurrentLevel/current map, at byte 1051.
   quint32 currentLevel = 0;
-  qsizetype levelOffset = -1;
-  if (!readLE(data, 1052, currentLevel) || currentLevel == 0 || currentLevel > 100) {
-    if (!readLE(data, 1051, currentLevel)) {
-      return false;
-    }
-    levelOffset = 1051;
-  } else {
-    levelOffset = 1052;
-  }
-
-  if (currentLevel == 0 || currentLevel > 100) {
+  if (!readLE(data, kCurrentMapLevelOffset, currentLevel)) {
+    m_ValidationNotes.push_back("Unable to read SAVEVARS current map at offset 1051");
     return false;
   }
 
   m_CurrentLevelId = currentLevel;
-  m_CurrentLevelOffset = static_cast<int>(levelOffset);
-  m_LevelReadFromAlternateOffset = (levelOffset == 1051);
-
-  readLE(data, 1055, m_CurrentTimestamp);
+  m_CurrentLevelOffset = static_cast<int>(kCurrentMapLevelOffset);
+  readLE(data, kCurrentTimestampOffset, m_CurrentTimestamp);
 
   auto countFixedRecords = [&](qsizetype start, qsizetype bytesPerRecord, qsizetype maxRecords,
                                auto&& recordHasData) {
     int count = 0;
-    if (start < 0 || bytesPerRecord <= 0 || maxRecords <= 0) {
+    if (start < 0 || bytesPerRecord <= 0 || maxRecords <= 0 || start > data.size()) {
       return count;
     }
     for (qsizetype i = 0; i < maxRecords; ++i) {
+      if (i > (std::numeric_limits<qsizetype>::max() - start) / bytesPerRecord) {
+        break;
+      }
       const qsizetype off = start + i * bytesPerRecord;
-      if (off + bytesPerRecord > data.size()) {
+      if (!hasRange(data, off, bytesPerRecord)) {
         break;
       }
       const QByteArray rec = data.mid(off, bytesPerRecord);
@@ -621,7 +724,7 @@ bool BattlespireSaveGame::parseSaveVars()
 
   m_MonsterTypeCountNonZero = 0;
   m_MonsterTypeCountTotal = 0;
-  if (34693 + 16 <= data.size()) {
+  if (hasRange(data, 34693, 16)) {
     for (int i = 0; i < 16; ++i) {
       const int v = static_cast<unsigned char>(data.at(34693 + i));
       m_MonsterTypeCountTotal += v;
@@ -634,18 +737,17 @@ bool BattlespireSaveGame::parseSaveVars()
   const QString locationName = levelLocationName(currentLevel);
   if (!locationName.isEmpty()) {
     m_PCLocation = locationName;
-  } else {
-    m_PCLocation = QString("Unknown (ID: %1)").arg(currentLevel);
+  } else if (currentLevel != 0) {
+    m_PCLocation = QString("Unknown map (ID: %1)").arg(currentLevel);
   }
 
-  if (m_PCLevel == 0) {
-    m_PCLevel = static_cast<unsigned short>(currentLevel);
-  }
+  // CurrentLevel in SAVEVARS is the campaign map identifier, not character level.
+  // Character level remains whatever was read from the player record/player block.
 
   if constexpr (kLogSaveParsing) {
     qInfo().noquote() << "[BattlespireSaveGame] parseSaveVars() slot="
-                      << QFileInfo(m_SaveFolder).fileName() << " levelId=" << currentLevel
-                      << " offset=" << levelOffset << " location=" << m_PCLocation;
+                      << QFileInfo(m_SaveFolder).fileName() << " mapId=" << currentLevel
+                      << " offset=" << kCurrentMapLevelOffset << " location=" << m_PCLocation;
   }
 
   return true;
@@ -653,36 +755,38 @@ bool BattlespireSaveGame::parseSaveVars()
 
 bool BattlespireSaveGame::parsePlayerBlockFromSaveVars(const QByteArray& data)
 {
+  using namespace BattlespireSaveFormat;
+
   constexpr qsizetype kPlayerBlockSize = 787;
   if (data.size() < kPlayerBlockSize) {
     return false;
   }
 
-  // Offsets are SAVETREE player offsets shifted by -65 (header removed).
-  const QString playerName = readFixedString(data, 0, 32);
+  // SAVEVARS copies the player record body with the 65-byte SAVETREE header removed.
+  const QString playerName = readFixedString(data, PlayerVarsOffset::Name, 32);
   if (!playerName.isEmpty()) {
     m_PCName = playerName;
   }
 
-  const QString className = readFixedString(data, 378, 24);
+  const QString className = readFixedString(data, PlayerVarsOffset::ClassName, 24);
   if (!className.isEmpty()) {
     m_ClassName = className;
   }
 
   quint32 level = 0;
-  if (readLE(data, 671, level) && level > 0 && level < 200) {
+  if (readLE(data, PlayerVarsOffset::Level, level) && level > 0 && level < 200) {
     m_PCLevel = static_cast<unsigned short>(level);
   }
 
   quint8 race = 0xFF;
-  if (readLE(data, 605, race)) {
+  if (readLE(data, PlayerVarsOffset::Race, race)) {
     m_Race = race;
   }
 
-  readLE(data, 435, m_ActiveSpellsMask);
-  readLE(data, 615, m_CharacterFlagsMask);
-  readLE(data, 623, m_TeamValue);
-  readLE(data, 627, m_GoalValue);
+  readLE(data, PlayerVarsOffset::ActiveSpells, m_ActiveSpellsMask);
+  readLE(data, PlayerVarsOffset::CharacterFlags, m_CharacterFlagsMask);
+  readLE(data, PlayerVarsOffset::Team, m_TeamValue);
+  readLE(data, PlayerVarsOffset::Goal, m_GoalValue);
   m_ActiveSpellNames = activeSpellNamesFromMask(m_ActiveSpellsMask);
   m_CharacterFlagNames = characterFlagNamesFromMask(m_CharacterFlagsMask);
 
@@ -690,16 +794,16 @@ bool BattlespireSaveGame::parsePlayerBlockFromSaveVars(const QByteArray& data)
   quint16 spMax = 0;
   qint32 wounds = 0;
   qint32 woundsMax = 0;
-  if (readLE(data, 96, sp)) {
+  if (readLE(data, PlayerVarsOffset::SpellPoints, sp)) {
     m_SpellPoints = sp;
   }
-  if (readLE(data, 98, spMax)) {
+  if (readLE(data, PlayerVarsOffset::SpellPointsMax, spMax)) {
     m_SpellPointsMax = spMax;
   }
-  if (readLE(data, 102, wounds)) {
+  if (readLE(data, PlayerVarsOffset::Wounds, wounds)) {
     m_Wounds = wounds;
   }
-  if (readLE(data, 106, woundsMax)) {
+  if (readLE(data, PlayerVarsOffset::WoundsMax, woundsMax)) {
     m_WoundsMax = woundsMax;
   }
 
@@ -708,9 +812,6 @@ bool BattlespireSaveGame::parsePlayerBlockFromSaveVars(const QByteArray& data)
 
 void BattlespireSaveGame::evaluateDeveloperValidation()
 {
-  m_ValidationLikelyModified = false;
-  m_ValidationNotes.clear();
-
   if (!m_HasSaveTree) {
     m_ValidationNotes.push_back("SAVETREE.DAT missing or unreadable");
   }
@@ -719,6 +820,9 @@ void BattlespireSaveGame::evaluateDeveloperValidation()
   }
   if (!m_PlayerRecordFound) {
     m_ValidationNotes.push_back("Player record not found in SAVETREE");
+  } else if (!m_PlayerRecordCanonicalFound) {
+    m_ValidationNotes.push_back(
+        "Canonical player record (type 3, ID 50000) not found; using damaged-file recovery candidate");
   }
   if (m_GoldAccumulator > 0xFFFFFFFFULL) {
     m_ValidationNotes.push_back("Gold total exceeded uint32 range before clamp");
@@ -776,7 +880,7 @@ QString BattlespireSaveGame::levelLocationName(quint32 currentLevel)
 QString BattlespireSaveGame::readFixedString(const QByteArray& data, qsizetype offset,
                                              qsizetype size)
 {
-  if (offset < 0 || size <= 0 || offset + size > data.size()) {
+  if (!hasRange(data, offset, size) || size <= 0) {
     return {};
   }
 

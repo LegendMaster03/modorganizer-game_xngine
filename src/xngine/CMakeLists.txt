@@ -26,6 +26,8 @@ add_library(xngine STATIC
 	xnginemoddatachecker.h
 	xnginemoddatacontent.cpp
 	xnginemoddatacontent.h
+	xnginerecordgraph.cpp
+	xnginerecordgraph.h
 	xnginerscformat.cpp
 	xnginerscformat.h
 	xnginetblformat.cpp

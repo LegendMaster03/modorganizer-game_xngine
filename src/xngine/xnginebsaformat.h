@@ -21,6 +21,13 @@ public:
     BattlespireLzss
   };
 
+  enum class DescriptorLayout
+  {
+    Auto,
+    Daggerfall,
+    Battlespire
+  };
+
   enum class ArchiveVariant
   {
     Standard,
@@ -38,13 +45,14 @@ public:
     bool allowMissingTypeHeader = false;
     bool writeTypeHeader = true;
     CompressionMode compressionMode = CompressionMode::None;
+    DescriptorLayout descriptorLayout = DescriptorLayout::Auto;
     ArchiveVariant variantHint = ArchiveVariant::Standard;
   };
 
   struct Entry
   {
     QString name;
-    quint16 recordId = 0;
+    quint32 recordId = 0;
     qint16 compressed = 0;
     QByteArray data;
   };
