@@ -8,6 +8,8 @@ target_sources(game_battlespire PRIVATE
   battlespiresavegame.cpp
   battlespirevariablehash.h
   battlespirevariablehash.cpp
+  battlespirebs6.h
+  battlespirebs6.cpp
   battlespiretextrsc.h
   battlespiretextrsc.cpp
   battlespirewatertbl.h
