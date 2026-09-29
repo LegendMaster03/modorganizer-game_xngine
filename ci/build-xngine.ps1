@@ -39,6 +39,34 @@ if (-not (Test-Path $vcpkgToolchain)) {
     throw "vcpkg CMake toolchain was not found at $vcpkgToolchain"
 }
 
+$publicHeader = Get-ChildItem $UibasePath -Recurse -Filter iplugingame.h | Select-Object -First 1
+if (-not $publicHeader) {
+    throw "Could not locate iplugingame.h beneath uibase path '$UibasePath'."
+}
+
+$uibaseInclude = $publicHeader.Directory.FullName
+if ((Split-Path $uibaseInclude -Leaf) -eq "uibase") {
+    $uibaseRootInclude = Split-Path $uibaseInclude -Parent
+}
+else {
+    $uibaseRootInclude = $uibaseInclude
+}
+
+$gameFeaturesInclude = Join-Path $uibaseInclude "game_features"
+if (-not (Test-Path $gameFeaturesInclude)) {
+    $gameFeatureHeader = Get-ChildItem $UibasePath -Recurse -Filter dataarchives.h | Where-Object {
+        $_.Directory.Name -eq "game_features"
+    } | Select-Object -First 1
+    if (-not $gameFeatureHeader) {
+        throw "Could not locate the uibase game_features headers beneath '$UibasePath'."
+    }
+    $gameFeaturesInclude = $gameFeatureHeader.Directory.FullName
+}
+
+Write-Host "uibase public include: $uibaseInclude"
+Write-Host "uibase root include: $uibaseRootInclude"
+Write-Host "uibase game_features include: $gameFeaturesInclude"
+
 $buildPath = Join-Path $repoRoot $BuildDir
 $artifactPath = Join-Path $repoRoot $ArtifactDir
 $vcpkgInstalledPath = Join-Path $repoRoot "vcpkg_installed"
@@ -59,6 +87,9 @@ $configureArgs = @(
     "-DCMAKE_TOOLCHAIN_FILE=$vcpkgToolchain",
     "-DVCPKG_INSTALLED_DIR=$vcpkgInstalledPath",
     "-DMO2_UIBASE_PATH=$UibasePath",
+    "-DMO2_UIBASE_INCLUDE=$uibaseInclude",
+    "-DMO2_UIBASE_ROOT_INCLUDE=$uibaseRootInclude",
+    "-DMO2_UIBASE_GAME_FEATURES_INCLUDE=$gameFeaturesInclude",
     "-DMO2_UIBASE_LIB=$UibaseLib",
     "-DMO2_SRC_PATH=$Mo2SourcePath",
     "-DQT_ROOT=$QtRoot",
