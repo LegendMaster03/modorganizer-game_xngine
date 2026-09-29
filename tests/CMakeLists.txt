@@ -55,3 +55,16 @@ target_include_directories(battlespire_3d_tests PRIVATE
 target_link_libraries(battlespire_3d_tests PRIVATE Qt6::Core xngine)
 
 add_test(NAME battlespire_3d_tests COMMAND battlespire_3d_tests)
+
+add_executable(battlespire_bsi_tests
+  battlespire_bsi_tests.cpp
+  ${CMAKE_SOURCE_DIR}/src/games/battlespire/battlespirebsi.cpp
+)
+
+target_include_directories(battlespire_bsi_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/src/games/battlespire
+)
+
+target_link_libraries(battlespire_bsi_tests PRIVATE Qt6::Core)
+
+add_test(NAME battlespire_bsi_tests COMMAND battlespire_bsi_tests)

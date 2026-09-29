@@ -10,6 +10,8 @@ target_sources(game_battlespire PRIVATE
   battlespirevariablehash.cpp
   battlespirebs6.h
   battlespirebs6.cpp
+  battlespirebsi.h
+  battlespirebsi.cpp
   battlespiretextrsc.h
   battlespiretextrsc.cpp
   battlespirewatertbl.h
