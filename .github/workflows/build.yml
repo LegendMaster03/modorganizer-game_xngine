@@ -76,8 +76,8 @@ jobs:
         with:
           version: ${{ steps.mo2.outputs.qt_version }}
           arch: ${{ steps.mo2.outputs.qt_arch }}
+          aqtsource: git+https://github.com/miurahr/aqtinstall.git
           cache: true
-          use-official: true
 
       - name: Configure runner vcpkg
         shell: pwsh
