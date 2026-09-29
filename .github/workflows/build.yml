@@ -143,6 +143,15 @@ jobs:
           path: dependencies/uibase
           fetch-depth: 1
 
+      - name: Checkout MO2 CMake common
+        if: matrix.target == 'dev'
+        uses: actions/checkout@v4
+        with:
+          repository: ModOrganizer2/cmake_common
+          ref: ${{ steps.mo2.outputs.cmake_common_sha }}
+          path: dependencies/cmake_common
+          fetch-depth: 1
+
       - name: Restore dev uibase install cache
         if: matrix.target == 'dev'
         id: dev-uibase-cache
@@ -158,7 +167,8 @@ jobs:
           ./ci/build-dev-uibase.ps1 `
             -SourcePath "$env:GITHUB_WORKSPACE\dependencies\uibase" `
             -InstallPath "$env:GITHUB_WORKSPACE\install" `
-            -QtRoot "$env:QT_ROOT_DIR"
+            -QtRoot "$env:QT_ROOT_DIR" `
+            -CmakeCommonPath "$env:GITHUB_WORKSPACE\dependencies\cmake_common"
 
       - name: Locate dev uibase SDK
         if: matrix.target == 'dev'
@@ -201,6 +211,7 @@ jobs:
             "MO2 commit: ${{ steps.mo2.outputs.mo2_sha }}",
             "uibase ref: ${{ steps.mo2.outputs.uibase_ref }}",
             "uibase commit: ${{ steps.mo2.outputs.uibase_sha }}",
+            "cmake_common commit: ${{ steps.mo2.outputs.cmake_common_sha }}",
             "mob ref: ${{ steps.mo2.outputs.mob_ref }}",
             "mob commit: ${{ steps.mo2.outputs.mob_sha }}",
             "Qt: ${{ steps.mo2.outputs.qt_version }}",
