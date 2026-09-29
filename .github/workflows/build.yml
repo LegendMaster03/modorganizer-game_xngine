@@ -30,6 +30,40 @@ jobs:
       - name: Checkout XnGine
         uses: actions/checkout@v4
 
+      - name: Enable MSVC toolchain
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            throw "vswhere.exe was not found on the Windows runner."
+          }
+
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) {
+            throw "A Visual Studio installation with the MSVC C++ toolchain was not found."
+          }
+
+          $devCmd = Join-Path $vsPath "Common7\Tools\VsDevCmd.bat"
+          if (-not (Test-Path $devCmd)) {
+            throw "VsDevCmd.bat was not found at $devCmd."
+          }
+
+          $environment = & cmd.exe /d /s /c "`"$devCmd`" -arch=amd64 -host_arch=amd64 >nul && set"
+          if ($LASTEXITCODE -ne 0) {
+            throw "VsDevCmd.bat failed with exit code $LASTEXITCODE."
+          }
+
+          foreach ($line in $environment) {
+            if ($line -match '^([^=][^=]*)=(.*)$') {
+              $name = $Matches[1]
+              $value = $Matches[2]
+              "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            }
+          }
+
+          "CC=cl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CXX=cl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Resolve MO2 target
         id: mo2
         shell: pwsh
@@ -144,6 +178,10 @@ jobs:
       - name: Build XnGine
         shell: pwsh
         run: |
+          Write-Host "Compiler selected by PATH:"
+          where.exe cl
+          cl 2>&1 | Select-Object -First 3
+
           ./ci/build-xngine.ps1 `
             -Target "${{ matrix.target }}" `
             -UibasePath "$env:XNGINE_UIBASE_PATH" `
@@ -166,7 +204,8 @@ jobs:
             "mob ref: ${{ steps.mo2.outputs.mob_ref }}",
             "mob commit: ${{ steps.mo2.outputs.mob_sha }}",
             "Qt: ${{ steps.mo2.outputs.qt_version }}",
-            "Qt architecture: ${{ steps.mo2.outputs.qt_arch }}"
+            "Qt architecture: ${{ steps.mo2.outputs.qt_arch }}",
+            "Compiler: MSVC x64"
           )
           $lines | Set-Content -Path "artifacts/${{ matrix.target }}/build-info.txt"
           $lines | ForEach-Object { "- $_" } | Add-Content -Path $env:GITHUB_STEP_SUMMARY
