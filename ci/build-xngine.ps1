@@ -66,6 +66,22 @@ $configureArgs = @(
 )
 
 Invoke-Native -Command "cmake" -Arguments $configureArgs
+
+$cachePath = Join-Path $buildPath "CMakeCache.txt"
+$archiveHandlerEnabled = $false
+if (Test-Path $cachePath) {
+    $capabilityLine = Select-String -Path $cachePath -Pattern '^MO2_UIBASE_HAS_GAMEARCHIVEHANDLER:BOOL=(ON|OFF)$' | Select-Object -First 1
+    if ($capabilityLine) {
+        $archiveHandlerEnabled = $capabilityLine.Matches[0].Groups[1].Value -eq "ON"
+    }
+}
+
+@(
+    "MO2 GameArchiveHandler: $archiveHandlerEnabled",
+    "Archive extractor integration: $archiveHandlerEnabled"
+) | Set-Content -Path (Join-Path $artifactPath "capabilities.txt")
+
+Write-Host "MO2 GameArchiveHandler capability detected: $archiveHandlerEnabled"
 Invoke-Native -Command "cmake" -Arguments @("--build", $buildPath, "--config", "Release", "--parallel")
 
 $pluginOutput = Join-Path $buildPath "bin/Release/plugins"

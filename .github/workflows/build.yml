@@ -43,6 +43,7 @@ jobs:
           version: ${{ steps.mo2.outputs.qt_version }}
           arch: ${{ steps.mo2.outputs.qt_arch }}
           cache: true
+          use-official: true
 
       - name: Configure runner vcpkg
         shell: pwsh
@@ -52,7 +53,7 @@ jobs:
           }
           "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Restore vcpkg manifest cache
+      - name: Restore XnGine vcpkg cache
         uses: actions/cache@v4
         with:
           path: vcpkg_installed
@@ -82,17 +83,33 @@ jobs:
             throw "The MO2 retail uibase SDK did not contain uibase.lib."
           }
 
-          $include = Get-ChildItem dependencies/uibase-sdk -Recurse -Directory | Where-Object {
-            Test-Path (Join-Path $_.FullName "include/uibase")
-          } | Select-Object -First 1
-          if (-not $include) {
-            throw "The MO2 retail uibase SDK did not contain include/uibase."
+          $header = Get-ChildItem dependencies/uibase-sdk -Recurse -Filter iplugingame.h | Select-Object -First 1
+          if (-not $header) {
+            throw "The MO2 retail uibase SDK did not contain iplugingame.h."
           }
 
-          "XNGINE_UIBASE_PATH=$($include.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $headerDir = $header.Directory.FullName
+          $parent = Split-Path $headerDir -Parent
+          if ((Split-Path $headerDir -Leaf) -eq "uibase" -and (Split-Path $parent -Leaf) -eq "include") {
+            $uibasePath = Split-Path $parent -Parent
+          }
+          else {
+            $uibasePath = $headerDir
+          }
+
+          "XNGINE_UIBASE_PATH=$uibasePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "XNGINE_UIBASE_LIB=$($lib.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Restore dev uibase cache
+      - name: Checkout current dev uibase
+        if: matrix.target == 'dev'
+        uses: actions/checkout@v4
+        with:
+          repository: ModOrganizer2/modorganizer-uibase
+          ref: ${{ steps.mo2.outputs.uibase_ref }}
+          path: dependencies/uibase
+          fetch-depth: 1
+
+      - name: Restore dev uibase install cache
         if: matrix.target == 'dev'
         id: dev-uibase-cache
         uses: actions/cache@v4
@@ -102,13 +119,12 @@ jobs:
 
       - name: Build current dev uibase
         if: matrix.target == 'dev' && steps.dev-uibase-cache.outputs.cache-hit != 'true'
-        uses: ModOrganizer2/build-with-mob-action@a60a32d60aa535a67b2b21e2255c506f35c0bb07
-        with:
-          mo2-owner: ModOrganizer2
-          mo2-branch: master
-          mo2-dependencies: uibase
-          mo2-skip-checkout: "true"
-          qt-install: "false"
+        shell: pwsh
+        run: |
+          ./ci/build-dev-uibase.ps1 `
+            -SourcePath "$env:GITHUB_WORKSPACE\dependencies\uibase" `
+            -InstallPath "$env:GITHUB_WORKSPACE\install" `
+            -QtRoot "$env:QT_ROOT_DIR"
 
       - name: Locate dev uibase SDK
         if: matrix.target == 'dev'
@@ -118,8 +134,8 @@ jobs:
           if (-not $lib) {
             throw "The dev uibase build did not produce uibase.lib."
           }
-          if (-not (Test-Path install/include/uibase)) {
-            throw "The dev uibase build did not install include/uibase."
+          if (-not (Test-Path install/include/uibase/iplugingame.h)) {
+            throw "The dev uibase build did not install the public uibase headers."
           }
 
           "XNGINE_UIBASE_PATH=$env:GITHUB_WORKSPACE\install" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -133,7 +149,7 @@ jobs:
             -UibasePath "$env:XNGINE_UIBASE_PATH" `
             -UibaseLib "$env:XNGINE_UIBASE_LIB" `
             -Mo2SourcePath "$env:GITHUB_WORKSPACE\dependencies\modorganizer" `
-            -QtRoot "$env:QT_ROOT_DIR\${{ steps.mo2.outputs.qt_folder }}" `
+            -QtRoot "$env:QT_ROOT_DIR" `
             -BuildDir "build-${{ matrix.target }}" `
             -ArtifactDir "artifacts/${{ matrix.target }}"
 
@@ -154,6 +170,10 @@ jobs:
           )
           $lines | Set-Content -Path "artifacts/${{ matrix.target }}/build-info.txt"
           $lines | ForEach-Object { "- $_" } | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+
+          if (Test-Path "artifacts/${{ matrix.target }}/capabilities.txt") {
+            Get-Content "artifacts/${{ matrix.target }}/capabilities.txt" | ForEach-Object { "- $_" } | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          }
 
       - name: Upload plugin build
         uses: actions/upload-artifact@v4
