@@ -1,6 +1,7 @@
 #include "battlespiresavegame.h"
 
 #include "battlespiresaveformat.h"
+#include "battlespiresavejoins.h"
 #include "gamebattlespire.h"
 #include "xnginepaletteformat.h"
 #include "xnginerecordgraph.h"
@@ -19,6 +20,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <limits>
 
 namespace {
 constexpr qsizetype kSaveNameLength = 32;
@@ -164,6 +166,21 @@ QStringList characterFlagNamesFromMask(quint32 mask)
       "",          "",          "",           "",
   };
   return decodeBitFlags(mask, kCharacterFlags);
+}
+
+QString summarizeRecordIds(const QVector<quint32>& ids)
+{
+  constexpr int kMaxIds = 8;
+  QStringList values;
+  const int shown = std::min<int>(kMaxIds, ids.size());
+  values.reserve(shown);
+  for (int i = 0; i < shown; ++i) {
+    values.push_back(QString::number(ids.at(i)));
+  }
+  if (ids.size() > shown) {
+    values.push_back(QString("+%1 more").arg(ids.size() - shown));
+  }
+  return values.join(", ");
 }
 }  // namespace
 
@@ -313,6 +330,12 @@ QString BattlespireSaveGame::getGameDetails() const
                         .arg(m_StaticEnemyCount)
                         .arg(m_GlobalVariableCount)
                         .arg(m_LocalVariableCount));
+    lines.push_back(
+        QString("SAVEVARS Joins: ConversationMap=%1 resolved/%2 missing; StaticEnemy=%3 resolved/%4 missing")
+            .arg(m_ConversationMapResolvedCount)
+            .arg(m_ConversationMapMissingCount)
+            .arg(m_StaticEnemyResolvedCount)
+            .arg(m_StaticEnemyMissingCount));
     lines.push_back(QString("MonsterTypeCount: non-zero=%1, total=%2")
                         .arg(m_MonsterTypeCountNonZero)
                         .arg(m_MonsterTypeCountTotal));
@@ -380,6 +403,13 @@ void BattlespireSaveGame::resetValidationState()
   m_PlayerRecordCanonicalFound = false;
   m_PlayerRecordRecoveryUsed = false;
   m_SaveTreeTailBytes = 0;
+  m_SaveTreeRecordTypes.clear();
+  m_ConversationMapCount = 0;
+  m_ConversationMapResolvedCount = 0;
+  m_ConversationMapMissingCount = 0;
+  m_StaticEnemyCount = 0;
+  m_StaticEnemyResolvedCount = 0;
+  m_StaticEnemyMissingCount = 0;
 }
 
 bool BattlespireSaveGame::parseSaveName()
@@ -443,6 +473,7 @@ bool BattlespireSaveGame::parseSaveTree()
   m_Gold = 0;
   m_RecordCountTotal = 0;
   m_RecordTypeCounts.clear();
+  m_SaveTreeRecordTypes.clear();
   m_PlayerRecordByTypeFound = false;
   m_PlayerRecordByIdFound = false;
   m_GoldItemRecordCount = 0;
@@ -541,9 +572,12 @@ bool BattlespireSaveGame::parseSaveTree()
                              readLE(data, pos + PlayerTreeOffset::ParentId, parentId);
 
     if (hasRecordId && recordId != 0) {
-      recordGraph.addNode({recordId, hasParentId ? parentId : 0,
-                           static_cast<qint32>(recordType), -1},
-                          &m_ValidationNotes);
+      const bool added = recordGraph.addNode({recordId, hasParentId ? parentId : 0,
+                                              static_cast<qint32>(recordType), -1},
+                                             &m_ValidationNotes);
+      if (added) {
+        m_SaveTreeRecordTypes.insert(recordId, static_cast<int>(recordType));
+      }
     }
 
     const PlayerRecordMatch playerMatch =
@@ -684,20 +718,34 @@ bool BattlespireSaveGame::parseSaveVars()
     return count;
   };
 
-  // SAVEVARS block summaries from documented fixed-layout offsets.
-  m_ConversationMapCount = countFixedRecords(
-      4492, 8, 128, [](const QByteArray& rec) {
-        quint32 id = 0;
-        std::memcpy(&id, rec.constData(), sizeof(id));
-        return qFromLittleEndian(id) != 0;
-      });
+  // These two SAVEVARS blocks carry RecordID values that join directly to SAVETREE.
+  const auto conversationJoin = BattlespireSaveJoins::joinRecordIds(
+      data, BattlespireSaveJoins::kConversationMapOffset,
+      BattlespireSaveJoins::kConversationMapRecordSize,
+      BattlespireSaveJoins::kConversationMapMaxRecords, m_SaveTreeRecordTypes);
+  m_ConversationMapCount = conversationJoin.populated;
+  m_ConversationMapResolvedCount = conversationJoin.resolved;
+  m_ConversationMapMissingCount = conversationJoin.missing;
+  if (conversationJoin.missing > 0) {
+    m_ValidationNotes.push_back(
+        QString("ConversationMap references %1 missing SAVETREE record(s): %2")
+            .arg(conversationJoin.missing)
+            .arg(summarizeRecordIds(conversationJoin.missingRecordIds)));
+  }
 
-  m_StaticEnemyCount = countFixedRecords(
-      5520, 56, 128, [](const QByteArray& rec) {
-        quint32 id = 0;
-        std::memcpy(&id, rec.constData(), sizeof(id));
-        return qFromLittleEndian(id) != 0;
-      });
+  const auto staticEnemyJoin = BattlespireSaveJoins::joinRecordIds(
+      data, BattlespireSaveJoins::kStaticEnemyOffset,
+      BattlespireSaveJoins::kStaticEnemyRecordSize,
+      BattlespireSaveJoins::kStaticEnemyMaxRecords, m_SaveTreeRecordTypes);
+  m_StaticEnemyCount = staticEnemyJoin.populated;
+  m_StaticEnemyResolvedCount = staticEnemyJoin.resolved;
+  m_StaticEnemyMissingCount = staticEnemyJoin.missing;
+  if (staticEnemyJoin.missing > 0) {
+    m_ValidationNotes.push_back(
+        QString("StaticEnemy references %1 missing SAVETREE record(s): %2")
+            .arg(staticEnemyJoin.missing)
+            .arg(summarizeRecordIds(staticEnemyJoin.missingRecordIds)));
+  }
 
   m_GlobalVariableCount = countFixedRecords(
       15237, 8, 1344, [](const QByteArray& rec) {

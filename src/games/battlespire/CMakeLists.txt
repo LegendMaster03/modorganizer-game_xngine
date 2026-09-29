@@ -4,6 +4,8 @@ target_sources(game_battlespire PRIVATE
   gamebattlespire.h
   gamebattlespire.cpp
   battlespiresaveformat.h
+  battlespiresavejoins.h
+  battlespiresavejoins.cpp
   battlespiresavegame.h
   battlespiresavegame.cpp
   battlespirevariablehash.h
@@ -12,10 +14,15 @@ target_sources(game_battlespire PRIVATE
   battlespirebs6.cpp
   battlespirebsi.h
   battlespirebsi.cpp
+
+  # Speculative Daggerfall-derived compatibility adapters. No confirmed Battlespire
+  # TEXT.RSC/WATER.TBL resources or production callers are known; verified water data
+  # is represented by BS6 WATR chunks. Keep these isolated until fixtures prove use.
   battlespiretextrsc.h
   battlespiretextrsc.cpp
   battlespirewatertbl.h
   battlespirewatertbl.cpp
+
   battlespire3dbsa.h
   battlespire3dbsa.cpp
   battlespiredatachecker.h

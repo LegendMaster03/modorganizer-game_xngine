@@ -29,6 +29,19 @@ target_link_libraries(battlespire_hash_tests PRIVATE Qt6::Core)
 
 add_test(NAME battlespire_hash_tests COMMAND battlespire_hash_tests)
 
+add_executable(battlespire_savejoins_tests
+  battlespire_savejoins_tests.cpp
+  ${CMAKE_SOURCE_DIR}/src/games/battlespire/battlespiresavejoins.cpp
+)
+
+target_include_directories(battlespire_savejoins_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/src/games/battlespire
+)
+
+target_link_libraries(battlespire_savejoins_tests PRIVATE Qt6::Core)
+
+add_test(NAME battlespire_savejoins_tests COMMAND battlespire_savejoins_tests)
+
 add_executable(battlespire_bs6_tests
   battlespire_bs6_tests.cpp
   ${CMAKE_SOURCE_DIR}/src/games/battlespire/battlespirebs6.cpp

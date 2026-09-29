@@ -69,12 +69,17 @@ private:
   int m_GoldItemRecordCount = 0;
   int m_CurrentLevelOffset = -1;
   int m_ConversationMapCount = 0;
+  int m_ConversationMapResolvedCount = 0;
+  int m_ConversationMapMissingCount = 0;
   int m_StaticEnemyCount = 0;
+  int m_StaticEnemyResolvedCount = 0;
+  int m_StaticEnemyMissingCount = 0;
   int m_GlobalVariableCount = 0;
   int m_LocalVariableCount = 0;
   int m_MonsterTypeCountNonZero = 0;
   int m_MonsterTypeCountTotal = 0;
   QHash<int, int> m_RecordTypeCounts;
+  QHash<quint32, int> m_SaveTreeRecordTypes;
   QStringList m_ActiveSpellNames;
   QStringList m_CharacterFlagNames;
   QStringList m_ValidationNotes;
