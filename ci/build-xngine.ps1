@@ -129,7 +129,7 @@ New-Item -ItemType Directory -Force -Path $artifactPlugins | Out-Null
 foreach ($plugin in $expectedPlugins) {
     $source = Join-Path $pluginOutput $plugin
     if (-not (Test-Path $source)) {
-        throw "Expected plugin was not produced for $Target: $source"
+        throw "Expected plugin was not produced for ${Target}: $source"
     }
     Copy-Item $source -Destination (Join-Path $artifactPlugins $plugin)
 }
