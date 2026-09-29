@@ -1,0 +1,164 @@
+name: Build XnGine
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 8 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xngine-build-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.target }} build
+    runs-on: windows-2022
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [retail, dev]
+
+    steps:
+      - name: Checkout XnGine
+        uses: actions/checkout@v4
+
+      - name: Resolve MO2 target
+        id: mo2
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./ci/resolve-mo2-target.ps1 -Target "${{ matrix.target }}"
+
+      - name: Install matching Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ steps.mo2.outputs.qt_version }}
+          arch: ${{ steps.mo2.outputs.qt_arch }}
+          cache: true
+
+      - name: Configure runner vcpkg
+        shell: pwsh
+        run: |
+          if (-not $env:VCPKG_INSTALLATION_ROOT) {
+            throw "GitHub runner did not expose VCPKG_INSTALLATION_ROOT."
+          }
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore vcpkg manifest cache
+        uses: actions/cache@v4
+        with:
+          path: vcpkg_installed
+          key: xngine-vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Checkout matching MO2 source
+        uses: actions/checkout@v4
+        with:
+          repository: ModOrganizer2/modorganizer
+          ref: ${{ steps.mo2.outputs.mo2_ref }}
+          path: dependencies/modorganizer
+          fetch-depth: 1
+
+      - name: Download retail uibase SDK
+        if: matrix.target == 'retail'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dependencies/uibase-sdk | Out-Null
+          Invoke-WebRequest -Uri "${{ steps.mo2.outputs.uibase_asset_url }}" -OutFile dependencies/uibase.7z
+          & 7z x dependencies/uibase.7z -odependencies/uibase-sdk -y
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to extract the retail uibase SDK."
+          }
+
+          $lib = Get-ChildItem dependencies/uibase-sdk -Recurse -Filter uibase.lib | Select-Object -First 1
+          if (-not $lib) {
+            throw "The MO2 retail uibase SDK did not contain uibase.lib."
+          }
+
+          $include = Get-ChildItem dependencies/uibase-sdk -Recurse -Directory | Where-Object {
+            Test-Path (Join-Path $_.FullName "include/uibase")
+          } | Select-Object -First 1
+          if (-not $include) {
+            throw "The MO2 retail uibase SDK did not contain include/uibase."
+          }
+
+          "XNGINE_UIBASE_PATH=$($include.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "XNGINE_UIBASE_LIB=$($lib.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore dev uibase cache
+        if: matrix.target == 'dev'
+        id: dev-uibase-cache
+        uses: actions/cache@v4
+        with:
+          path: install
+          key: xngine-uibase-${{ runner.os }}-${{ steps.mo2.outputs.uibase_sha }}-${{ steps.mo2.outputs.cmake_common_sha }}-qt-${{ steps.mo2.outputs.qt_version }}
+
+      - name: Build current dev uibase
+        if: matrix.target == 'dev' && steps.dev-uibase-cache.outputs.cache-hit != 'true'
+        uses: ModOrganizer2/build-with-mob-action@a60a32d60aa535a67b2b21e2255c506f35c0bb07
+        with:
+          mo2-owner: ModOrganizer2
+          mo2-branch: master
+          mo2-dependencies: uibase
+          mo2-skip-checkout: "true"
+          qt-install: "false"
+
+      - name: Locate dev uibase SDK
+        if: matrix.target == 'dev'
+        shell: pwsh
+        run: |
+          $lib = Get-ChildItem install -Recurse -Filter uibase.lib | Select-Object -First 1
+          if (-not $lib) {
+            throw "The dev uibase build did not produce uibase.lib."
+          }
+          if (-not (Test-Path install/include/uibase)) {
+            throw "The dev uibase build did not install include/uibase."
+          }
+
+          "XNGINE_UIBASE_PATH=$env:GITHUB_WORKSPACE\install" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "XNGINE_UIBASE_LIB=$($lib.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build XnGine
+        shell: pwsh
+        run: |
+          ./ci/build-xngine.ps1 `
+            -Target "${{ matrix.target }}" `
+            -UibasePath "$env:XNGINE_UIBASE_PATH" `
+            -UibaseLib "$env:XNGINE_UIBASE_LIB" `
+            -Mo2SourcePath "$env:GITHUB_WORKSPACE\dependencies\modorganizer" `
+            -QtRoot "$env:QT_ROOT_DIR\${{ steps.mo2.outputs.qt_folder }}" `
+            -BuildDir "build-${{ matrix.target }}" `
+            -ArtifactDir "artifacts/${{ matrix.target }}"
+
+      - name: Record dependency provenance
+        shell: pwsh
+        run: |
+          $lines = @(
+            "XnGine commit: $env:GITHUB_SHA",
+            "Target: ${{ matrix.target }}",
+            "MO2 ref: ${{ steps.mo2.outputs.mo2_ref }}",
+            "MO2 commit: ${{ steps.mo2.outputs.mo2_sha }}",
+            "uibase ref: ${{ steps.mo2.outputs.uibase_ref }}",
+            "uibase commit: ${{ steps.mo2.outputs.uibase_sha }}",
+            "mob ref: ${{ steps.mo2.outputs.mob_ref }}",
+            "mob commit: ${{ steps.mo2.outputs.mob_sha }}",
+            "Qt: ${{ steps.mo2.outputs.qt_version }}",
+            "Qt architecture: ${{ steps.mo2.outputs.qt_arch }}"
+          )
+          $lines | Set-Content -Path "artifacts/${{ matrix.target }}/build-info.txt"
+          $lines | ForEach-Object { "- $_" } | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload plugin build
+        uses: actions/upload-artifact@v4
+        with:
+          name: xngine-${{ steps.mo2.outputs.artifact_suffix }}
+          path: artifacts/${{ matrix.target }}
+          if-no-files-found: error
+          retention-days: 14
