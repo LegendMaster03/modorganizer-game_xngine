@@ -457,6 +457,8 @@ GameXngine::listSaves(QDir folder) const
 
   std::vector<std::shared_ptr<const MOBase::ISaveGame>> saves;
   try {
+    // Prefer the game-specific declared layout. Legacy probing runs only when
+    // the configured layout yields no slots, to avoid duplicate discoveries.
     auto saveSlots = enumerateSaveSlots(paths, layout);
     if (saveSlots.empty()) {
       // Fallback scanner for legacy/variant XnGine save layouts.
@@ -1039,6 +1041,8 @@ MappingType GameXngine::mappings() const
   }
 }
 
+// Isolate each game's save slots within its MO2 profile, even when two
+// XnGine games reuse the same native slot names.
 /*static*/ SaveStoragePaths GameXngine::resolveSaveStorage(const QString& profilePath,
                                                            const QString& gameId)
 {
