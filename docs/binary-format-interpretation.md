@@ -57,6 +57,29 @@ two **heuristic** 8-byte normalization strategies and then parses the
 normalized copy. The chosen compatibility path is surfaced as a warning.
 It should not be described as a proven repair for every Battlespire model.
 
+## Daggerfall world layers, PAK rows, and executable item tables
+
+`DaggerfallClimatePak` and `DaggerfallPoliticPak` each decode 500
+compressed rows with 1,001 byte values using three-byte
+count/value runs. The row-offset table is sorted to find the
+next physical data boundary rather than assuming row storage order.
+Malformed decoded row widths are warned about and padded or truncated
+to retain a rectangular grid. Missing climate values use the existing
+fallback byte 223; missing political values use 64, which is
+interpreted as water.
+
+`DaggerfallWorldLayers` combines these layers with `WOODS.WLD`.
+Mismatched dimensions warn rather than rejecting an otherwise
+readable set. `pixelInfoAt` determines coordinate validity from
+WOODS; the same coordinate can still have unavailable climate or
+political data.
+
+`DaggerfallFallExeItems` locates a known item table by scanning for
+the observed first item name, `Ruby`, then assuming aligned records.
+It warns about an unfamiliar table offset or implausible ending data.
+This is a heuristic, not a cryptographic or version-specific
+executable signature.
+
 ## Redguard RGM map rewriting
 
 `RedguardsMapFile` reads four-character section tags followed by

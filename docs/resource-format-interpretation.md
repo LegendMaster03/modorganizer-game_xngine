@@ -44,6 +44,28 @@ supplied directory. Unresolved external files, unsupported segment modes,
 and unparsed meshes are retained as warnings. A parsed ROB container does
 not prove that all referenced geometry is present.
 
+## Redguard FNT fonts and RTX subtitle/audio databases
+
+`RedguardsFntFormat` reads FNHD metadata, a palette (BPAL/FPAL), FBMP
+glyph data, and END. Glyph widths/heights bound the indexed pixel
+slices. RDAT is optional unless the header declares it; when its
+structure is not recognized, the raw block is retained without
+inventing field meanings.
+
+`RedguardsRtxDatabase` retains a separate entry-order list and a
+label-keyed map. Writing rebuilds the reverse lookup index after
+the END marker. Reading can stop on a truncated entry while returning
+the entries decoded so far, so a successful return is not an
+end-to-end integrity check. Sidecar changes use labels for existing
+entry updates; the numeric index chooses the new-entry branch and
+does not serve as a general reordering command.
+
+## Fixed lookup tables
+
+`XngineTblFormat` supports an exact 256-byte lookup table. A TBL
+file is not automatically a palette: the parser returns uninterpreted
+byte values, and automatic recognition is size-based.
+
 ## Daggerfall IMG and related image formats
 
 `Daggerfall::Image` recognizes several legacy raster/container families.
