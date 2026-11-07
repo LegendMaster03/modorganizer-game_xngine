@@ -46,6 +46,7 @@ coverage or verified binary round trips.
 - [WLD, RSC, palettes, images, and other resources](docs/resource-format-interpretation.md)
 - [Quest and script decoding](docs/quest-and-script-interpretation.md)
 - [Mod package detection and installation roots](docs/mod-package-detection.md)
+- [MO2 profile adapters and archive-list helpers](docs/mo2-profile-adapters.md)
 
 ## Licensing and provenance
 
