@@ -73,7 +73,6 @@ qsizetype computeFaceSectionEnd(const QByteArray& data, const Xngine3dFormat::He
 // The v2.7 compatibility path is attempted only when 10-byte face headers
 // reach the declared normals offset but 8-byte headers do not.
 bool looksLikeBattlespireExtendedFaceLayout(const QByteArray& data,
-bool looksLikeBattlespireExtendedFaceLayout(const QByteArray& data,
                                             const Xngine3dFormat::Header& header)
 {
   if (header.versionTag != Xngine3dFormat::VersionTag::V2_7) {
@@ -92,7 +91,6 @@ bool looksLikeBattlespireExtendedFaceLayout(const QByteArray& data,
 
 // One candidate removes the extra two bytes between the two 4-byte face
 // header halves, then rebases later section offsets in a copy.
-QByteArray normalizeBattlespireExtendedFaceLayoutDropMiddle(const QByteArray& data,
 QByteArray normalizeBattlespireExtendedFaceLayoutDropMiddle(const QByteArray& data,
                                                             const Xngine3dFormat::Header& header)
 {
@@ -180,7 +178,6 @@ QByteArray normalizeBattlespireExtendedFaceLayoutDropTail(const QByteArray& data
 
 // Prefer unchanged v2.x parsing. Only when the v2.7 extended layout is
 // plausible do we try two normalizations; a warning records the workaround.
-bool parseBattlespireMeshData(const QByteArray& data, Xngine3dFormat::MeshRecord& outMesh,
 bool parseBattlespireMeshData(const QByteArray& data, Xngine3dFormat::MeshRecord& outMesh,
                               QString* errorMessage)
 {

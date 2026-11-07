@@ -52,7 +52,6 @@ bool parseRegionIndex(const QString& entryName, int* regionIndex)
 // Region suffixes join MAPNAMES with the matching MAPTABLE/MAPPITEM records;
 // names within each region are associated by their record-list position.
 QHash<int, QStringList> readMapNamesByRegion(const XngineBSAFormat::Archive& archive)
-QHash<int, QStringList> readMapNamesByRegion(const XngineBSAFormat::Archive& archive)
 {
   QHash<int, QStringList> namesByRegion;
   for (const auto& entry : archive.entries) {
@@ -152,7 +151,6 @@ QHash<int, QVector<MapTableElement>> readMapTableByRegion(
 // Two observed identifiers can point at the same location: the explicit
 // MAPPITEM location number and the low 16 bits of MAPTABLE's map ID. Keep
 // existing mappings on collisions rather than silently replacing them.
-void populateLocationNumIndex(const XngineBSAFormat::Archive& archive,
 void populateLocationNumIndex(const XngineBSAFormat::Archive& archive,
                               const QHash<int, QStringList>& namesByRegion,
                               const QHash<int, QVector<MapTableElement>>& tablesByRegion,
@@ -335,7 +333,6 @@ QString DaggerfallMapsBsa::locationTypeName(int locationType)
 // This cache is keyed by file path, not archive modification time; replacing
 // MAPS.BSA in place will not automatically invalidate a cached entry.
 DaggerfallMapsBsa::LocationInfo DaggerfallMapsBsa::resolveNearestLocation(
-DaggerfallMapsBsa::LocationInfo DaggerfallMapsBsa::resolveNearestLocation(
     const GameDaggerfall* game, qint32 x, qint32 z)
 {
   if (game == nullptr) {
@@ -408,7 +405,6 @@ DaggerfallMapsBsa::LocationInfo DaggerfallMapsBsa::resolveNearestLocation(
   // 32k map-cell granularity means nearest should usually be very close.
   // A nearest entry past this threshold is less credible than returning
   // unknown. The threshold is a broad heuristic, not a coordinate invariant.
-  constexpr qint64 kMaxAcceptableDistance = 300000;
   constexpr qint64 kMaxAcceptableDistance = 300000;
   if (best == nullptr || bestDistance > kMaxAcceptableDistance) {
     return {};
