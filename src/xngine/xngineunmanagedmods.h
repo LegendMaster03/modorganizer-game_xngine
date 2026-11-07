@@ -5,6 +5,8 @@
 
 class GameXngine;
 
+// No unmanaged-mod discovery is implemented in this shared adapter.
+// The overrides currently return empty lists and file references.
 class XngineUnmanagedMods : public MOBase::UnmanagedMods
 {
 public:
