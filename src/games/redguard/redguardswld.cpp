@@ -15,6 +15,8 @@ XngineWldFormat::Traits redguardTraits()
 
 }  // namespace
 
+// Force the Redguard world-data variant; this wrapper is not a generic
+// WLD detector and will reject an unexpected parsed variant.
 bool RedguardsWld::load(const QString& filePath, Data& outData,
                         QString* errorMessage)
 {
@@ -50,6 +52,8 @@ bool RedguardsWld::load(const QString& filePath, Data& outData,
   return true;
 }
 
+// Copy all four section planes and retained header/footer metadata back
+// into the shared Redguard writer rather than rebuilding unknown fields.
 bool RedguardsWld::save(const QString& filePath, const Data& data,
                         QString* errorMessage)
 {
@@ -75,6 +79,8 @@ bool RedguardsWld::save(const QString& filePath, const Data& data,
   return XngineWldFormat::writeFile(filePath, doc, errorMessage, redguardTraits());
 }
 
+// Delegate plane composition to the shared WLD implementation, keeping
+// the game's section ordering and map-plane selection in one place.
 QVector<quint8> RedguardsWld::combinedMap(const Data& data, int planeIndex)
 {
   XngineWldFormat::RedguardData core;
