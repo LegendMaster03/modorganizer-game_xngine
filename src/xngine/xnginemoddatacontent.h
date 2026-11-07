@@ -10,7 +10,10 @@ class IGameFeatures;
 }
 
 /**
- * @brief ModDataContent for XnGine games.
+ * @brief Reports MO2 content indicators for XnGine game assets.
+ *
+ * Content labels describe recognizable files or folders. They do not
+ * determine whether a mod is installable or its payload is executable.
  */
 class XngineModDataContent : public MOBase::ModDataContent
 {
@@ -36,9 +39,7 @@ protected:
   constexpr static auto CONTENT_NEXT_VALUE = CONTENT_TEXT + 1;
 
 public:
-  /**
-   *
-   */
+  /** Construct the shared content-label classifier. */
   XngineModDataContent(const MOBase::IGameFeatures* gameFeatures);
 
   /**
