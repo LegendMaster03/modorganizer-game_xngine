@@ -14,6 +14,8 @@ bool setError(QString* errorMessage, const QString& error)
   return false;
 }
 
+// The only recognized layout is a raw 256-byte lookup table. Equal size
+// is a structural hint, not proof that the bytes have water-table meaning.
 XngineTblFormat::Variant detectVariant(const QByteArray& bytes)
 {
   if (bytes.size() == 256) {
@@ -91,6 +93,8 @@ bool XngineTblFormat::readFile(const QString& filePath, Document& outDocument,
   }
 }
 
+// Validate the fixed-size table before opening the output for truncation;
+// a later I/O failure can still leave a partial output file.
 bool XngineTblFormat::writeFile(const QString& filePath, const Document& document,
                                 QString* errorMessage, const Traits& traits)
 {

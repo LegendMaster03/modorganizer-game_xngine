@@ -3,6 +3,8 @@
 
 #include <uibase/game_features/gamearchivehandler.h>
 
+// MO2 archive-handler interface: discovery filters and extraction support
+// are separate from the ability to create a particular named archive.
 class XngineArchiveExtractor : public MOBase::GameArchiveHandler
 {
 public:

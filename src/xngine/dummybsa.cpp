@@ -103,6 +103,8 @@ static unsigned long long genHash(const char* fileName)
   return hash;
 }
 
+// This legacy MO2 helper emits a minimal Bethesda-style invalidation BSA.
+// It is unrelated to the DOS-era XnGine BSA record container.
 DummyBSA::DummyBSA(unsigned long bsaVersion)
     : m_Version(bsaVersion), m_FolderName(""), m_FileName("dummy.dds"),
       m_TotalFileNameLength(0)
@@ -134,6 +136,8 @@ void DummyBSA::writeHeader(QFile& file)
   file.write(reinterpret_cast<char*>(header), sizeof(header));
 }
 
+// The archive contains one folder and one synthetic record, so the normal
+// multi-entry hash ordering requirement does not apply to this writer.
 void DummyBSA::writeFolderRecord(QFile& file, const std::string& folderName)
 {
   unsigned char folderRecord[] = {
@@ -175,6 +179,8 @@ void DummyBSA::writeFileRecordBlocks(QFile& file, const std::string& folderName)
   writeFileRecord(file, m_FileName);
 }
 
+// The emitted dummy.dds entry has zero payload bytes. The caller is
+// responsible for selecting a compatible BSA version and target path.
 void DummyBSA::write(const QString& fileName)
 {
   QFile file(fileName);
