@@ -40,6 +40,8 @@ XngineModDataChecker::XngineModDataChecker(const GameXngine* game) : m_Game(game
   OutputDebugStringA("[XngineModDataChecker] Constructor EXIT\n");
 }
 
+// Check only immediate children for a recognizable folder or extension.
+// A VALID result does not validate game-specific formats or execution.
 XngineModDataChecker::CheckReturn XngineModDataChecker::dataLooksValid(
     std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {

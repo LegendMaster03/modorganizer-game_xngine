@@ -50,6 +50,8 @@ XngineSaveGameInfoWidget::~XngineSaveGameInfoWidget()
   delete ui;
 }
 
+// Reset shared tooltip fields for each selected slot to avoid retaining
+// an earlier game's location, character, image, or detail widgets.
 void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
 {
   auto setLabelTextPreserveFont = [](QLabel* label, const QString& text) {
@@ -94,6 +96,8 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
   if (!slotMatch.hasMatch()) {
     slotMatch = slotRegexRedguard.match(slotLabel);
   }
+  // Normalize classic SAVE<n> and Redguard SAVEGAME.<n> for display only.
+  // The original path remains the save's persistent identifier.
   if (slotMatch.hasMatch()) {
     bool ok = false;
     const int slot = slotMatch.captured(1).toInt(&ok);
@@ -147,6 +151,7 @@ void XngineSaveGameInfoWidget::setSave(MOBase::ISaveGame const& save)
       ui->dateLabel->setText(tr("Empty"));
     }
   }
+  // Remove previous game-specific details before rendering this slot.
   if (ui->gameFrame->layout() != nullptr) {
     QLayoutItem* item = nullptr;
     while ((item = ui->gameFrame->layout()->takeAt(0)) != nullptr) {

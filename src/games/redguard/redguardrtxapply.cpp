@@ -13,6 +13,8 @@ void writeUsage()
 }
 }
 
+// Standalone RTX patch utility. Input is read before output is written;
+// failure exits are distinct, but a failed write is not rolled back.
 int main(int argc, char* argv[])
 {
   QCoreApplication app(argc, argv);

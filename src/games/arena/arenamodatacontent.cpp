@@ -4,6 +4,8 @@
 
 #include <algorithm>
 
+// Add UI labels for mapper and DOSBox launcher files that may not include
+// standard game data. Classification does not execute launch scripts.
 std::vector<int> ArenaModDataContent::getContentsFor(
     std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {

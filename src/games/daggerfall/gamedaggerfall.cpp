@@ -885,6 +885,9 @@ QString GameDaggerfall::saveGameId() const
   return "daggerfall";
 }
 
+// Daggerfall's known archives use uncompressed records and DOS 8.3
+// uppercase names; these constraints belong to the Daggerfall plugin,
+// not every archive handled by the shared reader.
 XngineBSAFormat::Traits GameDaggerfall::bsaTraits() const
 {
   XngineBSAFormat::Traits traits;
@@ -894,6 +897,9 @@ XngineBSAFormat::Traits GameDaggerfall::bsaTraits() const
   return traits;
 }
 
+// Most index types are declared by known filename; the automap SAV name
+// may be overridden by the game's configuration. Keep that mapping scoped
+// to this title rather than inferring it from the extension alone.
 QVector<XngineBSAFormat::FileSpec> GameDaggerfall::bsaFileSpecs() const
 {
   const QString configuredMapSave =
@@ -922,6 +928,8 @@ QVector<XngineBSAFormat::FileSpec> GameDaggerfall::bsaFileSpecs() const
 }
 
 #if defined(XNGINE_DAGGERFALL_EXE_PATCHING)
+// Register cleanup once per game plugin instance. Unlike Redguard's
+// first-profile capture, cleanup computes the profile output name on exit.
 void GameDaggerfall::ensureExePatchCleanupHook()
 {
   if (m_ExePatchCleanupHookRegistered || !m_Organizer) {
@@ -955,6 +963,9 @@ void GameDaggerfall::cleanupExePatchOutputMod() const
   removeDirRecursive(tempModPath);
 }
 
+// Gather active patch mods in MO2 profile-priority order, then stage their
+// output into a generated profile-specific VFS mod. No stage is transactional;
+// earlier successful output may survive a later patch failure.
 bool GameDaggerfall::applyExePatchMods()
 {
   if (!m_Organizer) {
@@ -1171,6 +1182,8 @@ bool GameDaggerfall::applyExePatchMods()
       }
     }
 
+    // Build on the most recent generated executable when present; otherwise
+    // start with a base-game executable. Later mods can layer modifications.
     auto workingExe = findExistingExe(tempModPath);
     if (!workingExe.has_value()) {
       workingExe = findExistingExe(gameDirPath);
@@ -1188,6 +1201,8 @@ bool GameDaggerfall::applyExePatchMods()
       continue;
     }
 
+    // The JSON catalog is applied in memory before writing to the temporary
+    // mod. The catalog's targetVersion field is not enforced by this path.
     if (!input.catalogPath.isEmpty()) {
       QVector<XngineExePatch::PatchSet> sets;
       QString loadError;

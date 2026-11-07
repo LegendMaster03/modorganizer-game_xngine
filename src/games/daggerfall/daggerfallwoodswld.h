@@ -6,6 +6,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Daggerfall-specific terrain view of shared WLD data. Raw unknown fields
+// remain in the model because their semantics are not fully established.
 class DaggerfallWoodsWld
 {
 public:

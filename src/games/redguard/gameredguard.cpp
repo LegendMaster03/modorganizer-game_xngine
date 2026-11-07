@@ -346,6 +346,8 @@ int GameRedguard::nexusGameID() const
   return 4462;  // Nexus Game ID for Redguard
 }
 
+// Prefer explicit executable metadata, then textual version hints, then
+// a marker embedded in the EXE. The fallback is not edition verification.
 QString GameRedguard::gameVersion() const
 {
   static const QString kFallbackGameVersion = QStringLiteral("1.0.0");
@@ -481,6 +483,8 @@ QString GameRedguard::configuredSystemFilename(const QString& key,
   return QFileInfo(configuredSystemRelativePath(key, fallback)).fileName();
 }
 
+// Resolve SYSTEM.INI from MO2 overwrite first, then from installed data;
+// the declared world/item/RTX paths can differ among installations.
 QString GameRedguard::configuredSystemRelativePath(const QString& key,
                                                    const QString& fallback) const
 {
@@ -508,6 +512,9 @@ QString GameRedguard::configuredSystemRelativePath(const QString& key,
   return QDir::fromNativeSeparators(fallback);
 }
 
+// Look for the declared path in common overwrite and game layouts before
+// considering the fallback name. A non-existing declared path is still
+// returned at the end for callers that need its intended destination.
 QString GameRedguard::configuredSystemPath(const QString& key,
                                            const QString& fallback) const
 {
@@ -639,6 +646,9 @@ QString GameRedguard::findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) 
   return QString::fromWCharArray(buffer.get());
 }
 
+// Detect supported Steam/GOG DOSBox layouts with REDGUARD.EXE present.
+// Missing auxiliary files declared in SYSTEM.INI warn but do not reject
+// a structurally plausible installation.
 bool GameRedguard::looksValid(QDir const& path) const
 {
   const bool hasSteamLayout =
@@ -698,6 +708,8 @@ QDir GameRedguard::savesDirectory() const
   return GameXngine::savesDirectory();
 }
 
+// Extend base profile mappings for the game's SAVEGAME.* slot convention
+// and log files; mapping a whole save root also captures variant layouts.
 MappingType GameRedguard::mappings() const
 {
   MappingType out = GameXngine::mappings();

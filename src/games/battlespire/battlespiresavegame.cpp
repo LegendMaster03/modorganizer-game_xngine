@@ -393,6 +393,9 @@ bool BattlespireSaveGame::parseSaveName()
   return false;
 }
 
+// SAVETREE contains a 4-byte header followed by length-prefixed records;
+// their stored length excludes the 4-byte length field. Keep parsing within
+// each record's boundary rather than trusting offsets in malformed saves.
 bool BattlespireSaveGame::parseSaveTree()
 {
   QFile saveTreeFile(saveFilePath("SAVETREE.DAT"));
@@ -449,6 +452,8 @@ bool BattlespireSaveGame::parseSaveTree()
 
     quint32 recordId = 0;
     const bool hasRecordId = hasBytes(pos + 33, 4) && readLE(data, pos + 33, recordId);
+    // Both the record type and the known player record ID are useful evidence
+    // across observed variants; neither test requires the other to succeed.
     const bool isPlayerRecordByType = (recordType == kRecordTypePlayer);
     const bool isPlayerRecordById = hasRecordId && (recordId == 50000U);
 
@@ -498,6 +503,8 @@ bool BattlespireSaveGame::parseSaveTree()
       // Keep scanning; in malformed files we want the last valid player-like record.
     }
 
+    // Count only item records owned by the player. Preserve the wide total
+    // for diagnostics before clamping the displayed gold count to uint32.
     if (recordType == kRecordTypeItem) {
       quint16 itemId = 0;
       quint32 quantity = 0;
@@ -543,6 +550,8 @@ bool BattlespireSaveGame::parseSaveVars()
   // Misc block starts right after the 1052-byte player block.
   quint32 currentLevel = 0;
   qsizetype levelOffset = -1;
+  // The 1051 offset is an observed fallback, not interchangeable with the
+  // preferred 1052 position; retain which position supplied the value.
   if (!readLE(data, 1052, currentLevel) || currentLevel == 0 || currentLevel > 100) {
     if (!readLE(data, 1051, currentLevel)) {
       return false;
@@ -706,6 +715,8 @@ bool BattlespireSaveGame::parsePlayerBlockFromSaveVars(const QByteArray& data)
   return true;
 }
 
+// Developer validation reports missing payloads and suspicious data, not a
+// definitive determination that a save was edited or is unusable.
 void BattlespireSaveGame::evaluateDeveloperValidation()
 {
   m_ValidationLikelyModified = false;

@@ -8,9 +8,12 @@
 #include <QString>
 #include <QVector>
 
+// Chunked image archive. Type-0 pixels are raw indexed bytes, while
+// encoded type-1/type-2 payloads are retained without a full decoder.
 class RedguardsGxaFormat
 {
 public:
+  // Parsing an encoding tag does not imply decodeImage can render it.
   enum class ImageEncoding
   {
     RawIndexed,
@@ -57,6 +60,8 @@ public:
   static bool parseBytes(const QByteArray& bytes, Document& outDocument,
                          QString* errorMessage = nullptr);
 
+  // Decode support depends on encoding; validate conversion results
+  // before using an image as a preview.
   static bool decodeImage(const Image& image,
                           const XnginePaletteFormat::Palette& palette,
                           QImage& outImage,

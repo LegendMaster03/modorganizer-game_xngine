@@ -7,6 +7,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Shared TEXT.RSC token and record parser. Decoding printable text
+// does not discard the original raw control-token bytes.
 class XngineRscFormat
 {
 public:
@@ -16,6 +18,8 @@ public:
     TextRecordDatabase
   };
 
+  // The TEXT.RSC database parser currently ignores strictValidation;
+  // callers should inspect warnings for partial results.
   struct Traits
   {
     Variant variant = Variant::Auto;
@@ -88,6 +92,8 @@ public:
                         QString* errorMessage = nullptr,
                         const Traits& traits = Traits{});
 
+  // The header table includes a sentinel. Malformed individual records
+  // may be skipped while other records are returned successfully.
   static bool parseTextRecordDatabase(const QByteArray& bytes, TextRecordDatabase& outDb,
                                       QString* errorMessage = nullptr,
                                       bool strictValidation = true);

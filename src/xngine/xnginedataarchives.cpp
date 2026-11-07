@@ -19,6 +19,8 @@ QDir XngineDataArchives::localGameDirectory() const
   return QDir(m_Game->myGamesPath()).absolutePath();
 }
 
+// Windows INI APIs return copied-character counts. A missing/empty key
+// yields an empty list here; failures are not independently distinguished.
 QStringList XngineDataArchives::getArchivesFromKey(const QString& iniFile,
                                                      const QString& key,
                                                      const int size) const
@@ -27,9 +29,8 @@ QStringList XngineDataArchives::getArchivesFromKey(const QString& iniFile,
   QStringList result;
   std::wstring iniFileW = QDir::toNativeSeparators(iniFile).toStdWString();
 
-  // epic ms fail: GetPrivateProfileString uses errno (for whatever reason) to signal a
-  // fail since the return value has a different meaning (number of bytes copied).
-  // HOWEVER, it will not set errno to 0 if NO error occured
+  // Historical errno reset is retained. The return value below reports
+  // copied characters; this code does not inspect errno after the call.
   errno = 0;
 
   if (::GetPrivateProfileStringW(L"Archive", key.toStdWString().c_str(), L"", buffer,
@@ -54,6 +55,8 @@ void XngineDataArchives::setArchivesToKey(const QString& iniFile, const QString&
   }
 }
 
+// Avoid case-insensitive duplicates while preserving the caller's chosen
+// insertion position in the profile archive list.
 void XngineDataArchives::addArchive(MOBase::IProfile* profile, int index,
                                       const QString& archiveName)
 {
@@ -67,6 +70,9 @@ void XngineDataArchives::addArchive(MOBase::IProfile* profile, int index,
   writeArchiveList(profile, current);
 }
 
+// Existing behavior is inconsistent: contains() is case-insensitive, but
+// removeAll() below uses exact-case QString equality. Differing case can
+// therefore survive this removal attempt.
 void XngineDataArchives::removeArchive(MOBase::IProfile* profile,
                                          const QString& archiveName)
 {

@@ -1,72 +1,64 @@
 # XnGine Game Plugins for Mod Organizer 2
 
-This repository provides Mod Organizer 2 (MO2) game plugins for Bethesda XnGine titles. The plugins share a common XnGine base and expose per-game modules.
+This repository provides Mod Organizer 2 (MO2) game plugins for Bethesda XnGine titles. The plugins share a C++/Qt XnGine base while keeping game-specific detection, data formats, and save handling in separate modules.
 
-## Supported Games
+## Game modules
 
 - The Elder Scrolls: Arena
 - An Elder Scrolls Legend: Battlespire
 - The Elder Scrolls II: Daggerfall
 - The Elder Scrolls Adventures: Redguard
 
-## Build Requirements
+The common integration is in `src/xngine/`; per-game modules are in `src/games/arena/`, `src/games/battlespire/`, `src/games/daggerfall/`, and `src/games/redguard/`. Support for particular archive variants, save formats, and game installations depends on each module's implementation and should be verified with representative game data.
+
+## Build requirements
 
 - Windows 10/11 (x64)
-- Visual Studio 2022 Build Tools (C++ Desktop workload)
-- CMake 3.16+
-- Ninja
+- Visual Studio 2022 Build Tools (Desktop development with C++)
+- CMake 3.16+ and Ninja
 - Qt 6.7.1 (MSVC 2019 64-bit)
-- vcpkg (zlib, lz4)
-- Mod Organizer 2 SDK (uibase)
+- vcpkg (including zlib and lz4)
+- A compatible Mod Organizer 2 SDK / UIBase build
 
-Dependencies are described in vcpkg.json. You can use CMakePresets.json with environment variables for local paths.
+See [BUILDING.md](BUILDING.md) for detailed setup. Dependencies are also recorded in `vcpkg.json` and `CMakePresets.json`.
 
-## Building
+## Build and deploy
 
-See [BUILDING.md](BUILDING.md) for full setup and build instructions.
-
-## Build and Deploy
-
-1. Copy `config/local.env.example.bat` to `config/local.env.bat` and fill in your paths.
-
-Build and deploy to your MO2 plugins folder:
+1. Copy `config/local.env.example.bat` to `config/local.env.bat` and configure local dependency and MO2 paths.
+2. Build and deploy to the configured MO2 plugins directory:
 
 ```bat
 build_and_deploy.bat
 ```
 
-Default target path is your MO2 plugins directory (set via environment or local config).
+The deployment target comes from your environment or local configuration. Validate the game plugin in an MO2 installation with the corresponding game data. The repository includes `check_logs.bat` for local log inspection. There is no `TESTING_GUIDE.md` in the current tree; follow [BUILDING.md](BUILDING.md) and relevant source and script documentation instead.
 
-## License
+## Technical documentation
 
-This plugin is open source. See individual source files for licensing details.
+The following guides explain current implementation contracts, reverse-engineered
+format assumptions, and known limitations. They do not imply complete game-data
+coverage or verified binary round trips.
+
+- [Shared BSA archive contracts](docs/xngine-archive-contracts.md)
+- [Executable patch staging and validation boundaries](docs/executable-patching-contracts.md)
+- [Redguard generated patch lifecycle](docs/redguard-patch-lifecycle.md)
+- [Daggerfall BLOCKS/MAPS, 3D meshes, and Redguard map data](docs/binary-format-interpretation.md)
+- [WLD, RSC, palettes, images, and other resources](docs/resource-format-interpretation.md)
+- [Quest and script decoding](docs/quest-and-script-interpretation.md)
+- [Mod package detection and installation roots](docs/mod-package-detection.md)
+- [MO2 profile adapters and archive-list helpers](docs/mo2-profile-adapters.md)
+- [Save metadata and MO2 feature boundaries](docs/save-metadata-and-mo2-features.md)
+
+## Licensing and provenance
+
+There is currently no top-level `LICENSE` file in this repository. Public source availability does not itself establish redistribution rights; verify the applicable licenses and permissions for original and reused components before redistributing them.
+
+The Redguard integration draws on earlier Redguard Mod Manager Java work, adapted for C++ and MO2. The MO2 plugin system and associated libraries belong to their respective maintainers.
 
 ## Credits
 
-Based on the Redguard Mod Manager Java implementation. Ported to C++ for MO2 integration.
+- Dillonn241 for early Redguard modding work
+- The Mod Organizer 2 team for the plugin system
+- Bethesda for the XnGine games
 
-## Support
-
-For issues or questions, open a GitHub issue or ask in the Mod Organizer 2 community.
-
-## Acknowledgments
-
-- Dillonn241 for starting the Redguard modding scene
-- Mod Organizer 2 team for the plugin system
-- Bethesda for the XnGine engine and Redguard
-
-## Support
-
-For issues, questions, or contributions, see the development documentation in `docs/archive/`.
-3. Follow build instructions above
-4. Test thoroughly using [TESTING_GUIDE.md](TESTING_GUIDE.md)
-
-## License
-
-See project license file for details.
-
-## Acknowledgments
-
-- Dillonn241 for starting the Redguard modding scene
-- ModOrganizer 2 team for the plugin system
-- Bethesda for XnGine
+For questions, issues, or contributions, use this repository's GitHub issue tracker.

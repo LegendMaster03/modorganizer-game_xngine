@@ -274,6 +274,8 @@ constexpr const char* kRmbPrefixes[] = {
 constexpr const char* kRdbPrefixes[] = {"N", "W", "L", "S", "B", "M"};
 }
 
+// The descriptive world-data tables are sparse reference mappings, not
+// validated runtime enumerations. Unsupported codes remain unnamed.
 QString regionName(int regionIndex)
 {
   if (regionIndex == 105) {
@@ -321,6 +323,8 @@ bool isTownBuildingTypeShownOnAutomap(int buildingTypeCode)
   }
 }
 
+// These are bit-mask predicates used for the world-map visibility flag,
+// not range tests against the finite kLocationTypes name table.
 bool isLocationTypeKnownOnWorldMap(int locationType)
 {
   return locationType == (0xAF & locationType);
@@ -342,6 +346,8 @@ bool isMapsaveRecordName(const QString& recordName)
   return rowRe.match(recordName).hasMatch();
 }
 
+// A block index outside the known prefix array has no inferred filename;
+// return empty rather than inventing a neighboring block category.
 QString rmbPrefixForBlockIndex(quint8 blockIndex)
 {
   if (blockIndex >= std::size(kRmbPrefixes)) {

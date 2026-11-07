@@ -11,6 +11,8 @@ class RedguardsMapChanges;
 
 #include "redguardsmapheader.h"
 
+// Represents one RGM map and its decoded script records. Writing builds
+// selected sections again; it is not a byte-for-byte preservation API.
 class RedguardsMapFile
 {
 public:
@@ -26,6 +28,8 @@ public:
 
   bool isEmpty() const { return mMapHeaders.isEmpty(); }
   QString getScript() const;
+  // Applies original-line deletion and ordered insertion markers by
+  // decoded source-line position, not by offsets in the binary map file.
   QString getModifiedScript(const RedguardsMapChanges& mapChanges) const;
 
   int scriptDataOffset() const { return mScriptDataOffset; }

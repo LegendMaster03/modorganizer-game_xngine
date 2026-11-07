@@ -10,6 +10,8 @@ class IOrganizer;
 class IModList;
 }
 
+// Ordered selection of active patch mods. lastPatchPriority is used to
+// position the generated output mod after the last contributor.
 struct RedguardsPatchScanResult
 {
   int patchModCount = 0;
@@ -23,6 +25,9 @@ bool canApplyRedguardExePatchMods(MOBase::IOrganizer* organizer,
                                   const QString& pluginName,
                                   const QString& gameDir);
 
+// Generates a profile-named temporary output mod and applies eligible patch
+// inputs in MO2 order. Returns false for failures but does not roll back
+// partially staged output; see docs/redguard-patch-lifecycle.md.
 bool applyRedguardPatchMods(MOBase::IOrganizer* organizer,
                             const QString& pluginName,
                             const QString& profilePath,
@@ -36,6 +41,8 @@ RedguardsPatchScanResult scanRedguardPatchMods(MOBase::IModList* modList,
                                                bool allowDillon241,
                                                bool allowExeMods);
 
+// Removes/recreates the generated output folder and registers finished-run
+// cleanup. The current callback is registered only once per process.
 bool prepareRedguardTempPatchMod(MOBase::IOrganizer* organizer,
                                  MOBase::IModList* modList,
                                  const QString& tempModName,

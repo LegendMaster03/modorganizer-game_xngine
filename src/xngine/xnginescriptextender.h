@@ -5,6 +5,8 @@
 
 class GameXngine;
 
+// Stub MO2 feature. Its loader, version, and associated save extension
+// remain unset; presence of this class does not imply extender support.
 class XngineScriptExtender : public MOBase::ScriptExtender
 {
 public:

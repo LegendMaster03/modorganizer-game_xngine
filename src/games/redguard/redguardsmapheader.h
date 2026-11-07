@@ -6,6 +6,9 @@
 #include <QString>
 #include <cstdint>
 
+// Parsed RGM script header and its associated strings, variables, and
+// compiled script bytes. Offsets refer to the map's shared data buffers;
+// accessors do not independently validate these ranges.
 class RedguardsMapHeader
 {
 public:

@@ -10,6 +10,8 @@
 
 #include <array>
 
+// Segment container for embedded or externally referenced 3DC meshes.
+// Mesh parsing can warn independently of structural container parsing.
 class RedguardsRobFormat
 {
 public:
@@ -32,9 +34,12 @@ public:
     QByteArray payloadData;
 
     bool usesEmbeddedPayload() const { return payloadSize > 0; }
+    // A zero payload means the parser will try a sibling name.3DC file
+    // when an external directory is available, not that it exists.
     bool usesExternalPayload() const { return payloadSize == 0; }
     QString externalFileName() const { return name + ".3DC"; }
 
+    // Remains false if an external file is missing or mesh decoding fails.
     bool parsedMesh = false;
     Redguards3d::MeshRecord mesh;
     QString warning;

@@ -38,6 +38,8 @@ QVector<DaggerfallTextVariables::Entry> parseEntriesFromTable(const QString& tab
 
 }  // namespace
 
+// The on-disk variable hash is a rolling left-shift/add over bytes.
+// Different names can collide, so a hash is not a unique reverse key.
 quint32 DaggerfallTextVariables::hashVariableName(QByteArrayView name)
 {
   quint32 val = 0;
@@ -615,6 +617,8 @@ QVector<DaggerfallTextVariables::Entry> DaggerfallTextVariables::knownEntries()
   return kEntries;
 }
 
+// Return all distinct candidate names for one hash instead of selecting
+// the first catalog entry and pretending collisions cannot occur.
 QStringList DaggerfallTextVariables::namesForHash(quint32 hash)
 {
   QStringList out;
@@ -628,6 +632,8 @@ QStringList DaggerfallTextVariables::namesForHash(quint32 hash)
   return out;
 }
 
+// Extract syntax-level %tokens from rendered text. This does not prove
+// each token exists in the known hash/name catalog.
 QStringList DaggerfallTextVariables::extractVariables(const QString& text)
 {
   QStringList out;

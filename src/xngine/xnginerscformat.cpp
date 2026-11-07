@@ -64,6 +64,8 @@ qsizetype nextOffsetEnd(quint32 start, const QVector<quint32>& sortedOffsets, qs
   return fileSize;
 }
 
+// TEXT.RSC recognition is a plausibility test: six-byte header entries,
+// one sentinel, and a first record offset beyond the header table.
 XngineRscFormat::Variant detectVariant(const QByteArray& bytes)
 {
   if (bytes.size() < 8) {
@@ -249,6 +251,9 @@ bool XngineRscFormat::parseTextRecord(const QByteArray& bytes, TextRecord& outRe
   return true;
 }
 
+// A header-length count includes the final sentinel. Sort offsets to
+// bound each payload independently of header ordering; malformed records
+// can produce warnings while usable records remain available.
 bool XngineRscFormat::parseTextRecordDatabase(const QByteArray& bytes, TextRecordDatabase& outDb,
                                               QString* errorMessage, bool strictValidation)
 {
@@ -316,6 +321,8 @@ bool XngineRscFormat::parseTextRecordDatabase(const QByteArray& bytes, TextRecor
     return setError(errorMessage, "No valid record headers");
   }
 
+  // The sentinel terminates the payload region even though it is not a
+  // regular record. Preserve independent header IDs and offsets.
   offsets.push_back(outDb.sentinelHeader.offset);
   const QVector<quint32> sortedOffsets = sortedUniqueOffsets(offsets);
 
@@ -353,6 +360,8 @@ bool XngineRscFormat::parseTextRecordDatabase(const QByteArray& bytes, TextRecor
   return true;
 }
 
+// Rebuild offsets from the supplied raw record bytes in current order.
+// This is structured serialization, not a byte-identical file copy.
 bool XngineRscFormat::writeTextRecordDatabase(const TextRecordDatabase& db, QByteArray& outBytes,
                                               QString* errorMessage)
 {

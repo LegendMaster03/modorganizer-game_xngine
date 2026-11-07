@@ -12,13 +12,17 @@
 
 /**
  * Daggerfall-specific mod data checker.
- * Daggerfall mod detection based on Format 0 (file replacement) only.
+ * Recognizes classic replacement files, optional patch formats, save packs,
+ * and compatibility markers. Acceptance does not execute Unity mods,
+ * installers, nested archives, or quest-source compilation.
  */
 class DaggerfallsModDataChecker : public XngineModDataChecker
 {
 public:
   using XngineModDataChecker::XngineModDataChecker;
 
+  // Reject disallowed patch/executable payloads before accepting the
+  // remainder of a package as recognizable classic game content.
   virtual CheckReturn
   dataLooksValid(std::shared_ptr<const MOBase::IFileTree> fileTree) const override
   {
@@ -208,7 +212,8 @@ protected:
 
   virtual const FileNameSet& possibleFileExtensions() const override
   {
-    // Daggerfall-specific extensions (Format 0 only at this time)
+    // Includes compatibility and discovery formats, not just file overrides.
+    // This list does not imply the game can execute every matching payload.
     static FileNameSet result{
         "dat",     // Daggerfall data files
         "mif",     // Map interchange format
@@ -765,6 +770,8 @@ private:
     return QString("%1/%2").arg(lhs, rhs);
   }
 
+  // Preserve the containing DF/DAGGER install root when ARENA2 was
+  // selected inside it, so the game's directory structure remains intact.
   QString normalizeSelectedInstallRootPath(const QString& selectedPath) const
   {
     if (selectedPath.isEmpty()) {
@@ -1036,6 +1043,9 @@ private:
     return out;
   }
 
+  // Score wrapper candidates by payload strength and path conventions;
+  // documentation folders and deep nesting receive penalties. Equal scores
+  // favor shorter paths, but scoring does not verify game compatibility.
   std::shared_ptr<const MOBase::IFileTree> selectInstallTreeConstByPath(
       std::shared_ptr<const MOBase::IFileTree> fileTree, const QStringList& paths) const
   {

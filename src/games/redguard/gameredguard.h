@@ -10,6 +10,8 @@
 #include <windows.h>
 #include <memory>
 
+// Redguard integration resolves assets named by SYSTEM.INI and separates
+// Dillon241 sidecar patch approval from executable replacement policy.
 class GameRedguard : public GameXngine
 {
   Q_OBJECT
@@ -52,6 +54,8 @@ public:  // IPlugin interface
   bool allowDillon241PatchInstall() const;
   bool showDeveloperSaveDetails() const;
   bool showFullSvitInventory() const;
+  // Configured filenames may override fallback asset names, including via
+  // the MO2 overwrite locations supported by this plugin.
   QString configuredSystemRelativePath(const QString& key, const QString& fallback) const;
   QString configuredSystemFilename(const QString& key, const QString& fallback) const;
   QString configuredSystemPath(const QString& key, const QString& fallback) const;

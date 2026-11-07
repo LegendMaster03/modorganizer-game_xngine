@@ -6,6 +6,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Reads MAGIC.DEF records and exposes curated item-maker spell catalogs.
+// The latter are descriptive lookups, not executable enchantment effects.
 class DaggerfallMagicDef
 {
 public:
@@ -58,6 +60,8 @@ public:
     QString name;
   };
 
+  // Record count comes from the header; records contains only complete
+  // entries decoded from available bytes, with discrepancies in warning.
   struct File
   {
     quint32 recordCount = 0;

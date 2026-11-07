@@ -50,6 +50,8 @@ void writeLE16U(QByteArray& out, quint16 value)
   out.append(reinterpret_cast<const char*>(&le), sizeof(le));
 }
 
+// Infer six-bit DAC values only when every channel byte lies in 0..63.
+// A single higher value switches the whole palette to eight-bit scaling.
 void finalizePalette(const QByteArray& rgbBytes, XnginePaletteFormat::Palette& outPalette)
 {
   outPalette = {};
@@ -76,6 +78,8 @@ void finalizePalette(const QByteArray& rgbBytes, XnginePaletteFormat::Palette& o
   }
 }
 
+// Exact size separates raw (768) and headered (776) 256-color palettes.
+// Permitting trailing data is a caller-controlled compatibility heuristic.
 XnginePaletteFormat::Variant detectVariant(const QByteArray& bytes,
                                            const XnginePaletteFormat::Traits& traits,
                                            bool* usedTrailing)

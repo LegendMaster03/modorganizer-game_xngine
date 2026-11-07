@@ -52,6 +52,8 @@ bool parseTextureField(const QString& text, int& outFile, int& outRecordIndex)
   return true;
 }
 
+// A leading '?' is a separate marker from the 1/2 gender code.
+// Unknown numeric values should not be assigned an invented category.
 bool parseGenderField(const QString& text, DaggerfallFlatsCfg::Gender& outGender, bool& outObscene)
 {
   QString value = text.trimmed();
@@ -83,6 +85,9 @@ bool parseGenderField(const QString& text, DaggerfallFlatsCfg::Gender& outGender
 
 }  // namespace
 
+// FLATS.CFG is grouped into fixed-field text records separated by blank
+// lines. Malformed record counts warn and are skipped; invalid required
+// numeric fields can reject an otherwise complete record.
 bool DaggerfallFlatsCfg::loadFile(const QString& filePath, File& outFile, QString* errorMessage)
 {
   outFile = {};

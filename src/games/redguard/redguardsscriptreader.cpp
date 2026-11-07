@@ -49,6 +49,8 @@ RedguardsScriptReader::RedguardsScriptReader(RedguardsMapDatabase* mapDatabase,
   mInput.open(QIODevice::ReadOnly);
 }
 
+// Decode byte instructions into a readable approximation of the script.
+// Names and parameter interpretation rely on the loaded map/SOUP database.
 QString RedguardsScriptReader::read()
 {
   getBlock(mHeader->scriptLength());
@@ -203,6 +205,8 @@ void RedguardsScriptReader::getBlock(int lastPos)
   mIndentLevel--;
 }
 
+// Unknown numeric task IDs are preserved as UNKNOWN<n> while consuming
+// their declared parameters, rather than attributing a known function name.
 void RedguardsScriptReader::getTaskText(int taskType)
 {
   int id = readShort();
@@ -246,6 +250,8 @@ void RedguardsScriptReader::getTaskText(int taskType)
   mCurrentInstruction->appendText(")");
 }
 
+// The compiled condition stores a byte offset for the nested block's end;
+// render recursively up to that boundary to retain indentation/structure.
 void RedguardsScriptReader::getIf()
 {
   mCurrentInstruction->appendText("if ");

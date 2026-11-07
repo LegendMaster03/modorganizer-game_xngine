@@ -2,6 +2,8 @@
 
 namespace {
 
+// Curated descriptive effect catalog, not an interpreter for spell
+// calculations or a guarantee that all engine types are understood.
 QVector<DaggerfallSpellsStd::EffectType> buildEffectTypes()
 {
   return {
@@ -238,6 +240,8 @@ bool DaggerfallSpellsStd::isEffectTypeRemoved(int type, int subtype)
   return false;
 }
 
+// Standard spell indices need not be unique in the curated catalog;
+// return every matching entry rather than arbitrarily selecting one.
 QVector<DaggerfallSpellsStd::SpellEntry> DaggerfallSpellsStd::findSpellsByStdIndex(int stdIndex)
 {
   QVector<SpellEntry> out;
@@ -253,6 +257,8 @@ QVector<DaggerfallSpellsStd::SpellEntry> DaggerfallSpellsStd::findSpellsByStdInd
   return out;
 }
 
+// Name lookup is case-insensitive and includes the documented spelling
+// variant for Spell Absorption without renaming the stored entry.
 DaggerfallSpellsStd::SpellEntry DaggerfallSpellsStd::findFirstSpellByName(const QString& name)
 {
   const QString needle = name.trimmed();
