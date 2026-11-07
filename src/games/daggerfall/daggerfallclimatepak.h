@@ -5,6 +5,9 @@
 #include <QString>
 #include <QVector>
 
+// Row-compressed terrain/climate index map. Keep decoded rows, offset
+// metadata, and warnings separate; numeric climate values are interpreted
+// through mappingForValue rather than directly as texture filenames.
 class DaggerfallClimatePak
 {
 public:
