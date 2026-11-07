@@ -17,6 +17,10 @@ RedguardsMapFile::RedguardsMapFile(RedguardsMapDatabase* mapDatabase, const QStr
 {
 }
 
+// RGM records use four-byte tags and big-endian signed lengths. A malformed
+// or short section ends scanning; this reader may still report success with
+// the records it has accumulated, so it is not strict integrity validation.
+bool RedguardsMapFile::readMap(const QString& filePath)
 bool RedguardsMapFile::readMap(const QString& filePath)
 {
   QFile file(filePath);
@@ -58,6 +62,10 @@ bool RedguardsMapFile::readMap(const QString& filePath)
   return true;
 }
 
+// Reconstruct selected script/header sections and copy other known records
+// in a fixed order. This is not proven byte-identical to the original map;
+// unknown sections are not automatically preserved by this writer.
+bool RedguardsMapFile::writeMap(const QString& filePath, const QString& script)
 bool RedguardsMapFile::writeMap(const QString& filePath, const QString& script)
 {
   QFile file(filePath);
@@ -306,6 +314,10 @@ QString RedguardsMapFile::getModifiedScript(const RedguardsMapChanges& mapChange
   return output;
 }
 
+// The header table supplies offsets and sizes for the shared script/string
+// buffers. The current code assumes those offsets are coherent; parsing is
+// not a complete structural validator for a damaged RGM file.
+void RedguardsMapFile::parseMapHeaders()
 void RedguardsMapFile::parseMapHeaders()
 {
   const QByteArray headerBytes = mRecords.value("RAHD");

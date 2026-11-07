@@ -21,6 +21,9 @@ public:
     V5_0
   };
 
+  // Records which heuristic was used for v2.x polygons with more than four
+  // UV points. Reconstruction is not equivalent to reading stored UVs.
+  enum class UvReconstructionMode
   enum class UvReconstructionMode
   {
     None,
@@ -119,6 +122,9 @@ public:
     float z = 0.0f;
   };
 
+  // Parsed geometry can include warnings about partial or inferred
+  // auxiliary data; isValid only checks that a supported version was seen.
+  struct MeshRecord
   struct MeshRecord
   {
     Header header;

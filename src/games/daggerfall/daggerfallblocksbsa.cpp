@@ -253,6 +253,10 @@ bool parseRmbBlockData(const QByteArray& data, qsizetype& cursor,
   return true;
 }
 
+// The 6,776-byte fixed header precedes counted exterior/interior block
+// pairs and model/flat lists. Preserve raw bytes and report uncertain extra
+// content as warnings rather than inventing missing schema fields.
+bool parseRmb(const QByteArray& data, DaggerfallBlocksBsa::RmbRecord& outRmb, QString* errorMessage)
 bool parseRmb(const QByteArray& data, DaggerfallBlocksBsa::RmbRecord& outRmb, QString* errorMessage)
 {
   outRmb = {};
@@ -369,6 +373,9 @@ bool parseRmb(const QByteArray& data, DaggerfallBlocksBsa::RmbRecord& outRmb, QS
       return setError(errorMessage, "RMB block data exceeds record size");
     }
 
+    // Advance by the declared block size, not the number of records parsed:
+    // a block can contain payload bytes not represented in our model yet.
+    const qsizetype blockStart = cursor;
     const qsizetype blockStart = cursor;
     const qsizetype blockEnd = cursor + static_cast<qsizetype>(declaredSize);
 
@@ -437,6 +444,10 @@ bool parseRmb(const QByteArray& data, DaggerfallBlocksBsa::RmbRecord& outRmb, QS
   return true;
 }
 
+// RDB object references form potentially cyclic linked lists. Decode all
+// reachable objects before resolving action links; missing targets remain
+// unresolved diagnostics rather than fabricated object relationships.
+bool parseRdb(const QByteArray& data, DaggerfallBlocksBsa::RdbRecord& outRdb, QString* errorMessage)
 bool parseRdb(const QByteArray& data, DaggerfallBlocksBsa::RdbRecord& outRdb, QString* errorMessage)
 {
   outRdb = {};
@@ -521,6 +532,9 @@ bool parseRdb(const QByteArray& data, DaggerfallBlocksBsa::RdbRecord& outRdb, QS
   }
 
   // Walk linked object lists from every root.
+  // Multiple roots can point into the same list, and malformed lists can
+  // cycle. A shared visited set bounds traversal and prevents duplicates.
+  QHash<qint32, bool> visited;
   QHash<qint32, bool> visited;
   for (qint32 root : outRdb.objectRootList) {
     qint32 current = root;
@@ -697,6 +711,9 @@ bool DaggerfallBlocksBsa::listRecordNames(const QString& blocksBsaPath,
   return true;
 }
 
+// Outer archive parsing only identifies the named record. The record name
+// then selects RMB/RDB/RDI decoding, each with distinct data boundaries.
+bool DaggerfallBlocksBsa::loadRecord(const QString& blocksBsaPath,
 bool DaggerfallBlocksBsa::loadRecord(const QString& blocksBsaPath,
                                      const QString& recordName,
                                      Record& outRecord,
