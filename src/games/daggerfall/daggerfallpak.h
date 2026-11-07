@@ -4,6 +4,8 @@
 #include <QByteArray>
 #include <QString>
 
+// Fixed three-byte run-length PAK codec used by legacy map rasters.
+// This is separate from the LZSS and ZIP-style archive decompressors.
 class DaggerfallPak
 {
 public:
