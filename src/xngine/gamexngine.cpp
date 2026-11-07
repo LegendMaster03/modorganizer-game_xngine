@@ -868,6 +868,8 @@ bool GameXngine::packXngineBsaArchiveFromManifest(const QString& inputDirectory,
 }
 
 std::optional<XngineBSAFormat::FileSpec>
+// Match only a declared archive basename, case-insensitively. A known
+// basename does not necessarily mean its index type has been identified.
 GameXngine::bsaFileSpecForArchiveName(const QString& archiveName) const
 {
   const QString lookup = QFileInfo(archiveName).fileName();
@@ -879,6 +881,8 @@ GameXngine::bsaFileSpecForArchiveName(const QString& archiveName) const
   return std::nullopt;
 }
 
+// Known filenames may carry game-specific SND/SAV hints; unrecognized
+// archives still use the generic game traits through the other entry point.
 bool GameXngine::unpackKnownXngineBsaArchive(const QString& archivePath,
                                              const QString& outputDirectory,
                                              QString* errorMessage) const
@@ -891,6 +895,8 @@ bool GameXngine::unpackKnownXngineBsaArchive(const QString& archivePath,
   return XngineBSAFormat::unpackToDirectory(archivePath, outputDirectory, errorMessage, traits);
 }
 
+// Creating a known archive requires an explicit index mapping. A filename
+// can be recognized for extraction without being safe to pack generically.
 bool GameXngine::packKnownXngineBsaArchive(const QString& inputDirectory,
                                            const QString& archivePath,
                                            QString* errorMessage) const
@@ -905,6 +911,8 @@ bool GameXngine::packKnownXngineBsaArchive(const QString& inputDirectory,
     return false;
   }
 
+  // Prefer the extraction manifest to preserve entry ordering and IDs;
+  // a directory listing alone cannot recover that metadata.
   const QString manifestPath =
       QDir(inputDirectory).filePath("xngine_bsa_manifest.tsv");
   if (QFileInfo::exists(manifestPath)) {

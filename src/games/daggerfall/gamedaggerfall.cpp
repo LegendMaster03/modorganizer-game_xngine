@@ -885,6 +885,9 @@ QString GameDaggerfall::saveGameId() const
   return "daggerfall";
 }
 
+// Daggerfall's known archives use uncompressed records and DOS 8.3
+// uppercase names; these constraints belong to the Daggerfall plugin,
+// not every archive handled by the shared reader.
 XngineBSAFormat::Traits GameDaggerfall::bsaTraits() const
 {
   XngineBSAFormat::Traits traits;
@@ -894,6 +897,9 @@ XngineBSAFormat::Traits GameDaggerfall::bsaTraits() const
   return traits;
 }
 
+// Most index types are declared by known filename; the automap SAV name
+// may be overridden by the game's configuration. Keep that mapping scoped
+// to this title rather than inferring it from the extension alone.
 QVector<XngineBSAFormat::FileSpec> GameDaggerfall::bsaFileSpecs() const
 {
   const QString configuredMapSave =
