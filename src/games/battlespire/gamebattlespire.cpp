@@ -418,6 +418,9 @@ QVector<XngineBSAFormat::FileSpec> GameBattlespire::bsaFileSpecs() const
     };
   }
 
+// Battlespire allows LZSS decoding on read. A compressed write only passes
+// through already encoded bytes; unpacking and repacking a decompressed
+// record is not automatically a compression-preserving round trip.
 XngineBSAFormat::Traits GameBattlespire::bsaTraits() const
 {
   XngineBSAFormat::Traits traits;

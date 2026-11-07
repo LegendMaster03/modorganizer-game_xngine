@@ -9,6 +9,8 @@
 class XngineBSAFormat
 {
 public:
+  // These index tags select the shared DOS-era XnGine container footer
+  // format; they do not describe the record's game-specific payload.
   enum class IndexType : quint16
   {
     NameRecord = 0x0100,
@@ -28,6 +30,8 @@ public:
     Sav
   };
 
+  // Per-game capabilities. Passthrough flags authorize handling already
+  // compressed bytes; they do not provide a compression encoder.
   struct Traits
   {
     bool allowCompressed = false;
@@ -35,6 +39,8 @@ public:
     bool allowCompressedPassthroughWrite = false;
     bool enforceDos83Names = false;
     bool normalizeNameCase = false;
+    // If the interpreted type tag is unknown, permit a count-only header
+    // and the NameRecord fallback. This is not general format autodetection.
     bool allowMissingTypeHeader = false;
     bool writeTypeHeader = true;
     CompressionMode compressionMode = CompressionMode::None;
@@ -56,6 +62,8 @@ public:
     QVector<Entry> entries;
   };
 
+  // Known archive filename and optional index mapping. Recognition by name
+  // is weaker than knowing how to pack it: indexTypeKnown may be false.
   struct FileSpec
   {
     QString archiveName;
@@ -83,6 +91,8 @@ public:
                                 IndexType type, QString* errorMessage = nullptr,
                                 const Traits& traits = Traits{});
 
+  // Uses manifest order and record metadata. It does not recompress bytes
+  // when a manifest marks an entry as compressed.
   static bool packFromManifestFile(const QString& inputDirectory,
                                    const QString& manifestFilePath,
                                    const QString& filePath, IndexType type,
