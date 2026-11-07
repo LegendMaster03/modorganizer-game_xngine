@@ -56,6 +56,9 @@ bool DaggerfallFallExeItems::loadFromExe(const QString& exePath, ItemTable& outT
   return decodeFromBytes(data, outTable, errorMessage);
 }
 
+// This executable table is located by its first observed item name,
+// "Ruby", then aligned heuristically; it is not a verified signature
+// for every FALL.EXE version.
 bool DaggerfallFallExeItems::decodeFromBytes(const QByteArray& exeData, ItemTable& outTable,
                                              QString* errorMessage)
 {
@@ -113,6 +116,9 @@ bool DaggerfallFallExeItems::decodeFromBytes(const QByteArray& exeData, ItemTabl
     rec.unknown2E = static_cast<quint8>(exeData.at(off + 0x2E));
     rec.unknown2F = static_cast<quint8>(exeData.at(off + 0x2F));
 
+    // The table end has no independently verified sentinel here. Stop at
+    // implausible records and warn rather than treating arbitrary EXE data
+    // as additional item descriptions.
     if (i > 0 && probablyEndOfTable(rec)) {
       Daggerfall::FormatUtil::appendWarning(
           outTable.warning,
@@ -139,6 +145,8 @@ bool DaggerfallFallExeItems::decodeFromBytes(const QByteArray& exeData, ItemTabl
   return true;
 }
 
+// Partial interpretation of embedded little-endian item picture codes;
+// names are descriptive metadata, not an exhaustive picture database.
 QHash<quint16, QString> DaggerfallFallExeItems::knownPictureCodes()
 {
   // Stored as little-endian code: low byte first, high byte second.

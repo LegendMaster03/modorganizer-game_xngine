@@ -8,6 +8,9 @@ namespace {
 
 }  // namespace
 
+// The file header declares a count of fixed-size records. Decode only
+// complete records available in the file; mismatched counts/trailing
+// bytes are retained as warnings instead of reading past the payload.
 bool DaggerfallMagicDef::loadFile(const QString& magicDefPath, File& outFile,
                                   QString* errorMessage)
 {
@@ -122,6 +125,8 @@ QStringList DaggerfallMagicDef::castWhenStrikesSpells()
   };
 }
 
+// Spell-type codes are interpreted in the context of the item-maker
+// trigger; an identical code can describe different triggered spell lists.
 QVector<DaggerfallMagicDef::SpellTypeCode> DaggerfallMagicDef::spellTypeCodes(
     ItemMakerTrigger trigger)
 {
@@ -194,6 +199,8 @@ int DaggerfallMagicDef::typeCodeFromSpellName(ItemMakerTrigger trigger, const QS
   return -1;
 }
 
+// Resolve spell references from the known catalogs; this does not infer
+// effects for unidentified or unsupported enchantment records.
 QVector<DaggerfallMagicDef::SpellReference> DaggerfallMagicDef::spellReferences(
     ItemMakerTrigger trigger)
 {

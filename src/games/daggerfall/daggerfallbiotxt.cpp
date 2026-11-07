@@ -6,6 +6,9 @@
 
 namespace {
 
+// Recognize selected biography effect directives while retaining their
+// original text. Unknown forms remain representable as raw lines rather
+// than being silently interpreted as a different effect.
 DaggerfallBioTxt::Directive parseDirective(const QString& line)
 {
   DaggerfallBioTxt::Directive d;
@@ -156,6 +159,9 @@ bool DaggerfallBioTxt::loadFile(const QString& filePath, File& outFile, QString*
   return parseText(text, outFile, errorMessage);
 }
 
+// Bind numbered questions to lettered answers and subsequent effect
+// directives. Odd line endings or unattached lines warn; only failure to
+// find any question rejects the entire biography.
 bool DaggerfallBioTxt::parseText(const QString& text, File& outFile, QString* errorMessage)
 {
   outFile = {};
@@ -216,6 +222,8 @@ bool DaggerfallBioTxt::parseText(const QString& text, File& outFile, QString* er
       }
     }
 
+    // Directives without an active option are not assigned to a guessed
+    // question/answer; preserve the uncertainty in the warning stream.
     if (currentOption == nullptr) {
       Daggerfall::FormatUtil::appendWarning(
           outFile.warning, QString("Unattached line at %1: %2").arg(lineNo + 1).arg(line.trimmed()));
