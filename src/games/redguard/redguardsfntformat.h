@@ -8,6 +8,8 @@
 #include <QString>
 #include <QVector>
 
+// Chunked font file with indexed glyphs and optional raw RDAT metadata.
+// Unknown RDAT layouts remain available without guessed field mappings.
 class RedguardsFntFormat
 {
 public:
@@ -59,6 +61,7 @@ public:
     quint32 unknownAC = 0;
     quint32 unknownB0 = 0;
     quint8 unknownB4 = 0;
+    // True only for the recognized 173-byte RDAT payload shape.
     bool parsedFields = false;
   };
 
@@ -79,6 +82,8 @@ public:
   static bool parseBytes(const QByteArray& bytes, Document& outDocument,
                          QString* errorMessage = nullptr);
 
+  // Converts parsed glyph indices with the supplied palette; it does not
+  // independently validate the original file's chunk structure.
   static bool decodeGlyphImage(const Glyph& glyph,
                                const XnginePaletteFormat::Palette& palette,
                                QImage& outImage,
