@@ -670,6 +670,8 @@ QString ArenaSaveGame::slotSuffix() const
   return fileName.mid(dot + 1);
 }
 
+// Prefer the explicit SAVEENGN.NN filename; fall back to a SAVE<N> parent
+// directory for installs that expose the slot through its folder name.
 void ArenaSaveGame::detectSlotFromFilename()
 {
   {
@@ -704,6 +706,9 @@ void ArenaSaveGame::detectSlotFromFilename()
   m_SaveNumber = static_cast<unsigned long>(slot);
 }
 
+// Quest progression is inferred only when the full fixed-offset flag window
+// is readable. These byte interpretations are format heuristics, not a
+// complete quest-state engine.
 void ArenaSaveGame::parseQuestFlags()
 {
   bool allRead = true;

@@ -161,6 +161,8 @@ bool GameXngine::shouldLogForCurrentProfile() const
   return managedGame == this;
 }
 
+// MO2 may load plugins for several games. Only the currently managed game
+// should register a feature when MO2 has identified that game.
 bool GameXngine::shouldRegisterManagedGameFeatures(const QString& pluginName) const
 {
   if (m_Organizer == nullptr) {
@@ -219,6 +221,9 @@ bool GameXngine::init(MOBase::IOrganizer* moInfo)
        env.value(QStringLiteral("XNGINE_DISABLE_ARCHIVE_HANDLER_FEATURE")) ==
            QStringLiteral("1"));
 
+  // During early initialization the managed game may not yet be available.
+  // Defer feature registration until UI initialization instead of attaching
+  // an archive handler to an unrelated game; the force flag overrides gating.
   const auto tryRegisterArchiveHandlerFeature =
       [this, forceArchiveHandlerFeature]() -> bool {
     if (m_ArchiveHandlerFeatureRegistered || m_Organizer == nullptr) {
@@ -422,6 +427,9 @@ QDir GameXngine::savesDirectory() const
   return QDir(paths.gameSavesRoot);
 }
 
+// Use the derived game's declared slot layout first. Only if it finds no
+// slots do we probe older install/document paths; fallback copies are
+// best-effort and must not replace already existing profile files.
 std::vector<std::shared_ptr<const MOBase::ISaveGame>>
 GameXngine::listSaves(QDir folder) const
 {
@@ -514,6 +522,9 @@ GameXngine::listSaves(QDir folder) const
         return true;
       };
 
+      // Legacy saves outside the profile are copied into its game-specific
+      // save root when missing. If copying fails, the original path is still
+      // returned; this fallback is not a transactional import.
       auto materializeInProfile = [&](const QFileInfo& entry) -> QString {
         const QString sourcePath = QDir::cleanPath(entry.absoluteFilePath());
         if (sourcePath.compare(profileSaveRoot, Qt::CaseInsensitive) == 0 ||
@@ -619,6 +630,8 @@ GameXngine::listSaves(QDir folder) const
     }
     if (shouldLogForCurrentProfile()) qInfo().noquote() << "[GameXngine] listSaves() - slots found:" << saveSlots.size()
                       << "root:" << paths.gameSavesRoot;
+    // Some formats have one logical save per slot directory; others contain
+    // multiple save files inside a slot. Let the declared layout decide.
     for (const auto& slot : saveSlots) {
       if (layout.oneSavePerSlot) {
         try {
@@ -1063,6 +1076,8 @@ MappingType GameXngine::mappings() const
 /*static*/ std::vector<SaveSlot>
 GameXngine::enumerateSaveSlots(const SaveStoragePaths& paths, const SaveLayout& layout)
 {
+  // Directory slots may require a game-specific payload validator. File slots
+  // use the declared filename regex without that directory validator.
   std::vector<SaveSlot> out;
   for (const auto& baseRel : layout.baseRelativePaths) {
     QDir baseDir(QDir(paths.gameSavesRoot).filePath(baseRel));
@@ -1097,6 +1112,8 @@ GameXngine::enumerateSaveSlots(const SaveStoragePaths& paths, const SaveLayout& 
     }
   }
 
+  // Numeric slot order is stable; newest modification wins ties between
+  // multiple entries mapping to the same slot number.
   std::sort(out.begin(), out.end(), [](const SaveSlot& a, const SaveSlot& b) {
     if (a.slotNumber != b.slotNumber)
       return a.slotNumber < b.slotNumber;
