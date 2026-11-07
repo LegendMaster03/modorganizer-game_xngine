@@ -4,9 +4,9 @@
 
 #include <algorithm>
 
-QVector<DaggerfallTextRecord::Token>
 // Keep shared TEXT.RSC token boundaries while projecting the token types
 // into Daggerfall's API, including unrecognized raw control codes.
+QVector<DaggerfallTextRecord::Token>
 DaggerfallTextRecord::tokenizeSubrecord(const QByteArray& bytes)
 {
   QVector<Token> out;
