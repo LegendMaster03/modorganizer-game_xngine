@@ -6,6 +6,9 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Legacy Daggerfall JSON patch-catalog interface. Built-in hardcoded sets
+// are intentionally disabled; definitions must come from caller-supplied data.
+class DaggerfallFallExeHacks
 class DaggerfallFallExeHacks
 {
 public:
@@ -40,7 +43,9 @@ public:
   static bool findPatchSetById(const QVector<PatchSet>& sets, const QString& id,
                                PatchSet& outSet);
 
-  static bool verifyPatchSet(const QByteArray& exeData, const PatchSet& set,
+  // Checks expected bytes and bounds before any changes for this set.
+  // Without expected bytes, it cannot establish executable compatibility.
+  static bool verifyPatchSet(const QByteArray& exeData,  static bool verifyPatchSet(const QByteArray& exeData, const PatchSet& set,
                              QString* errorMessage = nullptr);
   static bool applyPatchSet(QByteArray& exeData, const PatchSet& set,
                             QString* errorMessage = nullptr);

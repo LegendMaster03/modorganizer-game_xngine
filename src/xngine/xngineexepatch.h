@@ -9,7 +9,10 @@
 
 namespace XngineExePatch
 {
+// Offsets address the current in-memory executable image. Expected bytes
+// are optional; omitting them removes the source-byte compatibility check.
 struct BytePatch
+{struct BytePatch
 {
   qsizetype offset = -1;
   QByteArray replacement;
@@ -29,32 +32,42 @@ struct PatchSet
 bool loadPatchSetsFromJsonFile(const QString& jsonPath, QVector<PatchSet>& outSets,
                                QString* errorMessage = nullptr);
 bool validatePatchSets(const QVector<PatchSet>& sets, QString* errorMessage = nullptr);
-bool applyPatchSets(QByteArray& exeData, const QVector<PatchSet>& sets,
+// Verifies each set before applying that set; earlier sets are not rolled
+// back if a later set fails. The caller owns persistence of the result.
+bool applyPatchSets(QByteArray& exeData,bool applyPatchSets(QByteArray& exeData, const QVector<PatchSet>& sets,
                     QString* errorMessage = nullptr);
 
 QString findFirstExistingFile(const QString& rootPath, const QStringList& relativeCandidates);
 QString findFirstMatchingFileRecursive(const QString& rootPath, const QStringList& fileNames);
 
 QString findFirstTool(const QStringList& candidates);
-QString findXdeltaTool(const QString& modRootPath, const QString& gameRootPath,
+// Resolves a configured path or searches mod/game/MO2/tool locations and
+// environment/PATH fallbacks. Presence does not prove tool compatibility.
+QString findXdeltaTool(const QString& modRootPath,QString findXdeltaTool(const QString& modRootPath, const QString& gameRootPath,
                        const QString& configuredPath = {});
 bool applyXdeltaPatch(const QString& xdeltaTool, const QString& sourceExe,
                       const QString& patchFile, const QString& outputExe,
                       QString* errorMessage = nullptr);
 
-bool applyXdeltaPatchToAnyFileInTree(const QString& xdeltaTool, const QString& patchFile,
+// Binary patch tree helpers prefer already staged output over original
+// game files. They emit the result under stagedRoot, not in baseRoot.
+bool applyXdeltaPatchToAnyFileInTree(const QString& xdeltaTool,bool applyXdeltaPatchToAnyFileInTree(const QString& xdeltaTool, const QString& patchFile,
                                      const QString& baseRoot, const QString& stagedRoot,
                                      QString* matchedRelativePath = nullptr,
                                      QString* errorMessage = nullptr);
 
-bool applyIpsPatch(const QString& sourceFile, const QString& ipsPatchFile, const QString& outputFile,
+// IPS and PPF do not verify a mandatory source checksum in these helpers;
+// an apparently applicable patch may target the wrong source file.
+bool applyIpsPatch(const QString& sourceFile,bool applyIpsPatch(const QString& sourceFile, const QString& ipsPatchFile, const QString& outputFile,
                    QString* errorMessage = nullptr);
 bool applyIpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
                                   const QString& stagedRoot,
                                   QString* matchedRelativePath = nullptr,
                                   QString* errorMessage = nullptr);
 
-bool applyBpsPatch(const QString& sourceFile, const QString& bpsPatchFile, const QString& outputFile,
+// BPS and UPS verify source, patch, and output CRC32 before committing an
+// output file. The tree helpers also use filename heuristics for ordering.
+bool applyBpsPatch(const QString& sourceFile,bool applyBpsPatch(const QString& sourceFile, const QString& bpsPatchFile, const QString& outputFile,
                    QString* errorMessage = nullptr);
 bool applyBpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
                                   const QString& stagedRoot,
