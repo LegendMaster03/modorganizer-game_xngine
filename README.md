@@ -33,6 +33,20 @@ build_and_deploy.bat
 
 The deployment target comes from your environment or local configuration. Validate the game plugin in an MO2 installation with the corresponding game data. The repository includes `check_logs.bat` for local log inspection. There is no `TESTING_GUIDE.md` in the current tree; follow [BUILDING.md](BUILDING.md) and relevant source and script documentation instead.
 
+## Technical documentation
+
+The following guides explain current implementation contracts, reverse-engineered
+format assumptions, and known limitations. They do not imply complete game-data
+coverage or verified binary round trips.
+
+- [Shared BSA archive contracts](docs/xngine-archive-contracts.md)
+- [Executable patch staging and validation boundaries](docs/executable-patching-contracts.md)
+- [Redguard generated patch lifecycle](docs/redguard-patch-lifecycle.md)
+- [Daggerfall BLOCKS/MAPS, 3D meshes, and Redguard map data](docs/binary-format-interpretation.md)
+- [WLD, RSC, palettes, images, and other resources](docs/resource-format-interpretation.md)
+- [Quest and script decoding](docs/quest-and-script-interpretation.md)
+- [Mod package detection and installation roots](docs/mod-package-detection.md)
+
 ## Licensing and provenance
 
 There is currently no top-level `LICENSE` file in this repository. Public source availability does not itself establish redistribution rights; verify the applicable licenses and permissions for original and reused components before redistributing them.
