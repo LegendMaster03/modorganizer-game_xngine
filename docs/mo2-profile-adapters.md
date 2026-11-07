@@ -42,3 +42,22 @@ or uses this feature.
 
 These notes describe existing behavior, limitations, and adapter
 boundaries. No executable changes have been introduced.
+## Auxiliary feature adapters and archive tools
+
+`XngineScriptExtender` and `XngineUnmanagedMods` implement MO2 feature
+interfaces but provide intentionally inactive behavior in the shared
+implementation. They do not report an installed extender or enumerate
+unmanaged mods. An empty unmanaged-mod result therefore **does not**
+prove that an installation has no files outside MO2.
+
+`DummyBSA` is legacy Mod Organizer code for a one-folder, one-file
+Bethesda-style invalidation archive. Its synthetic `dummy.dds` has no
+payload, and the caller supplies the BSA version and output path. It
+is **not** a packer for the DOS-era XnGine BSA record formats described
+in the archive guide. The current writer does not propagate file-open
+or write errors to its caller.
+
+The standalone `tools/bsa_extract_cli` chooses Battlespire BSA traits
+and applies an explicit sound-archive hint for `SPIRE.SND`. It is an
+extraction utility, not an automatic multi-game variant detector or an
+archive-creation test.

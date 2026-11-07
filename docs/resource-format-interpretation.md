@@ -78,3 +78,11 @@ their pixel payloads should not be presented as fully decoded.
 These notes document current implementation heuristics. Comprehensive
 format support requires representative original assets, malformed-file
 tests, and save/extract/repack comparisons, not only source inspection.
+## Game-specific water-table wrappers
+
+`DaggerfallWaterTbl` and `BattlespireWaterTbl` select the shared
+`ByteLut256` format explicitly. The 256 bytes are preserved as values;
+the generic format reader does not establish what each entry means for
+water rendering in either game. The TBL writer validates the size before
+opening the target file, but it does not roll back a subsequent write
+failure.

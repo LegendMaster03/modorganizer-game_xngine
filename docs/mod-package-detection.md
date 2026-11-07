@@ -59,3 +59,12 @@ without usable game data.
 
 This documentation does not modify the existing detection or installation
 rules.
+## Content badges are not executable behavior
+
+Arena additionally labels mapper, DOSBox configuration, and batch helper
+files as configuration or script content even when a mod has no ordinary
+asset files. Battlespire labels archive/executable-replacement payloads
+separately from DOSBox configuration and text. Redguard labels any of
+the root-level Dillon241 patch markers as Patch Instructions. These are
+MO2 presentation categories, not permissions to execute scripts,
+install unsupported archives, or apply patches.
