@@ -7,7 +7,7 @@
 #include <memory>
 
 /**
- * Represents an entry in the RTX database (dialogue/texture with optional audio).
+ * Represents an RTX subtitle/dialogue entry with optional embedded audio.
  */
 struct RedguardsRtxEntry
 {
@@ -34,7 +34,7 @@ struct RedguardsRtxEntry
 /**
  * Represents a Redguard RTX database file, typically the file configured by
  * SYSTEM.INI `rtx_filename`.
- * Handles reading, modifying, and writing texture/dialogue data.
+ * Handles reading, modifying, and writing subtitle/audio data.
  * File format: entries with label, subtitle, optional audio, then reverse index.
  * Based on the Java RtxDatabase implementation from Redguard Mod Manager.
  */
@@ -100,6 +100,8 @@ public:
 
 private:
   QMap<QString, RedguardsRtxEntry> mEntries;  ///< Map of label -> entry
+  // Stored order is separate from the label-keyed QMap: serialization
+  // must not implicitly reorder entries lexicographically by label.
   QList<QString> mEntryOrder;  ///< Original file order of entry labels
 
   // Utility functions for binary format parsing

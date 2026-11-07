@@ -2,6 +2,9 @@
 
 #include "redguardsutils.h"
 
+// Interpret fixed offsets within a 165-byte RAHD header. The caller
+// supplies this record; the constructor does not validate every field
+// range or referenced buffer before computing derived values.
 RedguardsMapHeader::RedguardsMapHeader(const QByteArray& data)
     : mData(data)
 {
@@ -16,6 +19,8 @@ RedguardsMapHeader::RedguardsMapHeader(const QByteArray& data)
   mVariableOffset = RedguardsUtils::byteRangeToInt(mData, 125, 4, true);
 }
 
+// Each header stores an index into the shared RASB string-offset table.
+// The actual text lives in RAST, not inside this RAHD record.
 void RedguardsMapHeader::initStrings(const QString& allStrings,
                                      const QByteArray& stringOffsets)
 {
@@ -35,6 +40,8 @@ void RedguardsMapHeader::initStrings(const QString& allStrings,
   }
 }
 
+// Variable offsets are bytes in the shared RAVA data; divide by the
+// UInt32 entry size to select the corresponding decoded sequence.
 void RedguardsMapHeader::initVariables(const QList<int32_t>& allVariables)
 {
   mVariables.clear();
