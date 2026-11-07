@@ -5,6 +5,8 @@
 #include <algorithm>
 
 QVector<DaggerfallTextRecord::Token>
+// Keep shared TEXT.RSC token boundaries while projecting the token types
+// into Daggerfall's API, including unrecognized raw control codes.
 DaggerfallTextRecord::tokenizeSubrecord(const QByteArray& bytes)
 {
   QVector<Token> out;
@@ -34,6 +36,8 @@ QString DaggerfallTextRecord::decodeSubrecordText(const QByteArray& bytes)
   return XngineRscFormat::decodeTextSubrecordText(bytes);
 }
 
+// Use the shared byte parser, then augment each decoded subrecord with
+// Daggerfall variable references and the original control tokens.
 bool DaggerfallTextRecord::parseRecord(const QByteArray& bytes, Record& outRecord,
                                        QString* errorMessage)
 {
@@ -60,6 +64,8 @@ bool DaggerfallTextRecord::parseRecord(const QByteArray& bytes, Record& outRecor
   return true;
 }
 
+// Retain the shared parser's header/offset warnings, and enrich each
+// record without assuming its text control codes are all printable.
 bool DaggerfallTextRecord::parseDatabase(const QByteArray& bytes, Database& outDb,
                                          QString* errorMessage)
 {
