@@ -10,6 +10,8 @@ using Daggerfall::FormatUtil::setError;
 
 }  // namespace
 
+// PAK run encoding is a sequence of [UInt16 LE count, UInt8 value]
+// triples. Reject zero-count and incomplete runs rather than guessing bytes.
 bool DaggerfallPak::decompress(const QByteArray& packed, QByteArray& unpacked,
                                QString* errorMessage)
 {
@@ -37,6 +39,8 @@ bool DaggerfallPak::decompress(const QByteArray& packed, QByteArray& unpacked,
   return true;
 }
 
+// Split repeated values at the maximum 16-bit run length, even when
+// identical source bytes continue into the next encoded run.
 QByteArray DaggerfallPak::compress(const QByteArray& unpacked)
 {
   QByteArray out;

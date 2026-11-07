@@ -3,6 +3,8 @@
 
 #include <cstring>
 
+// Force the Daggerfall woods variant and project shared WLD fields into
+// the game-specific view without guessing the meaning of unknown fields.
 bool DaggerfallWoodsWld::load(const QString& filePath, Data& outData,
                               QString* errorMessage)
 {
@@ -64,6 +66,8 @@ bool DaggerfallWoodsWld::load(const QString& filePath, Data& outData,
   return true;
 }
 
+// Use the shared WLD coordinate/index convention; world layers must not
+// independently implement a different map orientation.
 int DaggerfallWoodsWld::mapIndex(const Data& data, int x, int y)
 {
   XngineWldFormat::DaggerfallWoodsData tmp;
