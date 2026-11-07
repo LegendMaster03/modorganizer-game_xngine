@@ -7,6 +7,8 @@
  * Redguard-specific mod data content categorizer.
  * Categorizes detected mod content into game-specific types.
  */
+// Adds the patch-instruction UI label when a recognized Dillon241 marker
+// exists. Actual patch permissions are checked by the data checker.
 class RedguardsModDataContent : public XngineModDataContent
 {
 public:

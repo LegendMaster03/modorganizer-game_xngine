@@ -6,6 +6,9 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Structured interpretation of Daggerfall biography prompts and directive
+// lines. Unknown directives retain their raw text; recognized codes do not
+// themselves implement character-generation effects.
 class DaggerfallBioTxt
 {
 public:
