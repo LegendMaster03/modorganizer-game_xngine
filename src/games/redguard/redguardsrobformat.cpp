@@ -117,6 +117,8 @@ bool parseSegment(const QByteArray& bytes, qsizetype cursor,
   return true;
 }
 
+// Mesh decoding is best-effort: preserve the ROB segment and annotate a
+// failure rather than rejecting the entire container for one bad mesh.
 void tryParseEmbeddedMesh(RedguardsRobFormat::Segment& segment)
 {
   if (!segment.usesEmbeddedPayload()) {
@@ -132,6 +134,8 @@ void tryParseEmbeddedMesh(RedguardsRobFormat::Segment& segment)
   segment.warning = QString("Embedded mesh parse failed: %1").arg(error);
 }
 
+// External 3DC references are resolved relative to the supplied directory.
+// A missing reference remains an explicit warning, not an empty mesh.
 void tryParseExternalMesh(const QDir& external3dcDirectory,
                           RedguardsRobFormat::Segment& segment)
 {
@@ -169,6 +173,9 @@ bool RedguardsRobFormat::loadFile(const QString& filePath, Document& outDocument
   return parseBytes(bytes, outDocument, QFileInfo(filePath).dir(), errorMessage);
 }
 
+// Parse declared segment boundaries first, then attempt embedded/external
+// meshes. Noncanonical modes and remaining bytes are warnings, not proof
+// that all linked geometry has been resolved.
 bool RedguardsRobFormat::parseBytes(const QByteArray& bytes, Document& outDocument,
                                     const QDir& external3dcDirectory,
                                     QString* errorMessage)
