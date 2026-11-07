@@ -5,6 +5,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Metadata for flat-sprite texture references. Unknown fields and per-row
+// warnings remain available rather than being assigned invented meanings.
 class DaggerfallFlatsCfg
 {
 public:
