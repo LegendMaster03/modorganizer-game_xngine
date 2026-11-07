@@ -16,6 +16,8 @@ struct ScanStats
   int texturedFaces = 0;
 };
 
+// Scan every numeric ARCH3D record and report parse failures separately.
+// A blank-version special record is counted as skipped, not as a mesh.
 bool scanArch3d(const QString& arch3dPath, QTextStream& out)
 {
   QVector<quint16> recordIds;
@@ -74,6 +76,8 @@ bool scanArch3d(const QString& arch3dPath, QTextStream& out)
   out << "Records skipped: " << stats.recordsSkipped << "\n";
   out << "Solid-color faces: " << stats.solidColorFaces << "\n";
   out << "Textured faces: " << stats.texturedFaces << "\n";
+  // The CLI considers a scan successful when no parse failed; skipped
+  // special records and records with warnings do not change its exit code.
   return stats.recordsFailed == 0;
 }
 

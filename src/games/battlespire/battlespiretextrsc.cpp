@@ -41,6 +41,8 @@ bool BattlespireTextRsc::parseTextRecordBytes(const QByteArray& data, int index,
   return true;
 }
 
+// Require the shared TEXT.RSC database layout explicitly, preserving the
+// shared parser's record warnings while projecting Battlespire text fields.
 bool BattlespireTextRsc::loadTextRsc(const QString& filePath, Database& outDb,
                                      QString* errorMessage)
 {
@@ -79,6 +81,8 @@ bool BattlespireTextRsc::loadTextRsc(const QString& filePath, Database& outDb,
     for (const auto& sub : r.subrecords) {
       tr.subrecords.push_back({sub.raw, sub.text});
     }
+    // Index by physical decoded position and by record ID separately.
+    // If IDs repeat, the ID-keyed map retains only the last inserted one.
     outDb.records.insert(i, tr);
     outDb.recordsById.insert(tr.textRecordId, tr);
   }
