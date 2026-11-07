@@ -15,6 +15,8 @@ class GameRedguard;
  * Redguard-specific save game handler.
  * Redguard saves are folders named SAVEGAME.XXX containing SAVEGAME.SAV
  */
+// Redguard's SAVEGAME.XXX slots contain a SAVEGAME.SAV payload and may
+// have auxiliary files. Location candidates are not all confirmed locations.
 class RedguardsSaveGame : public XngineSaveGame
 {
 public:
@@ -61,6 +63,8 @@ private:
   QStringList m_SvmdRecordDebug;
   QString m_SvmdHeaderDebug;
   QString m_SvmdTrailerDebug;
+  // Multiple candidate location references remain separate until the
+  // active/current SVMD selector has been established from evidence.
   QStringList m_SvmdCandidates;
   QStringList m_SvcbCandidates;
   QStringList m_SvcbWord5Candidates;
@@ -75,6 +79,8 @@ private:
   QStringList m_MapDisplayCandidates;
   QStringList m_TransitionDisplayCandidates;
   QStringList m_AuxiliaryFiles;
+  // On-demand diagnostic text is cached separately from user-facing
+  // save title/location fields.
   mutable QString m_ChunkTableDebugText;
 };
 

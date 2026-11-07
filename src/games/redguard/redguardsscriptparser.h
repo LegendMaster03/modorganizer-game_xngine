@@ -11,6 +11,8 @@
 class RedguardsMapDatabase;
 class RedguardsParsedMapHeader;
 
+// Compiles a supported subset of Redguard map-script syntax against
+// the loaded SOUP/map catalogs. It is not a standalone script language.
 class RedguardsScriptParser
 {
 public:
@@ -49,6 +51,8 @@ private:
   QList<RedguardsParsedMapHeader> mParsedHeaders;
   RedguardsParsedMapHeader* mCurrentHeader = nullptr;
   QList<unsigned char> mCurrentScriptBytes;
+  // Label definitions and unresolved references share this table;
+  // positions are patched after a block has been emitted.
   QMap<int, QList<int>> mLabels;
   int mPos = 0;
   QString mCurrentTask;
@@ -60,6 +64,8 @@ private:
   static const QSet<QString> DIALOGUE_FUNCTIONS;
 
   QMap<QString, int> mMapIds;
+  // IDs are derived from current source catalogs, not constants baked
+  // into the parser. Catalog drift can change emitted script meanings.
   QMap<QString, int> mFunctionIds;
   QMap<QString, int> mFlagIds;
   QMap<QString, int> mItemIds;
