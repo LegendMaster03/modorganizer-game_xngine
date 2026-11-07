@@ -123,7 +123,6 @@ bool readUpsNumber(const QByteArray& data, int& pos, quint64& outValue)
 // Prefer plausible filenames for IPS/BPS/UPS/PPF, but do not treat this
 // score as source verification. Format-level checks determine suitability.
 QStringList orderedPatchCandidates(const QSet<QString>& candidates, const QString& patchFile)
-QStringList orderedPatchCandidates(const QSet<QString>& candidates, const QString& patchFile)
 {
   QStringList ordered = candidates.values();
   ordered.sort(Qt::CaseInsensitive);
@@ -263,7 +262,6 @@ namespace XngineExePatch
 // Catalog parsing validates structure and declared bytes, not whether a
 // particular game executable matches the catalog's targetVersion metadata.
 bool loadPatchSetsFromJsonFile(const QString& jsonPath, QVector<PatchSet>& outSets,
-bool loadPatchSetsFromJsonFile(const QString& jsonPath, QVector<PatchSet>& outSets,
                                QString* errorMessage)
 {
   outSets.clear();
@@ -355,7 +353,6 @@ bool validatePatchSets(const QVector<PatchSet>& sets, QString* errorMessage)
 // Verify a whole set against the current buffer before writing any of its
 // replacements. Earlier sets remain modified if a later set fails.
 bool applyPatchSets(QByteArray& exeData, const QVector<PatchSet>& sets, QString* errorMessage)
-bool applyPatchSets(QByteArray& exeData, const QVector<PatchSet>& sets, QString* errorMessage)
 {
   for (const PatchSet& set : sets) {
     for (const BytePatch& patch : set.patches) {
@@ -439,7 +436,6 @@ QString findFirstTool(const QStringList& candidates)
 
 // Search explicit paths first, then common mod/game/MO2 locations and
 // environment/PATH fallbacks. Discovery only checks that a tool exists.
-QString findXdeltaTool(const QString& modRootPath, const QString& gameRootPath,
 QString findXdeltaTool(const QString& modRootPath, const QString& gameRootPath,
                        const QString& configuredPath)
 {
@@ -563,7 +559,6 @@ bool applyXdeltaPatch(const QString& xdeltaTool, const QString& sourceExe,
 // relative candidates without a documented preference order; success of
 // xdelta decoding, not the filename, identifies a compatible source.
 bool applyXdeltaPatchToAnyFileInTree(const QString& xdeltaTool, const QString& patchFile,
-bool applyXdeltaPatchToAnyFileInTree(const QString& xdeltaTool, const QString& patchFile,
                                      const QString& baseRoot, const QString& stagedRoot,
                                      QString* matchedRelativePath, QString* errorMessage)
 {
@@ -635,7 +630,6 @@ bool applyXdeltaPatchToAnyFileInTree(const QString& xdeltaTool, const QString& p
 
 // IPS edits offsets and run-length records with no source CRC. A patch can
 // parse and apply to a mismatched file; caller-side matching is heuristic.
-bool applyIpsPatch(const QString& sourceFile, const QString& ipsPatchFile, const QString& outputFile,
 bool applyIpsPatch(const QString& sourceFile, const QString& ipsPatchFile, const QString& outputFile,
                    QString* errorMessage)
 {
@@ -736,7 +730,6 @@ bool applyIpsPatch(const QString& sourceFile, const QString& ipsPatchFile, const
 // Filename scoring only orders candidates. Because IPS has no source CRC,
 // the first syntactically applicable candidate may not be the intended file.
 bool applyIpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
-bool applyIpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
                                   const QString& stagedRoot, QString* matchedRelativePath,
                                   QString* errorMessage)
 {
@@ -805,7 +798,6 @@ bool applyIpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseR
 
 // BPS checks source and patch CRCs before applying instructions, then
 // verifies target CRC before writing the generated file.
-bool applyBpsPatch(const QString& sourceFile, const QString& bpsPatchFile, const QString& outputFile,
 bool applyBpsPatch(const QString& sourceFile, const QString& bpsPatchFile, const QString& outputFile,
                    QString* errorMessage)
 {
@@ -1059,7 +1051,6 @@ bool applyBpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseR
 // UPS applies XOR edits over a source-derived buffer, verifying source,
 // patch, and final output CRCs before committing to disk.
 bool applyUpsPatch(const QString& sourceFile, const QString& upsPatchFile, const QString& outputFile,
-bool applyUpsPatch(const QString& sourceFile, const QString& upsPatchFile, const QString& outputFile,
                    QString* errorMessage)
 {
   QFile src(sourceFile);
@@ -1267,7 +1258,6 @@ bool applyUpsPatchToAnyFileInTree(const QString& patchFile, const QString& baseR
 // parser skips blockcheck and undo payloads but does not verify that the
 // source matches the embedded blockcheck bytes.
 bool applyPpfPatch(const QString& sourceFile, const QString& ppfPatchFile, const QString& outputFile,
-bool applyPpfPatch(const QString& sourceFile, const QString& ppfPatchFile, const QString& outputFile,
                    QString* errorMessage)
 {
   QFile src(sourceFile);
@@ -1445,7 +1435,6 @@ bool applyPpfPatch(const QString& sourceFile, const QString& ppfPatchFile, const
 
 // PPF matching tries plausible filenames, but the format parser here does
 // not authenticate the source. Avoid interpreting success as a version check.
-bool applyPpfPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
 bool applyPpfPatchToAnyFileInTree(const QString& patchFile, const QString& baseRoot,
                                   const QString& stagedRoot, QString* matchedRelativePath,
                                   QString* errorMessage)

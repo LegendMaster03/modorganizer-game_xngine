@@ -931,7 +931,6 @@ QVector<XngineBSAFormat::FileSpec> GameDaggerfall::bsaFileSpecs() const
 // Register cleanup once per game plugin instance. Unlike Redguard's
 // first-profile capture, cleanup computes the profile output name on exit.
 void GameDaggerfall::ensureExePatchCleanupHook()
-void GameDaggerfall::ensureExePatchCleanupHook()
 {
   if (m_ExePatchCleanupHookRegistered || !m_Organizer) {
     return;
@@ -967,7 +966,6 @@ void GameDaggerfall::cleanupExePatchOutputMod() const
 // Gather active patch mods in MO2 profile-priority order, then stage their
 // output into a generated profile-specific VFS mod. No stage is transactional;
 // earlier successful output may survive a later patch failure.
-bool GameDaggerfall::applyExePatchMods()
 bool GameDaggerfall::applyExePatchMods()
 {
   if (!m_Organizer) {
@@ -1187,7 +1185,6 @@ bool GameDaggerfall::applyExePatchMods()
     // Build on the most recent generated executable when present; otherwise
     // start with a base-game executable. Later mods can layer modifications.
     auto workingExe = findExistingExe(tempModPath);
-    auto workingExe = findExistingExe(tempModPath);
     if (!workingExe.has_value()) {
       workingExe = findExistingExe(gameDirPath);
     }
@@ -1206,7 +1203,6 @@ bool GameDaggerfall::applyExePatchMods()
 
     // The JSON catalog is applied in memory before writing to the temporary
     // mod. The catalog's targetVersion field is not enforced by this path.
-    if (!input.catalogPath.isEmpty()) {
     if (!input.catalogPath.isEmpty()) {
       QVector<XngineExePatch::PatchSet> sets;
       QString loadError;
