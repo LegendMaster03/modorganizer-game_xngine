@@ -13,6 +13,9 @@ RedguardsRtxDatabase::RedguardsRtxDatabase(const RedguardsRtxDatabase& other)
 {
 }
 
+// Parse records up to END, retaining insertion order separately from the
+// label-keyed entries. Truncated records stop scanning rather than
+// producing a strict whole-file validation error.
 bool RedguardsRtxDatabase::readFile(const QString& filePath)
 {
   QFile file(filePath);
@@ -155,6 +158,8 @@ bool RedguardsRtxDatabase::readFile(const QString& filePath)
   return !mEntries.isEmpty();
 }
 
+// Re-emit entries in original order and rebuild the reverse lookup index
+// after END. Index offsets point past each entry's label/length header.
 bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
 {
   QFile file(filePath);
@@ -285,6 +290,9 @@ bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
   return written == output.size();
 }
 
+// The sidecar's numeric index selects the new-entry branch when it exceeds
+// current entry count; existing entry updates are resolved by label.
+// This is not an arbitrary-position reordering operation.
 bool RedguardsRtxDatabase::applyChanges(const QString& changesFilePath)
 {
   QFile file(changesFilePath);
