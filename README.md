@@ -47,6 +47,7 @@ coverage or verified binary round trips.
 - [Quest and script decoding](docs/quest-and-script-interpretation.md)
 - [Mod package detection and installation roots](docs/mod-package-detection.md)
 - [MO2 profile adapters and archive-list helpers](docs/mo2-profile-adapters.md)
+- [Save metadata and MO2 feature boundaries](docs/save-metadata-and-mo2-features.md)
 
 ## Licensing and provenance
 

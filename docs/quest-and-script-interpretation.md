@@ -20,7 +20,28 @@ names and argument ranges are documentation for decoding; an unknown opcode
 or unusual argument count is reported without implying complete knowledge
 of the in-game operation.
 
-## Redguard RGM scripts
+## Supporting Daggerfall catalogs and text resources
+
+`DaggerfallMagicDef` uses a declared count of fixed-size enchantment
+records but reads only complete records available in the file. Count
+discrepancies and extra bytes are warnings; named spell references
+are drawn from a known catalog, not discovered by executing the game.
+
+`DaggerfallSpellsStd` is a descriptive spell/effect catalog. Standard
+indices may have multiple entries, and spell-name lookup has one
+explicit spelling alias. It is not the game's runtime effect engine.
+
+`DaggerfallBioTxt` groups numbered questions, lettered options,
+and subsequent effect directives. Unattached lines and line-ending
+differences warn. Unsupported directives retain their raw text
+rather than being assigned a guessed mechanical effect.
+
+`DaggerfallTextRecord` projects shared TEXT.RSC tokens into a
+Daggerfall-specific view and extracts variable references from the
+rendered text. `DaggerfallTextVariables` uses a rolling byte hash:
+one numeric hash can have multiple candidate names. Text token
+extraction is not validation that every referenced variable exists.
+
 
 `RedguardsScriptParser` depends on map, item, function, and flag catalogs
 loaded by `RedguardsMapDatabase`. It strips trailing source comments and

@@ -407,8 +407,8 @@ bool XngineSaveGame::FileWrapper::openCompressedData(int bytesToIgnore)
   }
 }
 
-// zlib chunk boundaries use the decoded stream length and file offset;
-// the next compressed chunk is aligned to a 16-byte boundary.
+// Advance from the compressed bytes consumed by inflate, then align the
+// next on-disk chunk to a 16-byte boundary.
 bool XngineSaveGame::FileWrapper::readNextChunk()
 {
   uint32_t have;
