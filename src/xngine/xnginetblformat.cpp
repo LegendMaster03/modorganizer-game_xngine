@@ -24,6 +24,8 @@ XngineTblFormat::Variant detectVariant(const QByteArray& bytes)
 
 }  // namespace
 
+// A fixed-size byte lookup table, not an RGB palette. Preserve all 256
+// values without interpreting their use in the game's data pipeline.
 bool XngineTblFormat::parseByteLut256(const QByteArray& bytes, ByteLut256& outTable,
                                       QString* errorMessage)
 {
@@ -57,6 +59,8 @@ bool XngineTblFormat::writeByteLut256(const ByteLut256& table, QByteArray& outBy
   return true;
 }
 
+// Auto recognition requires exactly 256 bytes; an explicit variant still
+// requires its parser's structural validation.
 bool XngineTblFormat::readFile(const QString& filePath, Document& outDocument,
                                QString* errorMessage, const Traits& traits)
 {
