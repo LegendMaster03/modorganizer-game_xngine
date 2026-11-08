@@ -5,6 +5,9 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Reads and writes the fixed 256-byte water lookup table through the shared
+// TBL format helper; individual byte meanings are not decoded here.
+
 class BattlespireWaterTbl
 {
 public:

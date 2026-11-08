@@ -2,6 +2,9 @@
 
 #include <QRegularExpression>
 
+// Read type, name, and the fourth token's parameter count from a SOUP
+// function declaration. Incomplete declarations retain default values.
+
 RedguardsSoupFunction::RedguardsSoupFunction(const QString& line)
 {
   const QStringList split = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);

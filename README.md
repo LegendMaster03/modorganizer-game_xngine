@@ -55,6 +55,10 @@ There is currently no top-level `LICENSE` file in this repository. Public source
 
 The Redguard integration draws on earlier Redguard Mod Manager Java work, adapted for C++ and MO2. The MO2 plugin system and associated libraries belong to their respective maintainers.
 
+The vendored `src/xngine/vdf_parser.h` contains an MIT license notice and a
+2016 copyright credit to Matthias Moeller. Its implementation and license
+header are preserved unchanged.
+
 ## Credits
 
 - Dillonn241 for early Redguard modding work

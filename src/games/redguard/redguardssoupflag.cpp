@@ -2,6 +2,10 @@
 
 #include <QRegularExpression>
 
+// Read the first three declaration fields and, when there is exactly one
+// semicolon delimiter, store its trailing text as a descriptive comment.
+// Incomplete declarations leave the corresponding fields empty.
+
 RedguardsSoupFlag::RedguardsSoupFlag(const QString& line)
 {
   const QStringList split = line.split(';');
