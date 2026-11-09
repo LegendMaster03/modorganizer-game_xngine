@@ -28,10 +28,14 @@ jobs:
       matrix:
         target: [retail, dev]
 
+    # The same build job is run twice so a green retail build cannot hide
+    # incompatibilities with development uibase, or the reverse.
     steps:
       - name: Checkout XnGine
         uses: actions/checkout@v4
 
+      # Export the full VS developer environment to subsequent PowerShell steps.
+      # Merely finding cl.exe on PATH does not configure its SDK/library paths.
       - name: Enable MSVC toolchain
         shell: pwsh
         run: |
@@ -55,6 +59,8 @@ jobs:
             throw "VsDevCmd.bat failed with exit code $LASTEXITCODE."
           }
 
+          # GITHUB_ENV persists these values for later steps; this process alone
+          # would not modify the environment of a subsequent workflow step.
           foreach ($line in $environment) {
             if ($line -match '^([^=][^=]*)=(.*)$') {
               $name = $Matches[1]
@@ -66,6 +72,8 @@ jobs:
           "CC=cl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "CXX=cl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      # The resolver selects release assets or moving development refs, then
+      # emits Qt/toolset requirements and source-revision metadata.
       - name: Resolve MO2 target
         id: mo2
         shell: pwsh
@@ -73,6 +81,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./ci/resolve-mo2-target.ps1 -Target "${{ matrix.target }}"
 
+      # Use the upstream mob.ini Qt version and compiler architecture; the
+      # DLLs must be compiled against a compatible MO2/Qt toolchain.
       - name: Install matching Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -89,12 +99,16 @@ jobs:
           }
           "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      # Cache package installation by manifest; vcpkg still resolves packages
+      # using the current runner toolchain during CMake configuration.
       - name: Restore XnGine vcpkg cache
         uses: actions/cache@v4
         with:
           path: vcpkg_installed
           key: xngine-vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
 
+      # This checkout uses the resolved ref instead of its recorded SHA.
+      # A moving ref could advance between resolution and checkout.
       - name: Checkout matching MO2 source
         uses: actions/checkout@v4
         with:
@@ -103,7 +117,7 @@ jobs:
           path: dependencies/modorganizer
           fetch-depth: 1
 
-# Retail uses the SDK published with its MO2 release, not moving dev sources.
+      # Retail uses the SDK published with its MO2 release, not moving dev sources.
       - name: Download retail uibase SDK
         if: matrix.target == 'retail'
         shell: pwsh
@@ -125,6 +139,8 @@ jobs:
             throw "The MO2 retail uibase SDK did not contain iplugingame.h."
           }
 
+          # Retail SDK archives can contain an include/uibase hierarchy or
+          # expose public headers directly; derive the CMake include root.
           $headerDir = $header.Directory.FullName
           $parent = Split-Path $headerDir -Parent
           if ((Split-Path $headerDir -Leaf) -eq "uibase" -and (Split-Path $parent -Leaf) -eq "include") {
@@ -137,6 +153,8 @@ jobs:
           "XNGINE_UIBASE_PATH=$uibasePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "XNGINE_UIBASE_LIB=$($lib.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      # Development uses the upstream source rather than the retail SDK.
+      # The build below installs its public headers and import library.
       - name: Checkout current dev uibase
         if: matrix.target == 'dev'
         uses: actions/checkout@v4
@@ -155,7 +173,7 @@ jobs:
           path: dependencies/cmake_common
           fetch-depth: 1
 
-# Invalidate installed headers and libraries when uibase, shared CMake, or Qt changes.
+      # Invalidate installed headers and libraries when uibase, shared CMake, or Qt changes.
       - name: Restore dev uibase install cache
         if: matrix.target == 'dev'
         id: dev-uibase-cache
@@ -164,6 +182,8 @@ jobs:
           path: install
           key: xngine-uibase-${{ runner.os }}-${{ steps.mo2.outputs.uibase_sha }}-${{ steps.mo2.outputs.cmake_common_sha }}-qt-${{ steps.mo2.outputs.qt_version }}
 
+      # A cache hit skips only building the SDK; the next step still verifies
+      # that the headers and library are actually available.
       - name: Build current dev uibase
         if: matrix.target == 'dev' && steps.dev-uibase-cache.outputs.cache-hit != 'true'
         shell: pwsh
@@ -189,6 +209,8 @@ jobs:
           "XNGINE_UIBASE_PATH=$env:GITHUB_WORKSPACE\install" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "XNGINE_UIBASE_LIB=$($lib.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      # Both targets use the same plugin build script, which asserts that all
+      # four game-plugin DLLs exist before artifacts can be uploaded.
       - name: Build XnGine
         shell: pwsh
         run: |
@@ -205,7 +227,7 @@ jobs:
             -BuildDir "build-${{ matrix.target }}" `
             -ArtifactDir "artifacts/${{ matrix.target }}"
 
-# Record upstream revisions: a retail/dev label alone is not reproducible.
+      # Record upstream revisions: a retail/dev label alone is not reproducible.
       - name: Record dependency provenance
         shell: pwsh
         run: |
@@ -230,6 +252,8 @@ jobs:
             Get-Content "artifacts/${{ matrix.target }}/capabilities.txt" | ForEach-Object { "- $_" } | Add-Content -Path $env:GITHUB_STEP_SUMMARY
           }
 
+      # Keep each target's DLLs, supported capabilities, and dependency record
+      # together; do not publish a successful artifact when outputs are missing.
       - name: Upload plugin build
         uses: actions/upload-artifact@v4
         with:
