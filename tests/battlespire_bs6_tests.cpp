@@ -1,3 +1,5 @@
+// Exercise nested BS6 tagged chunks, typed projections, and error handling
+// using synthesized byte streams rather than installed game resources.
 #include "battlespirebs6.h"
 
 #include <QtEndian>
@@ -18,6 +20,7 @@ void appendLE32S(QByteArray& out, qint32 value)
   appendLE32(out, static_cast<quint32>(value));
 }
 
+// BS6 chunks use a four-byte tag followed by a little-endian payload size.
 QByteArray makeChunk(const char tag[5], const QByteArray& payload)
 {
   QByteArray out(tag, 4);

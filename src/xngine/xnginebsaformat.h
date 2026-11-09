@@ -23,6 +23,9 @@ public:
     BattlespireLzss
   };
 
+  // Archive descriptors differ between the Daggerfall and Battlespire
+  // variants. Auto uses Battlespire only for the Battlespire LZSS trait;
+  // readers should set an explicit layout when that heuristic is unsuitable.
   enum class DescriptorLayout
   {
     Auto,
@@ -51,6 +54,8 @@ public:
     bool allowMissingTypeHeader = false;
     bool writeTypeHeader = true;
     CompressionMode compressionMode = CompressionMode::None;
+    // Descriptor layout and compression are separate properties even though
+    // Auto currently derives the former from the latter for compatibility.
     DescriptorLayout descriptorLayout = DescriptorLayout::Auto;
     ArchiveVariant variantHint = ArchiveVariant::Standard;
   };

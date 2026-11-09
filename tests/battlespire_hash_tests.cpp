@@ -1,3 +1,5 @@
+// Known byte-name/hash pairs constrain the rotate-and-uppercase algorithm.
+// Passing these examples does not establish all variable-name semantics.
 #include "battlespirevariablehash.h"
 
 #include <QString>

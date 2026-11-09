@@ -6,6 +6,8 @@
 
 #include <string_view>
 
+// Hash names using the observed 32-bit rotate-by-four and ASCII case fold.
+// This is a byte-oriented algorithm, not Unicode case-insensitive hashing.
 namespace BattlespireVariableHash {
 
 constexpr quint8 uppercaseAscii(quint8 value)
@@ -27,8 +29,10 @@ constexpr quint32 hashAscii(std::string_view name)
   return hash;
 }
 
+// QString input is first converted to Latin-1 bytes, then passed to hashAscii.
 quint32 hashName(QStringView name);
 
+// Known input/output pairs prevent accidental changes to the hash convention.
 static_assert(hashAscii("PCMale") == 0x05481605U);
 static_assert(hashAscii("PCFemale") == 0x47AA160AU);
 static_assert(hashAscii("Dagger") == 0x0485BBA2U);

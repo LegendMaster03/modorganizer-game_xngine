@@ -32,6 +32,8 @@ constexpr qsizetype kImageRawSize8 = kImageWidth * kImageHeight * kImageBytesPer
 constexpr qsizetype kImageRawSize = kImageWidth * kImageHeight * kImageBytesPerPixel;
 constexpr bool kLogSaveParsing = false;
 
+// These known record lengths are validation hints, not a general scheme
+// for rejecting every record type not yet identified in the save format.
 int expectedRecordLength(quint8 type)
 {
   // SAVETREE "RecordLength" excludes its own 4-byte length field.
@@ -442,6 +444,8 @@ bool BattlespireSaveGame::parseSaveName()
 // SAVETREE contains a 4-byte header followed by length-prefixed records;
 // their stored length excludes the 4-byte length field. Keep parsing within
 // each record's boundary rather than trusting offsets in malformed saves.
+// Build a record-ID graph while scanning SAVETREE. Ownership and player
+// recovery checks are diagnostics, not proof that a file was externally edited.
 bool BattlespireSaveGame::parseSaveTree()
 {
   using namespace BattlespireSaveFormat;
@@ -673,6 +677,8 @@ bool BattlespireSaveGame::parseSaveTree()
   return m_PlayerRecordFound;
 }
 
+// SAVEVARS starts with player fields stripped of the SAVETREE record header.
+// Additional fixed-size tables are joined by record IDs where understood.
 bool BattlespireSaveGame::parseSaveVars()
 {
   using namespace BattlespireSaveFormat;
@@ -867,6 +873,8 @@ bool BattlespireSaveGame::parsePlayerBlockFromSaveVars(const QByteArray& data)
 
 // Developer validation reports missing payloads and suspicious data, not a
 // definitive determination that a save was edited or is unusable.
+// Keep suspicious or partial metadata visible to developers instead of
+// treating every unexplained value as an invalid or modified save.
 void BattlespireSaveGame::evaluateDeveloperValidation()
 {
   if (!m_HasSaveTree) {

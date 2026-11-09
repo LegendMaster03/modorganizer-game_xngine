@@ -7,6 +7,8 @@
 #include <cstring>
 #include <limits>
 
+// BSI mixes big-endian chunk lengths with little-endian image fields;
+// use explicit readers rather than assuming one byte order for the file.
 namespace {
 
 bool setError(QString* errorMessage, const QString& text)
@@ -73,6 +75,8 @@ BattlespireBsi::Rgb decode15Bit(quint16 value)
   return color;
 }
 
+// Expand packed five-bit RGB channels into eight-bit output values.
+// Preserve original bytes separately because the expansion loses precision.
 bool decode15BitPalette(const QByteArray& raw, QVector<BattlespireBsi::Rgb>& out,
                         QString* errorMessage)
 {
@@ -111,6 +115,9 @@ bool decodeCmap(const QByteArray& raw, QVector<BattlespireBsi::Rgb>& out,
   return true;
 }
 
+// DATA compression 4/6 starts with per-scanline offsets and control bytes.
+// Each row may be raw or use literal/repeated RLE runs; all decoded counts
+// are constrained by the declared width to reject malformed streams.
 bool decodePixels(const BattlespireBsi::Header& header, const QByteArray& encoded,
                   QByteArray& outPixels, QStringList& diagnostics,
                   QString* errorMessage)
@@ -236,6 +243,7 @@ bool decodePixels(const BattlespireBsi::Header& header, const QByteArray& encode
   return true;
 }
 
+// Only named BHDR offsets are decoded; retain unknown bytes in Header.
 bool parseHeaderChunk(const QByteArray& data, BattlespireBsi::Header& header,
                       QString* errorMessage)
 {
@@ -256,6 +264,8 @@ bool parseHeaderChunk(const QByteArray& data, BattlespireBsi::Header& header,
 
 }  // namespace
 
+// Unknown chunks are retained, and nonfatal discrepancies are reported in
+// diagnostics rather than being silently normalized away.
 bool BattlespireBsi::parseData(const QByteArray& data, Document& outDocument,
                                QString* errorMessage)
 {

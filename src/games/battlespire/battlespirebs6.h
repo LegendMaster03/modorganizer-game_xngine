@@ -9,6 +9,9 @@
 
 #include <utility>
 
+// Read Battlespire BS6 tagged level data without discarding unfamiliar chunks.
+// Known tags receive typed views; raw payloads and nonfatal diagnostics remain
+// available while the original format is still being investigated.
 class BattlespireBs6
 {
 public:
@@ -19,6 +22,8 @@ public:
     qint32 z = 0;
   };
 
+  // Raw payload is authoritative. Derived values are populated only when
+  // their corresponding has* flags or field types establish a known layout.
   struct Chunk
   {
     QString tag;
@@ -47,6 +52,8 @@ public:
     QStringList textureFiles;
   };
 
+  // Objects and water values are convenience views over the original tree;
+  // they are not a complete interpretation of the level format.
   struct Document
   {
     QVector<Chunk> chunks;

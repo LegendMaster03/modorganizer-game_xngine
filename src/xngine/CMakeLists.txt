@@ -26,6 +26,7 @@ add_library(xngine STATIC
 	xnginemoddatachecker.h
 	xnginemoddatacontent.cpp
 	xnginemoddatacontent.h
+	# Shared record-ID ancestry checks used by Battlespire save joins.
 	xnginerecordgraph.cpp
 	xnginerecordgraph.h
 	xnginerscformat.cpp

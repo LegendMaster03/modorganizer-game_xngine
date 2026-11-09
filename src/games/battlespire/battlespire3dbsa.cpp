@@ -18,6 +18,8 @@ bool setError(QString* errorMessage, const QString& text)
   return false;
 }
 
+// Battlespire allows its own descriptor layout and LZSS-compressed entries.
+// This trait set must not be reused for ordinary Daggerfall BSA archives.
 XngineBSAFormat::Traits battlespireArchiveTraits()
 {
   XngineBSAFormat::Traits traits;
@@ -97,6 +99,8 @@ qsizetype computeFaceSectionEnd(const QByteArray& data, const Xngine3dFormat::He
 
 // The v2.7 compatibility path is attempted only when 10-byte face headers
 // reach the declared normals offset but 8-byte headers do not.
+// Preserve all ten bytes per face. The shared mesh representation uses an
+// eight-byte layout and otherwise loses these uninterpreted native bytes.
 bool readNativeFaceHeaders(const QByteArray& data, const Xngine3dFormat::Header& header,
                            QVector<Battlespire3dBsa::NativeFaceHeader>& outHeaders,
                            QString* errorMessage)
@@ -210,6 +214,8 @@ QByteArray normalizeNativeTenByteFaces(const QByteArray& data,
 
 // Prefer unchanged v2.x parsing. Only when the v2.7 extended layout is
 // plausible do we try two normalizations; a warning records the workaround.
+// Prefer the native ten-byte layout when it aligns to the face-normal section;
+// accept the eight-byte compatibility path only when its boundary matches.
 bool parseBattlespireMeshData(const QByteArray& data,
                               Battlespire3dBsa::NativeMeshRecord& outMesh,
                               QString* errorMessage)

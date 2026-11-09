@@ -1,3 +1,5 @@
+# Standalone CTest executables exercise binary readers with synthetic fixtures.
+# They do not need an installed game, but are not substitutes for real-game validation.
 find_package(Qt6 COMPONENTS Core REQUIRED)
 
 add_executable(xngine_format_tests
@@ -16,6 +18,8 @@ target_link_libraries(xngine_format_tests PRIVATE
 
 add_test(NAME xngine_format_tests COMMAND xngine_format_tests)
 
+# Focused parsers are linked directly so failures can be localized without
+# requiring the full MO2 game-plugin module in each test executable.
 add_executable(battlespire_hash_tests
   battlespire_hash_tests.cpp
   ${CMAKE_SOURCE_DIR}/src/games/battlespire/battlespirevariablehash.cpp

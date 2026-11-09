@@ -6,6 +6,9 @@
 
 namespace BattlespireSaveJoins {
 
+// The first four bytes of each fixed-size row are a little-endian record ID.
+// Nonzero references are checked for presence in the SAVETREE lookup only;
+// the join does not establish record type or parentage correctness.
 Summary joinRecordIds(const QByteArray& data, qsizetype start, qsizetype recordSize,
                       qsizetype maxRecords, const QHash<quint32, int>& saveTreeRecordTypes)
 {

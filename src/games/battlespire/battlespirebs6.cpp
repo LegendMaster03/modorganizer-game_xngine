@@ -6,6 +6,8 @@
 
 #include <cstring>
 
+// BS6 uses recursively nested length-prefixed chunks. Keep bounds checks
+// close to each read because unknown tags and malformed files may coexist.
 namespace {
 
 bool setError(QString* errorMessage, const QString& text)
@@ -43,6 +45,8 @@ QString readCString(const QByteArray& data)
   return QString::fromLatin1(data.constData(), length);
 }
 
+// This is the set of tags currently interpreted as child-chunk containers;
+// treating an unknown tag as opaque preserves its bytes for later research.
 bool isGroupTag(const QString& tag)
 {
   static const QSet<QString> groups = {
@@ -66,6 +70,8 @@ bool isVec3Tag(const QString& tag)
   return tag == "POSI" || tag == "OFST" || tag == "CENT" || tag == "ANGS";
 }
 
+// Parse known scalar and group tags while preserving every raw payload. The
+// depth cap prevents unbounded recursion on a damaged or adversarial file.
 bool parseChunkList(const QByteArray& data, QVector<BattlespireBs6::Chunk>& outChunks,
                     QStringList& diagnostics, QString* errorMessage, int depth)
 {
@@ -191,6 +197,8 @@ const BattlespireBs6::Chunk* directChild(const BattlespireBs6::Chunk& parent,
   return nullptr;
 }
 
+// Build a convenient object/water summary without replacing the chunk tree.
+// These projections do not claim to decode every BS6 object property.
 void buildDerivedViews(const QVector<BattlespireBs6::Chunk>& chunks,
                        BattlespireBs6::Document& document)
 {
@@ -238,6 +246,7 @@ void buildDerivedViews(const QVector<BattlespireBs6::Chunk>& chunks,
 
 }  // namespace
 
+// Reset output before parsing so a failure cannot expose stale prior results.
 bool BattlespireBs6::parseData(const QByteArray& data, Document& outDocument,
                                QString* errorMessage)
 {

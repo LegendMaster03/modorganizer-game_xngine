@@ -16,6 +16,8 @@
 class Battlespire3dBsa
 {
 public:
+  // Retain the six uninterpreted bytes instead of mapping them onto
+  // speculative Daggerfall fields or losing them during normalization.
   struct NativeFaceHeader
   {
     quint8 pointCount = 0;
@@ -41,6 +43,8 @@ public:
                                    Xngine3dFormat::MeshRecord& outMesh,
                                    QString* errorMessage = nullptr);
 
+  // Native entry points also return the original ten-byte face headers when
+  // that layout is detected; basic entry points expose only the shared mesh.
   static bool loadNativeMeshFile(const QString& filePath, NativeMeshRecord& outMesh,
                                  QString* errorMessage = nullptr);
 

@@ -2,6 +2,8 @@
 
 #include <QSet>
 
+// Never overwrite a duplicate ID; a second record with the same identifier
+// is ambiguous and should be surfaced to the parser's diagnostics.
 bool XngineRecordGraph::addNode(const Node& node, QStringList* diagnostics)
 {
   if (node.id == 0) {
@@ -30,6 +32,8 @@ qint32 XngineRecordGraph::typeForId(quint32 id) const
   return (it == m_Nodes.cend()) ? -1 : it->type;
 }
 
+// Traverse the parent chain, recording visited IDs so cycles and broken
+// links do not get mistaken for successful ancestry checks.
 XngineRecordGraph::TraceResult XngineRecordGraph::traceFromParent(quint32 parentId,
                                                                   quint32 ancestorId) const
 {
@@ -92,6 +96,8 @@ XngineRecordGraph::TraceResult XngineRecordGraph::traceParentToAncestor(
   return traceFromParent(parentId, ancestorId);
 }
 
+// Descendants are computed from current links rather than cached: the graph
+// is small and has no explicit mutation version or derived-index lifecycle.
 QVector<quint32> XngineRecordGraph::descendantsOf(quint32 ancestorId) const
 {
   QVector<quint32> result;
@@ -106,6 +112,8 @@ QVector<quint32> XngineRecordGraph::descendantsOf(quint32 ancestorId) const
   return result;
 }
 
+// Report missing parents, unexpected parent types, and cycles separately;
+// these issues can occur without making the entire save unreadable.
 QStringList XngineRecordGraph::validateLinks() const
 {
   QStringList diagnostics;

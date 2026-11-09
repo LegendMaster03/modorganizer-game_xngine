@@ -5,6 +5,8 @@
 
 #include <limits>
 
+// Shared offsets for the observed SAVETREE and SAVEVARS representations.
+// They describe byte positions, not a complete specification of either file.
 namespace BattlespireSaveFormat {
 
 inline constexpr quint8 kRecordTypeItem = 2;
@@ -15,6 +17,7 @@ inline constexpr qsizetype kSaveTreeRecordHeaderSize = 65;
 inline constexpr qsizetype kCurrentMapLevelOffset = 1051;
 inline constexpr qsizetype kCurrentTimestampOffset = 1055;
 
+// SAVETREE offsets include each record's 65-byte header.
 namespace PlayerTreeOffset {
 inline constexpr qsizetype Name = 65;
 inline constexpr qsizetype RecordId = 33;
@@ -33,6 +36,8 @@ inline constexpr qsizetype GoldItemId = 97;
 inline constexpr qsizetype GoldQuantity = 127;
 }  // namespace PlayerTreeOffset
 
+// SAVEVARS embeds the player data without that record header, so fields
+// shared with SAVETREE are indexed relative to the stripped player block.
 namespace PlayerVarsOffset {
 inline constexpr qsizetype Name = PlayerTreeOffset::Name - kSaveTreeRecordHeaderSize;
 inline constexpr qsizetype SpellPoints = PlayerTreeOffset::SpellPoints - kSaveTreeRecordHeaderSize;
@@ -51,6 +56,8 @@ inline constexpr qsizetype Level = PlayerTreeOffset::Level - kSaveTreeRecordHead
 inline constexpr qsizetype ClassName = 378;
 }  // namespace PlayerVarsOffset
 
+// Requiring both identifiers avoids silently treating every partial match
+// as canonical. A single-signal match remains a recovery candidate only.
 struct PlayerRecordMatch
 {
   bool byType = false;
@@ -65,6 +72,8 @@ constexpr PlayerRecordMatch classifyPlayerRecord(quint8 type, bool hasRecordId, 
   return {type == kRecordTypePlayer, hasRecordId && recordId == kPlayerRecordId};
 }
 
+// The documented campaign has maps 1-7; other values are not proof of
+// corruption because the format and potential extensions are incomplete.
 constexpr bool isDocumentedCampaignMap(quint32 mapId)
 {
   return mapId >= 1 && mapId <= 7;

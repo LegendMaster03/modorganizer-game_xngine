@@ -3,6 +3,7 @@ add_library(game_battlespire MODULE)
 target_sources(game_battlespire PRIVATE
   gamebattlespire.h
   gamebattlespire.cpp
+  # Shared SAVEVARS/SAVETREE layout constants and cross-file ID joins.
   battlespiresaveformat.h
   battlespiresavejoins.h
   battlespiresavejoins.cpp
@@ -10,6 +11,8 @@ target_sources(game_battlespire PRIVATE
   battlespiresavegame.cpp
   battlespirevariablehash.h
   battlespirevariablehash.cpp
+  # Native Battlespire chunked level and image readers; these do not depend
+  # on the speculative Daggerfall compatibility adapters below.
   battlespirebs6.h
   battlespirebs6.cpp
   battlespirebsi.h

@@ -1,3 +1,6 @@
+// Verify BSI chunk decoding, palette handling, and malformed compressed
+// scanlines against synthetic fixtures. Original-game variation remains a
+// separate validation requirement.
 #include "battlespirebsi.h"
 
 #include <QtEndian>
@@ -18,6 +21,7 @@ void appendLE16(QByteArray& out, quint16 value)
   out.append(reinterpret_cast<const char*>(&raw), sizeof(raw));
 }
 
+// Unlike BS6, BSI chunk lengths in these fixtures are big-endian.
 QByteArray makeChunk(const char tag[5], const QByteArray& payload)
 {
   QByteArray out(tag, 4);

@@ -1,3 +1,5 @@
+// Assert that fixed-size SAVEVARS reference tables distinguish empty slots,
+// resolved SAVETREE IDs, and unresolved nonzero IDs.
 #include "battlespiresavejoins.h"
 
 #include <QtEndian>

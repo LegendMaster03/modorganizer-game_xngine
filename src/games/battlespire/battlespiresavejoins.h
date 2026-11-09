@@ -6,6 +6,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Cross-reference fixed-size SAVEVARS tables against SAVETREE record IDs.
+// This reports presence, not the semantic correctness of the target record.
 namespace BattlespireSaveJoins {
 
 inline constexpr qsizetype kConversationMapOffset = 4492;
@@ -15,6 +17,8 @@ inline constexpr qsizetype kStaticEnemyOffset = 5520;
 inline constexpr qsizetype kStaticEnemyRecordSize = 56;
 inline constexpr qsizetype kStaticEnemyMaxRecords = 128;
 
+// Zero IDs represent empty slots. Missing IDs include only nonzero entries
+// with no corresponding SAVETREE record in the supplied lookup.
 struct Summary
 {
   int populated = 0;

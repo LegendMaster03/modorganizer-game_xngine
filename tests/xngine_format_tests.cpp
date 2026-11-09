@@ -1,3 +1,6 @@
+// Cross-format regression tests cover descriptor layout differences,
+// compressed Battlespire entries, record ancestry, and save offsets.
+// The fixture coverage does not amount to a complete file-format specification.
 #include "battlespiresaveformat.h"
 #include "xnginebsaformat.h"
 #include "xnginerecordgraph.h"
@@ -20,6 +23,8 @@ bool check(bool condition, const char* message)
   return condition;
 }
 
+// Build a minimal compressed fixture with Battlespire descriptors instead
+// of relying on installation-specific source archives.
 bool writeBattlespireCompressedFixture(const QString& path)
 {
   QFile file(path);

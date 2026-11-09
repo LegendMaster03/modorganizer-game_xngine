@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 
 project(game_xngine)
 
+# Keep parser tests available through CTest without building them when
+# BUILD_TESTING=OFF (as in the development uibase dependency build).
 include(CTest)
 
 set(CMAKE_CXX_STANDARD 20)

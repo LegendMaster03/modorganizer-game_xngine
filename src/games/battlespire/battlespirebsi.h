@@ -9,6 +9,9 @@
 
 #include <utility>
 
+// Read Battlespire BSI images and preserve their unfamiliar chunks/fields.
+// Chunk lengths are big-endian; pixel/header values have separate encodings.
+// A successful parse does not settle every palette-index interpretation.
 class BattlespireBsi
 {
 public:
@@ -41,6 +44,8 @@ public:
     QByteArray data;
   };
 
+  // Keep encoded bytes and raw palette tables as well as decoded views so
+  // later format discoveries do not depend on a lossy conversion.
   struct Document
   {
     bool hasBsifPreamble = false;

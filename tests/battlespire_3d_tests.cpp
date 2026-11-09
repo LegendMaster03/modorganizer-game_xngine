@@ -1,3 +1,6 @@
+// Synthetic v2.7 mesh fixture checks native ten-byte face-header parsing
+// and the compatibility conversion to the shared eight-byte mesh structure.
+// It does not certify arbitrary assets extracted from the original game.
 #include "battlespire3dbsa.h"
 
 #include <QFile>
@@ -14,6 +17,8 @@ void appendLE32(QByteArray& out, quint32 value)
   out.append(reinterpret_cast<const char*>(&raw), sizeof(raw));
 }
 
+// Construct a single native-face record with explicit section offsets so
+// accidental fallback to the Daggerfall layout can be detected.
 QByteArray makeNativeFaceFixture()
 {
   QByteArray data("v2.7", 4);

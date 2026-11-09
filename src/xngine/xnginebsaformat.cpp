@@ -69,6 +69,8 @@ int descriptorSizeForType(XngineBSAFormat::IndexType type)
   return (type == XngineBSAFormat::IndexType::NameRecord) ? 18 : 8;
 }
 
+// Auto preserves existing caller behavior: Battlespire LZSS implies native
+// Battlespire descriptor layout unless the caller chooses one explicitly.
 XngineBSAFormat::DescriptorLayout resolvedDescriptorLayout(
     const XngineBSAFormat::Traits& traits)
 {
@@ -91,6 +93,8 @@ void lzssOutByte(QByteArray& out, std::array<quint8, 4096>& window, int& windowP
   out.append(static_cast<char>(value));
 }
 
+// Interpret Battlespire's dictionary-based compressed record payloads.
+// This decoder is not an encoder for producing new compressed records.
 QByteArray decompressBattlespireLzss(const QByteArray& input)
 {
   std::array<quint8, 4096> window{};
@@ -315,6 +319,8 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
 // Compressed entries must already contain correctly encoded bytes. The
 // writer permits pass-through when configured; it never compresses data.
 // Output is opened in truncate mode before all entries are validated.
+// Validate the chosen game-specific footer layout and index type before
+// serializing; a valid BSA header does not imply a valid game payload.
 bool XngineBSAFormat::writeArchive(const QString& filePath, const Archive& archive,
                                    QString* errorMessage, const Traits& traits)
 {
