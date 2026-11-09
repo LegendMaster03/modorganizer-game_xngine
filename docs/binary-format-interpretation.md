@@ -51,11 +51,18 @@ The v4/v5 parser uses 32-bit texture references and different face headers
 and vertex index semantics. Its auxiliary UV blocks are parsed separately.
 Do not assume a v2.x offset convention applies to v4/v5.
 
-`Battlespire3dBsa` first attempts the shared parser. For v2.7 records whose
-10-byte face-header layout aligns with the recorded normal offset, it tries
-two **heuristic** 8-byte normalization strategies and then parses the
-normalized copy. The chosen compatibility path is surfaced as a warning.
-It should not be described as a proven repair for every Battlespire model.
+`Battlespire3dBsa` computes the end of the face section under both the candidate
+10-byte Battlespire header and the inherited 8-byte layout. It prefers the
+10-byte interpretation only when that calculation lands exactly on the recorded
+face-normal offset. The parser retains all ten native header bytes separately,
+removes the final two bytes from each header in a temporary copy, adjusts later
+section offsets, and passes that copy to the shared v2.x parser. The unmodified
+8-byte path is accepted only when its own boundary aligns.
+
+This selection rule and normalization are implemented hypotheses with synthetic
+fixture coverage. They have not been shown to reconstruct every original
+Battlespire model losslessly. The six uninterpreted header bytes remain raw, and
+the shared mesh projection must not be treated as their semantic decoding.
 
 ## Daggerfall world layers, PAK rows, and executable item tables
 

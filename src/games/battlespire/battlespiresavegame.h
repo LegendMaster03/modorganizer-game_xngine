@@ -43,6 +43,8 @@ private:
   quint32 m_Gold = 0;
   qint32 m_Wounds = 0;
   qint32 m_WoundsMax = 0;
+  // SAVEVARS CurrentLevel is interpreted as the campaign map ID. It must not
+  // be used as the character level stored by XngineSaveGame.
   quint32 m_CurrentLevelId = 0;
   quint8 m_Race = 0xFF;
   QString m_ClassName;

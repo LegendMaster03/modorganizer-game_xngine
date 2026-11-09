@@ -63,7 +63,11 @@ public:
   struct Entry
   {
     QString name;
+    // Kept at 32 bits in memory. The candidate Battlespire descriptor can
+    // serialize only UInt16 IDs; writeArchive enforces that layout boundary.
     quint32 recordId = 0;
+    // Nonzero means data still contains encoded bytes for a descriptor layout
+    // with a compression field. Decoding clears this flag before later writes.
     qint16 compressed = 0;
     QByteArray data;
   };

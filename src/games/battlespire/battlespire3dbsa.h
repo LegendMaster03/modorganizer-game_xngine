@@ -11,9 +11,9 @@
 #include <xngine3dformat.h>
 
 // Experimental Battlespire mesh adapter sharing Xngine3dFormat. It tests
-// whether some v2.7 records use a ten-byte native face header rather than
-// the Daggerfall-compatible layout. Normalization is a research hypothesis;
-// successful synthetic parsing does not establish lossless reconstruction.
+// whether supported v2.x records use a ten-byte native face header rather than
+// the Daggerfall-compatible layout. The synthetic fixture covers v2.7 only.
+// Normalization remains a hypothesis, not evidence of lossless reconstruction.
 class Battlespire3dBsa
 {
 public:

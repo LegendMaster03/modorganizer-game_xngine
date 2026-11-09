@@ -37,12 +37,23 @@ This is a bounded compatibility fallback, not a complete automatic
 identification of all headerless formats.
 
 Record payload bytes occupy the area before a fixed-size descriptor footer.
-Named descriptors store a 12-byte name, compressed flag, and signed payload
-size; numbered descriptors store a record ID, compressed flag, and size.
-The parser rejects negative lengths, footer overlaps, record data past
-the footer, and data/footer length mismatches. The `Snd` and `Sav`
-variants describe shared container/index conventions; the game-specific
-audio or save payload meanings belong to their consumers.
+The selected descriptor layout controls how the same descriptor widths are
+interpreted:
+
+- The Daggerfall candidate layout uses a 14-byte name plus signed payload size
+  for named records, or a 32-bit record ID plus size for numbered records. It
+  has no compression field.
+- The Battlespire candidate layout uses a 12-byte name, 16-bit compression
+  flag, and size for named records, or a 16-bit record ID, compression flag,
+  and size for numbered records.
+
+`DescriptorLayout::Auto` currently chooses the Battlespire layout when the
+Battlespire LZSS mode is selected and the Daggerfall layout otherwise. That is
+a compatibility rule, not format autodetection. Callers can select the layout
+explicitly. The parser rejects negative lengths, footer overlaps, record data
+past the footer, and data/footer length mismatches. The `Snd` and `Sav`
+variants describe shared container/index conventions; the game-specific audio
+or save payload meanings belong to their consumers.
 
 Daggerfall's current traits require DOS 8.3-compatible, uppercase names
 and do not permit compressed entries. Battlespire's traits permit its
@@ -51,18 +62,23 @@ fallback. The rules are per game, not global assumptions about every BSA.
 
 ## Compression and the manifest
 
-When a compressed entry is read, its bytes are either:
+When a Battlespire-layout entry marked as compressed is read, its bytes are
+either:
 
 1. Preserved as-is when `allowCompressedPassthroughRead` is enabled, or
 2. Decompressed using the game's configured decompression mode.
 
-The reader retains the nonzero `compressed` flag in the entry either way.
-The writer **does not compress input**. When permitted, its compressed-write
-path passes the supplied bytes through under that existing flag. Therefore,
-repacking a decompressed extraction while retaining `compressed != 0`
-does **not** guarantee a valid compressed archive or a byte-identical
-round trip. Never interpret the existence of a manifest as proof that its
-payload bytes retain the original encoding.
+For pass-through reads, the entry retains its nonzero `compressed` flag and the
+payload remains encoded. For decoded reads, the reader clears the flag because
+the in-memory bytes are no longer compressed. This prevents a later write from
+labeling decoded bytes as encoded data.
+
+The writer **does not compress input**. A nonzero compression flag is accepted
+only for the Battlespire descriptor layout when compressed pass-through writes
+are explicitly enabled; the supplied bytes must already contain a valid encoded
+payload. Daggerfall descriptors reject nonzero compression flags because that
+layout has no field in which to serialize one. Never interpret the existence of
+a manifest as proof of a byte-identical compressed round trip.
 
 Extraction writes files into the requested directory and creates
 `xngine_bsa_manifest.tsv` with the columns:

@@ -282,7 +282,9 @@ bool BattlespireBsi::parseData(const QByteArray& data, Document& outDocument,
     }
     outDocument.hasBsifPreamble = true;
     outDocument.bsifDeclaredLength = bsifLength;
-    pos = 8;  // The original engine and reference decoder skip only the BSIF header.
+    // Follow the reverse-engineered reference decoder: BSIF wraps the following
+    // chunks, so parsing resumes after its header rather than skipping its length.
+    pos = 8;
   }
 
   bool sawEnd = false;

@@ -2,8 +2,9 @@
 
 #include <xnginetblformat.h>
 
-// This game uses the same fixed 256-byte table container as Daggerfall;
-// the wrapper selects the shared ByteLut256 reader explicitly.
+// Exercise the Daggerfall-derived 256-byte-table hypothesis through the shared
+// reader. Selecting ByteLut256 here is an explicit research assumption, not
+// evidence that Battlespire ships or consumes WATER.TBL.
 bool BattlespireWaterTbl::load(const QString& filePath, Data& outData,
                                QString* errorMessage)
 {

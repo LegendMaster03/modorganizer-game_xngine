@@ -6,7 +6,8 @@
 #include <QVector>
 #include <QtGlobal>
 
-// Cross-reference fixed-size SAVEVARS tables against SAVETREE record IDs.
+// Cross-reference candidate fixed-size SAVEVARS tables against SAVETREE record
+// IDs. Offsets and row widths come from the current research interpretation.
 // This reports presence, not the semantic correctness of the target record.
 namespace BattlespireSaveJoins {
 

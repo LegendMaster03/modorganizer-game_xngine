@@ -272,8 +272,8 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
         return setError(errorMessage,
                         "Compressed records are not supported for this game");
       }
-      // Passthrough preserves encoded bytes. Otherwise the configured
-      // decoder produces unpacked data but the entry retains its flag.
+      // Passthrough preserves both encoded bytes and the descriptor flag.
+      // A decoded entry must clear the flag before it can be serialized again.
       if (traits.allowCompressedPassthroughRead) {
         entry.data = data;
       } else if (traits.compressionMode == CompressionMode::BattlespireLzss) {

@@ -5,10 +5,10 @@
 #include <QVector>
 #include <QtGlobal>
 
-// Speculative Daggerfall-derived compatibility adapter. Verified Battlespire level
-// data carries water information in BS6 WATR chunks, now handled by BattlespireBs6;
-// no real Battlespire WATER.TBL resource or production caller is currently established.
-// Retain this adapter for compatibility/research only until original-game evidence exists.
+// Speculative Daggerfall-derived compatibility adapter. The BS6 research parser
+// separately projects candidate WATR values, but neither that interpretation nor
+// a Battlespire WATER.TBL resource has been validated with original-game assets.
+// No production caller is established. Retain this adapter only for research.
 // This compatibility adapter uses the shared TBL helper to read and write
 // fixed 256-byte tables without decoding the individual byte meanings.
 class BattlespireWaterTbl

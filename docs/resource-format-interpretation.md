@@ -80,9 +80,12 @@ format support requires representative original assets, malformed-file
 tests, and save/extract/repack comparisons, not only source inspection.
 ## Game-specific water-table wrappers
 
-`DaggerfallWaterTbl` and `BattlespireWaterTbl` select the shared
-`ByteLut256` format explicitly. The 256 bytes are preserved as values;
-the generic format reader does not establish what each entry means for
-water rendering in either game. The TBL writer validates the size before
-opening the target file, but it does not roll back a subsequent write
-failure.
+`DaggerfallWaterTbl` selects the shared `ByteLut256` format explicitly.
+`BattlespireWaterTbl` currently exposes the same operation only as a
+Daggerfall-derived research adapter: no original Battlespire `WATER.TBL` file
+or production caller has been established. Candidate water values are also
+projected from BS6 `WATR` chunks, but that separate interpretation still needs
+original-asset validation. The 256-byte adapter preserves uninterpreted values;
+it does not establish what an entry means for either game. The TBL writer
+validates the size before opening the target file, but it does not roll back a
+subsequent write failure.

@@ -6,8 +6,10 @@
 
 #include <string_view>
 
-// Hash names using the observed 32-bit rotate-by-four and ASCII case fold.
-// This is a byte-oriented algorithm, not Unicode case-insensitive hashing.
+// Candidate Battlespire name hash reconstructed from published name/hash pairs.
+// It uses a 32-bit rotate-by-four and ASCII case fold, unlike the existing
+// Daggerfall one-bit-shift routine. Matching known answers validates the
+// implementation, but not every proposed use of a hash found in SAVEVARS.
 namespace BattlespireVariableHash {
 
 constexpr quint8 uppercaseAscii(quint8 value)

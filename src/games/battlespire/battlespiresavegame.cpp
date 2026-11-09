@@ -588,8 +588,8 @@ bool BattlespireSaveGame::parseSaveTree()
       }
     }
 
-    // Preserve both player-identification signals: record type and known record ID.
-    // Observed save variants do not necessarily agree on both.
+    // A canonical player matches both signals. Single-signal matches are retained
+    // only as damaged-file recovery candidates; they are not known valid variants.
     const PlayerRecordMatch playerMatch =
         classifyPlayerRecord(recordType, hasRecordId, recordId);
     m_PlayerRecordByTypeFound = m_PlayerRecordByTypeFound || playerMatch.byType;
@@ -732,7 +732,9 @@ bool BattlespireSaveGame::parseSaveVars()
     return count;
   };
 
-  // These two SAVEVARS blocks carry RecordID values that join directly to SAVETREE.
+  // The candidate layouts place a RecordID in the first four bytes of each row.
+  // A successful lookup proves only that the ID exists in the parsed SAVETREE;
+  // it does not yet validate the target type or the row's higher-level semantics.
   const auto conversationJoin = BattlespireSaveJoins::joinRecordIds(
       data, BattlespireSaveJoins::kConversationMapOffset,
       BattlespireSaveJoins::kConversationMapRecordSize,
