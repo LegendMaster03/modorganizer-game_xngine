@@ -18,6 +18,8 @@ struct ScanStats
   int texturedFaces = 0;
 };
 
+// Diagnostic batch scan: count parse failures and face texture categories.
+// A successful parse does not establish visual correctness of mesh UVs.
 bool scanPath(const QString& rootPath, QTextStream& out)
 {
   QDirIterator it(rootPath, QStringList() << "*.3D" << "*.3DC", QDir::Files,
@@ -100,6 +102,8 @@ bool scanBattlespirePath(const QString& rootPath, QTextStream& out)
   return stats.filesFailed == 0;
 }
 
+// Load each archive mesh by numeric record ID; report individual failures
+// rather than aborting the entire archive's compatibility inventory.
 bool scanDaggerfallArch3d(const QString& arch3dPath, QTextStream& out)
 {
   QVector<quint16> recordIds;
@@ -147,6 +151,8 @@ bool scanDaggerfallArch3d(const QString& arch3dPath, QTextStream& out)
 
 }  // namespace
 
+// Return 0 only when every requested scan succeeded, 1 for scan failures,
+// and 2 for missing CLI arguments. This is a validation aid, not a renderer.
 int main(int argc, char* argv[])
 {
   QCoreApplication app(argc, argv);

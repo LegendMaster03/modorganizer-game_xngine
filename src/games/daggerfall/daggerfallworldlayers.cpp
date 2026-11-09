@@ -10,6 +10,9 @@ using Daggerfall::FormatUtil::setError;
 
 }  // namespace
 
+// Combine WOODS, CLIMATE, and POLITIC into a location query view.
+// Dimension mismatches are surfaced as warnings rather than silently
+// assuming that all three source grids share an identical extent.
 bool DaggerfallWorldLayers::loadFromArena2(const QString& arena2Path,
                                            Data& outData,
                                            QString* errorMessage)
@@ -57,6 +60,8 @@ bool DaggerfallWorldLayers::loadFromArena2(const QString& arena2Path,
   return true;
 }
 
+// WOODS determines whether this coordinate is valid. A valid WOODS cell
+// may still have unknown climate/politic values if the other grids differ.
 DaggerfallWorldLayers::PixelInfo DaggerfallWorldLayers::pixelInfoAt(const Data& data,
                                                                     int x, int y)
 {

@@ -71,6 +71,8 @@ qsizetype sectionSizeForIndex(int i)
   }
 }
 
+// Derive section boundaries by sorting offsets, not by assuming the header
+// lists sections in file order. Invalid or absent offsets are omitted.
 QVector<DaggerfallQbn::SectionRange> buildSectionRanges(const QByteArray& data,
                                                         const DaggerfallQbn::Header& h)
 {
@@ -104,6 +106,8 @@ const DaggerfallQbn::SectionRange* findRange(const QVector<DaggerfallQbn::Sectio
 }
 
 template <typename TRecord>
+// Use bytes available in each bounded section to determine record count;
+// discrepancies with header counts and trailing bytes become diagnostics.
 bool parseFixedSection(const QByteArray& data, qsizetype off, qsizetype bytesSize,
                        qsizetype recSize, quint16 expectedCount,
                        QVector<TRecord>& outVec, QString* warning,
@@ -141,6 +145,8 @@ bool DaggerfallQbn::loadFile(const QString& qbnPath, File& outFile, QString* err
   return parseBytes(f.readAll(), outFile, errorMessage);
 }
 
+// Interpret only known fixed-record sections; preserve the complete raw
+// file and warn on count/offset inconsistencies for partially known layouts.
 bool DaggerfallQbn::parseBytes(const QByteArray& bytes, File& outFile,
                                QString* errorMessage)
 {
@@ -305,6 +311,8 @@ bool DaggerfallQbn::parseBytes(const QByteArray& bytes, File& outFile,
     }
   }
 
+  // Debug-name records are optional even when the main quest sections parse.
+  // Missing data is surfaced separately from the core quest result.
   // Section 10: Optional text variable table (usually only when hasDebugInfo != 0).
   if (const auto* r = findRange(outFile.sectionRanges, 10)) {
     const QByteArray section = bytes.mid(r->offset, r->size);

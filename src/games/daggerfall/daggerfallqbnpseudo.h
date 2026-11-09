@@ -7,6 +7,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Descriptive parser for fixed-length pseudo-code instructions. The
+// opcode table does not establish complete in-game execution semantics.
 class DaggerfallQbnPseudo
 {
 public:
@@ -32,6 +34,8 @@ public:
     }
   };
 
+  // Invalid/unknown argument arrangements may still be represented;
+  // consult warning instead of assuming every opcode was interpreted.
   struct Record
   {
     quint16 opCode = 0;

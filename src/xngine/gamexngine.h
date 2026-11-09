@@ -27,6 +27,9 @@ class XngineUnmanagedMods;
 #include "xnginebsaformat.h"
 #include "igamefeatures.h"
 
+// Shared MO2 integration for XnGine titles. Derived game plugins supply
+// detection, declared save layout and identity, and format-specific save
+// parsing; the base handles profile paths, MO2 adapters, and shared features.
 class GameXngine : public MOBase::IPluginGame, public MOBase::IPluginFileMapper
 {
   friend class XngineScriptExtender;
@@ -107,6 +110,8 @@ public:  // Other (e.g. for game features)
   bool packKnownXngineBsaArchive(const QString& inputDirectory, const QString& archivePath,
                                  QString* errorMessage = nullptr) const;
 
+  // Save data from distinct games must not collide within the same MO2
+  // profile, even when their native slot directory names are identical.
   static SaveStoragePaths resolveSaveStorage(const QString& profilePath, const QString& gameId);
 
   static std::vector<SaveSlot> enumerateSaveSlots(const SaveStoragePaths& paths,
@@ -118,6 +123,8 @@ public:  // Other (e.g. for game features)
   virtual XngineBSAFormat::Traits bsaTraits() const;
 
 protected:
+  // A game declares its slot topology and stable game-specific save-root ID.
+  // GameXngine enumerates the slots; the derived parser interprets each save.
   virtual SaveLayout saveLayout() const = 0;
   virtual QString saveGameId() const = 0;
   virtual QString saveSlotPrefix() const;
@@ -128,7 +135,8 @@ protected:
   virtual QString savegameExtension() const   = 0;
   virtual QString savegameSEExtension() const = 0;
 
-  // Create a save game.
+  // Construct the game-specific parser for a directory or save file selected
+  // according to the declared layout and oneSavePerSlot behavior.
   virtual std::shared_ptr<const XngineSaveGame>
   makeSaveGame(QString filepath) const = 0;
 

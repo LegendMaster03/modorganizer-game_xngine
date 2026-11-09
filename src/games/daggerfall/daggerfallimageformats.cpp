@@ -34,6 +34,8 @@ bool readLE64U(const QByteArray& data, qsizetype off, quint64& value)
   return true;
 }
 
+// Decode IMG run markers until the expected raster size; malformed runs
+// fail instead of treating the compressed bytes as an image.
 bool decodeRleCompressed(const QByteArray& src, int expectedSize, QByteArray& out,
                          QString* errorMessage)
 {
@@ -170,6 +172,9 @@ bool loadColourTranslationFile(const QString& path, ColourTranslationFile& out,
   return true;
 }
 
+// Some known IMG files use compression marker 0x0800 despite carrying
+// uncompressed pixels. Other unknown compression codes are left as raw
+// bytes with a warning, not silently treated as decoded rasters.
 bool loadImgFile(const QString& path, ImgFile& out, QString* errorMessage)
 {
   out = {};
@@ -191,6 +196,8 @@ bool loadImgFile(const QString& path, ImgFile& out, QString* errorMessage)
   out.pixelDataRaw = data.mid(12, std::min<qsizetype>(declaredLen, available));
 
   const QString fn = QFileInfo(path).fileName().toUpper();
+  // Narrow exception for two observed files, not a global interpretation
+  // of all IMG resources declaring this compression value.
   const bool treatAsUncompressedUnknown0800 = (out.header.compression == 0x0800 &&
                                                (fn == "FRAM00I0.IMG" || fn == "TALK00I0.IMG"));
 

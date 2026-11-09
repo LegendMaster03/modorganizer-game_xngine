@@ -5,6 +5,9 @@
 
 class GameXngine;
 
+// Shared save-info feature supplies the details widget, but currently
+// reports no missing assets; an empty result does not prove dependencies
+// are present in the MO2 profile.
 class XngineSaveGameInfo : public MOBase::SaveGameInfo
 {
 public:

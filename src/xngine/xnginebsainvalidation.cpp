@@ -18,6 +18,8 @@ XngineBSAInvalidation::XngineBSAInvalidation(MOBase::DataArchives* dataArchives,
     : m_DataArchives(dataArchives), m_IniFileName(iniFilename), m_Game(game)
 {}
 
+// This local static is initialized from the first instance's virtual
+// invalidationBSAName. It is not independently cached for each game class.
 bool XngineBSAInvalidation::isInvalidationBSA(const QString& bsaName)
 {
   static QStringList invalidation{invalidationBSAName()};
@@ -40,6 +42,9 @@ void XngineBSAInvalidation::activate(MOBase::IProfile* profile)
   prepareProfile(profile);
 }
 
+// Both activate() and deactivate() delegate here. The requested state is
+// read from the profile, not inferred from which callback was invoked.
+// Settings may be written to profile-local or game documents INI storage.
 bool XngineBSAInvalidation::prepareProfile(MOBase::IProfile* profile)
 {
   bool dirty          = false;
@@ -61,6 +66,8 @@ bool XngineBSAInvalidation::prepareProfile(MOBase::IProfile* profile)
     }
   }
 
+  // Enabled profiles insert a dummy archive at the front of the archive
+  // list and clear SInvalidationFile; disabling reverses those steps.
   if (profile->invalidationActive(nullptr)) {
 
     // add the dummy bsa to the archive string, if needed

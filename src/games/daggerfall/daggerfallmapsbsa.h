@@ -7,6 +7,8 @@
 
 class GameDaggerfall;
 
+// Resolves map location data from related MAPNAMES/MAPTABLE/MAPPITEM
+// records. Some save-header identifiers use an inferred secondary key.
 class DaggerfallMapsBsa
 {
 public:
@@ -31,6 +33,8 @@ public:
                                     QHash<quint16, LocationInfo>& outIndex,
                                     QString* errorMessage = nullptr);
   static LocationInfo resolveLocationInfo(const GameDaggerfall* game, quint16 locationCode);
+  // Approximate both coordinate orientations with a distance cutoff;
+  // not a guarantee of a unique map-location match. Cache is path-keyed.
   static LocationInfo resolveNearestLocation(const GameDaggerfall* game, qint32 x, qint32 z);
   static QString resolveExteriorBlockRecordName(const GameDaggerfall* game, int regionIndex,
                                                 quint8 blockIndex, quint8 blockNumber,

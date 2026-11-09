@@ -9,8 +9,9 @@ class GameXngine;
 /**
  * @brief ModDataChecker for XnGine games.
  *
- * The default implementation is conservative and only checks for common XnGine-era
- * indicators. Games should override this if they can provide stronger fingerprints.
+ * The base only checks immediate names and extensions for common
+ * XnGine-era indicators. These are broad heuristics and may accept a
+ * nonfunctional payload; game-specific checkers apply additional policy.
  */
 class XngineModDataChecker : public MOBase::ModDataChecker
 {

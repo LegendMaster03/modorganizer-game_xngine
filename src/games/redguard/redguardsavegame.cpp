@@ -1208,6 +1208,9 @@ qsizetype findThumbnailSignature(const QByteArray& bytes)
   return -1;
 }
 
+// Tagged chunks carry a big-endian payload length. Choose the last candidate
+// whose payload fits the file; that bounds reads but does not itself prove
+// the selected chunk is semantically valid for a particular save variant.
 bool findLastChunkPayload(const QByteArray& bytes, const char tag[4], qsizetype minOffset,
                           qsizetype* payloadOffset, quint32* payloadLength)
 {
@@ -1872,6 +1875,8 @@ void RedguardsSaveGame::parseStructuredMetadata(const QByteArray& bytes)
   qsizetype svmdOffset = -1;
   quint32 svmdLen = 0;
   m_SaveSvmdPayload.clear();
+  // Keep raw companion chunks available for diagnostics without inferring
+  // undocumented game state from their bytes.
   m_SaveSvcbPayload = extractLastChunkPayloadCopy(bytes, "SVCB", kTailScanOffset);
   m_SaveSvrgPayload = extractLastChunkPayloadCopy(bytes, "SVRG", kTailScanOffset);
   if (!findLastChunkPayload(bytes, "SVMD", kTailScanOffset, &svmdOffset, &svmdLen) ||

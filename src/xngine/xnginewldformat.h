@@ -6,6 +6,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Shared WLD interface for two distinct game layouts. Automatic variant
+// selection is heuristic, not a verified binary format signature.
 class XngineWldFormat
 {
 public:
@@ -16,6 +18,8 @@ public:
     Redguard
   };
 
+  // strictValidation affects Daggerfall woods checks; the current
+  // Redguard fixed-layout reader ignores this flag.
   struct Traits
   {
     Variant variant = Variant::Auto;
@@ -98,6 +102,8 @@ public:
 
   // Redguard utility: combines one map plane from all 4 sections into a 256x256 grid.
   // planeIndex is 0..3 for map1..map4.
+  // Valid planeIndex values are 0..3. This composes Redguard map planes;
+  // it does not convert to Daggerfall world coordinates.
   static QVector<quint8> redguardCombinedMap(const RedguardData& data, int planeIndex);
 };
 

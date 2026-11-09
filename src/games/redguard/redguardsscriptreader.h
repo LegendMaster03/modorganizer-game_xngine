@@ -11,6 +11,8 @@
 class RedguardsMapDatabase;
 class RedguardsMapHeader;
 
+// Renders bytecode as readable Redguard script source using current
+// SOUP/map catalogs. Unknown function IDs are not reconstructed names.
 class RedguardsScriptReader
 {
 public:
@@ -44,6 +46,8 @@ private:
   QBuffer mInput;
   QList<RedguardsScriptInstruction> mInstructions;
   RedguardsScriptInstruction* mCurrentInstruction = nullptr;
+  // Collected branch references determine which decoded offsets should
+  // be shown as labels in the formatted source.
   QList<int> mLabels;
   int mPos = 0;
   int mIndentLevel = 0;

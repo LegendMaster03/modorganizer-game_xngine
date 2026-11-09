@@ -3,6 +3,8 @@
 
 #include <QString>
 
+// Parsed SOUP flag declaration: leading fields and optional semicolon
+// comment. It supplies names/IDs to script tools without evaluating flags.
 class RedguardsSoupFlag
 {
 public:

@@ -21,6 +21,8 @@ struct RedguardsItemData
   int playerMax = 0;
 };
 
+// Context for compiled RGM scripts: map, SOUP function/flag, item,
+// reference, attribute, and RTX labels are loaded from game data.
 class RedguardsMapDatabase
 {
 public:
@@ -34,6 +36,8 @@ public:
   RedguardsMapFile* mapFileFromName(const QString& name) const;
   RedguardsMapFile* mapFileFromId(int id) const;
 
+  // List indices are script-visible function IDs. Catalog ordering
+  // matters when compiling a script against this database.
   const QList<RedguardsSoupFunction>& functions() const { return mFunctions; }
   const QList<RedguardsSoupFlag>& flags() const { return mFlags; }
   const QList<RedguardsItemData>& items() const { return mItems; }

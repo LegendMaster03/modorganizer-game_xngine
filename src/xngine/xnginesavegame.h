@@ -22,6 +22,8 @@ class IPluginGame;
 
 class GameXngine;
 
+// Shared MO2 save-metadata interface. Games supply parsed player/location
+// details while the base handles slot naming and lazy optional fields.
 class XngineSaveGame : public MOBase::ISaveGame
 {
 public:
@@ -234,6 +236,8 @@ protected:
     DataFields() {}
     virtual ~DataFields() {}
   };
+  // Screenshot and plugin fields are loaded on first access through the
+  // virtual fetchDataFields hook; the base default returns empty fields.
   MOBase::MemoizedLocked<std::unique_ptr<DataFields>> m_DataFields;
 
   // Fetch the field - implemented as empty stub for XnGine

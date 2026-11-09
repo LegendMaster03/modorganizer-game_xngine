@@ -125,6 +125,8 @@ qint16 decodeSigned12Bit(qint16 fromFile)
   return v;
 }
 
+// v2.5 uses 3-byte vertex-index units; later v2.x records use 12-byte
+// coordinate offsets. Reject nonaligned offsets instead of guessing indices.
 int pointIndexForOffset(Xngine3dFormat::VersionTag versionTag, qint32 pointOffset)
 {
   if (pointOffset < 0) {
@@ -283,6 +285,9 @@ void evalAffineUv(const Xngine3dFormat::Point& p, const double coeff[4], double&
              coeff[2] * static_cast<double>(p.z) + coeff[3];
 }
 
+// v2.x stores the first UV values using mixed absolute/delta conventions.
+// For larger polygons, reconstruct the rest geometrically from available
+// anchors; do not mistake a successful mesh parse for exact original UVs.
 void finalizePlaneUv(Xngine3dFormat::Plane& plane, const QVector<Xngine3dFormat::Point>& points,
                      QString& warning)
 {
@@ -350,6 +355,8 @@ void finalizePlaneUv(Xngine3dFormat::Plane& plane, const QVector<Xngine3dFormat:
     }
   }
 
+  // If the four-anchor affine solve is singular or unavailable, use the
+  // first three points as planar coordinates where their geometry permits.
   if (count >= 5 && !usedAffine) {
     const int i0 = plane.points[0].pointIndex;
     const int i1 = plane.points[1].pointIndex;
@@ -395,6 +402,8 @@ void finalizePlaneUv(Xngine3dFormat::Plane& plane, const QVector<Xngine3dFormat:
   }
 }
 
+// v2.x face records have 8-byte headers and offset-based point references.
+// Auxiliary sections may yield warnings without invalidating parsed geometry.
 bool parseV2xRecord(const QByteArray& data, Xngine3dFormat::MeshRecord& outMesh,
                     QString* errorMessage)
 {
@@ -554,6 +563,8 @@ bool parseV2xRecord(const QByteArray& data, Xngine3dFormat::MeshRecord& outMesh,
   return true;
 }
 
+// v4/v5 use 10-byte face headers, 32-bit texture references, and direct
+// vertex indices, so v2.x point-offset and UV rules do not apply.
 bool parseV4V5Record(const QByteArray& data, Xngine3dFormat::MeshRecord& outMesh,
                      QString* errorMessage)
 {

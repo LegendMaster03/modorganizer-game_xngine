@@ -7,6 +7,8 @@
 
 namespace {
 
+// CLI extraction uses Battlespire archive assumptions rather than
+// autodetecting the traits of every supported XnGine game.
 XngineBSAFormat::Traits battlespireTraits()
 {
   XngineBSAFormat::Traits traits;
@@ -26,6 +28,8 @@ void printUsage()
 
 }  // namespace
 
+// Extraction-only utility. SPIRE.SND receives an explicit sound-archive
+// hint; output files and manifest use the shared unpacker behavior.
 int main(int argc, char* argv[])
 {
   QCoreApplication app(argc, argv);

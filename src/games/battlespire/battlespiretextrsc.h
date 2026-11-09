@@ -7,6 +7,9 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Text record headers retain both archive index and record ID. The maps
+// provide separate lookups, while raw subrecord bytes remain available
+// when the readable interpretation is incomplete.
 class BattlespireTextRsc
 {
 public:

@@ -6,6 +6,9 @@
 
 class GameArena;
 
+// Adds Arena-specific mapper and DOSBox configuration labels to the shared
+// XnGine mod-content classification. It does not validate or execute files.
+
 class ArenaModDataContent : public XngineModDataContent
 {
 public:

@@ -6,6 +6,8 @@
 
 namespace
 {
+// A recursive label heuristic, not a validated patch catalog. Names of
+// README/patch documentation can also trigger this content category.
 bool containsPatchPayload(const std::shared_ptr<const MOBase::IFileTree>& fileTree)
 {
   if (!fileTree) {
@@ -591,6 +593,9 @@ std::vector<DaggerfallsModDataContent::Content> DaggerfallsModDataContent::getAl
   return contents;
 }
 
+// Content icons report detected payload types, not capabilities. In
+// particular, Unity runtime, installers, and quest sources are not made
+// executable by applying these labels.
 std::vector<int> DaggerfallsModDataContent::getContentsFor(
     std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {

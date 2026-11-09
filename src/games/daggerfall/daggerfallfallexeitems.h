@@ -7,6 +7,9 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Decodes fixed-width item records from a plausible FALL.EXE table.
+// Table discovery and known picture labels are heuristics, not assurance
+// that an arbitrary executable version has the expected layout.
 class DaggerfallFallExeItems
 {
 public:

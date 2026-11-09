@@ -5,6 +5,8 @@
 #include <QString>
 #include <QVector>
 
+// Lookup tables for known biography, skill, demographic, and faction IDs.
+// A missing label is not proof that the underlying game code is invalid.
 class DaggerfallBioCodes
 {
 public:

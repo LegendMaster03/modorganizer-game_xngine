@@ -11,8 +11,10 @@
  * Redguard-specific mod data checker.
  * Redguard mod detection follows these indicators:
  * - Format 0 (File replacement): .RGM (Redguard module), .RTX (texture), .SAV (save) files
- * - Format 1 (Patch-based): About.txt + at least one *Changes.txt file (INI/Map/RTX changes)
- *   or mod contains Redguard game data folders (data, maps, textures, etc.)
+ * - Dillon241-style indicators: any one root-level About.txt,
+ *   INI Changes.txt, Map Changes.txt, or RTX Changes.txt. The corresponding
+ *   plugin setting gates this branch; no combination is required.
+ * - Declared config filenames and Redguard data folders also serve as hints.
  */
 class RedguardsModDataChecker : public XngineModDataChecker
 {
@@ -32,7 +34,8 @@ public:
       return CheckReturn::INVALID;
     }
 
-    // Redguard-only patch-instruction indicators
+    // Any one of these root-level markers enters the Dillon241 branch;
+    // even About.txt alone is sufficient for recognition.
     if (fileTree->find("About.txt", MOBase::IFileTree::FILE) ||
         fileTree->find("INI Changes.txt", MOBase::IFileTree::FILE) ||
         fileTree->find("Map Changes.txt", MOBase::IFileTree::FILE) ||
@@ -152,6 +155,8 @@ private:
     return false;
   }
 
+  // Read configured filenames from the managed game rather than assuming
+  // fixed RTX/world/item INI names for every Redguard installation.
   bool containsConfiguredDeclaredPayload(std::shared_ptr<const MOBase::IFileTree> fileTree) const
   {
     if (!fileTree) {

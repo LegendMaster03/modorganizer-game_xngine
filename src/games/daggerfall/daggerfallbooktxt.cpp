@@ -7,6 +7,9 @@
 
 namespace {
 
+// Produce readable book text by interpreting page, line, position, and
+// image controls. Formatting tokens are deliberately discarded; the
+// caller also retains the raw page bytes for higher-fidelity use.
 QString decodePageText(const QByteArray& raw)
 {
   QString out;
@@ -64,6 +67,9 @@ QString decodePageText(const QByteArray& raw)
 
 }  // namespace
 
+// Book page pointers may not be ordered physically. Bound each page by
+// the next greater offset, then trim at the observed 0xF6 end-page token.
+// Missing terminators warn rather than synthesizing text beyond the span.
 bool DaggerfallBookTxt::loadBook(const QString& filePath, Book& outBook,
                                  QString* errorMessage)
 {

@@ -48,7 +48,9 @@ struct ImgFile
 {
   ImgHeader header;
   QByteArray pixelDataRaw;
-  QByteArray pixelDataDecoded;  // width*height indexed
+  // Recognized formats decode to indexed raster bytes. Unsupported
+  // compression can leave raw bytes here; inspect warning before use.
+  QByteArray pixelDataDecoded;
   QString warning;
 };
 

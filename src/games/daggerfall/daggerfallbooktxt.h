@@ -6,6 +6,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Book pages retain raw record bytes alongside decoded text. Unknown
+// header values and page warnings are not silently discarded.
 class DaggerfallBookTxt
 {
 public:

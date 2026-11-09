@@ -685,6 +685,8 @@ bool DaggerfallsSaveGame::parseSaveTree()
     Q_UNUSED(version);
   }
 
+  // Save variants do not guarantee a fixed record-stream start offset. Probe
+  // for a bounded, plausible stream instead of trusting the header position.
   qsizetype streamStart = 0;
   qsizetype streamEnd = 0;
   const auto records = findBestRecordStream(data, &streamStart, &streamEnd, &m_RecordParseStats);
@@ -747,6 +749,8 @@ bool DaggerfallsSaveGame::parseSaveTree()
     }
   }
 
+  // Resolve parent links only after indexing all record IDs. A single-pass
+  // lookup would misclassify references to later records as orphans.
   for (const auto& link : parentLinks) {
     if (link.parentId == 0) {
       ++m_SaveTreeRootRecordCount;
@@ -1137,6 +1141,9 @@ bool DaggerfallsSaveGame::readU8(const QByteArray& data, qsizetype offset, quint
   return true;
 }
 
+// Interpret one candidate record stream until a bad length or the file end.
+// Zero-length entries are separators; malformed suffixes leave the valid
+// prefix available for candidate scoring rather than throwing it away.
 std::vector<DaggerfallsSaveGame::ParsedRecord> DaggerfallsSaveGame::parseRecordStream(
     const QByteArray& data, qsizetype startOffset, qsizetype* endOffset,
     RecordParseStats* stats)
@@ -1221,6 +1228,9 @@ std::vector<DaggerfallsSaveGame::ParsedRecord> DaggerfallsSaveGame::findBestReco
       continue;
     }
 
+    // Prefer a stream spanning nearly the entire remaining file and one
+    // containing a character-position record. Record count alone may select
+    // an unrelated byte sequence that happens to parse as short records.
     int score = static_cast<int>(records.size());
     if (end >= data.size() - 8) {
       score += 1000;

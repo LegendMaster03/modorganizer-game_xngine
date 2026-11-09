@@ -14,6 +14,9 @@ std::vector<RedguardsModDataContent::Content> RedguardsModDataContent::getAllCon
 }
 
 std::vector<int>
+// Any root-level Dillon241 marker earns a Patch Instructions icon. This
+// describes the UI label only; executable policy and actual patch staging
+// are enforced by different components.
 RedguardsModDataContent::getContentsFor(std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {
 	auto contents = XngineModDataContent::getContentsFor(fileTree);

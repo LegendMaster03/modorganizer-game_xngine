@@ -932,6 +932,9 @@ QString GameArena::saveSlotPrefix() const
   return "SAVE";
 }
 
+// Arena GLOBAL.BSA is recognized for reading, but the index type varies
+// by build and is not asserted here. Generic known-archive packing rejects
+// this spec until an index mapping is established.
 QVector<XngineBSAFormat::FileSpec> GameArena::bsaFileSpecs() const
 {
   return {

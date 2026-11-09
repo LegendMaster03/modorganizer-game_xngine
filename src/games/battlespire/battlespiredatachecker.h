@@ -11,6 +11,8 @@
 #include <memory>
 #include <QDebug>
 
+// Payload policy and wrapper-directory selection are separate checks;
+// executable patch payloads require their game-specific setting.
 class BattlespiresModDataChecker : public XngineModDataChecker
 {
 public:
@@ -266,6 +268,8 @@ private:
     return out;
   }
 
+  // Prefer the first wrapper with a recognizable payload; otherwise fall
+  // back to the first existing candidate without validating its contents.
   std::shared_ptr<const MOBase::IFileTree> selectInstallTreeConstByPath(
       std::shared_ptr<const MOBase::IFileTree> fileTree, const QStringList& paths) const
   {

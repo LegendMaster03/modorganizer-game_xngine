@@ -7,6 +7,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// TEXT.RSC record model retains control tokens and raw bytes separately
+// from decoded display text. Partial decoding should not discard tokens.
 class DaggerfallTextRecord
 {
 public:

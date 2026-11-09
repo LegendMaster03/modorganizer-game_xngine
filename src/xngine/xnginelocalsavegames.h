@@ -26,6 +26,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 class GameXngine;
 
+// MO2 local-save feature adapter. Mapping and directory creation are
+// separate responsibilities; profile preparation is intentionally a no-op.
 class XngineLocalSavegames : public MOBase::LocalSavegames
 {
 

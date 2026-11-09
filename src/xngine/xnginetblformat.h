@@ -5,6 +5,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Supports the single known 256-byte lookup-table payload. A TBL is not
+// interchangeable with the RGB palette formats.
 class XngineTblFormat
 {
 public:
@@ -14,6 +16,8 @@ public:
     ByteLut256
   };
 
+  // The current fixed-size TBL reader does not use strictValidation;
+  // its byte-count checks are unconditional.
   struct Traits
   {
     Variant variant = Variant::Auto;

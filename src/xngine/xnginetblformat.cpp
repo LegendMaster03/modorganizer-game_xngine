@@ -14,6 +14,8 @@ bool setError(QString* errorMessage, const QString& error)
   return false;
 }
 
+// The only recognized layout is a raw 256-byte lookup table. Equal size
+// is a structural hint, not proof that the bytes have water-table meaning.
 XngineTblFormat::Variant detectVariant(const QByteArray& bytes)
 {
   if (bytes.size() == 256) {
@@ -24,6 +26,8 @@ XngineTblFormat::Variant detectVariant(const QByteArray& bytes)
 
 }  // namespace
 
+// A fixed-size byte lookup table, not an RGB palette. Preserve all 256
+// values without interpreting their use in the game's data pipeline.
 bool XngineTblFormat::parseByteLut256(const QByteArray& bytes, ByteLut256& outTable,
                                       QString* errorMessage)
 {
@@ -57,6 +61,8 @@ bool XngineTblFormat::writeByteLut256(const ByteLut256& table, QByteArray& outBy
   return true;
 }
 
+// Auto recognition requires exactly 256 bytes; an explicit variant still
+// requires its parser's structural validation.
 bool XngineTblFormat::readFile(const QString& filePath, Document& outDocument,
                                QString* errorMessage, const Traits& traits)
 {
@@ -87,6 +93,8 @@ bool XngineTblFormat::readFile(const QString& filePath, Document& outDocument,
   }
 }
 
+// Validate the fixed-size table before opening the output for truncation;
+// a later I/O failure can still leave a partial output file.
 bool XngineTblFormat::writeFile(const QString& filePath, const Document& document,
                                 QString* errorMessage, const Traits& traits)
 {

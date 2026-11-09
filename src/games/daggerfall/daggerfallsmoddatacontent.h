@@ -7,6 +7,8 @@
  * Daggerfall-specific mod data content categorizer.
  * Categorizes detected mod content into game-specific types.
  */
+// Content badges report detected package types, including compatibility
+// and manual-install material; they are not proof of game runtime support.
 class DaggerfallsModDataContent : public XngineModDataContent
 {
 public:

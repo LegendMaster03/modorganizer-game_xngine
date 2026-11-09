@@ -5,6 +5,9 @@
 
 class GameBattlespire;
 
+// Battlespire save-folder adapter using the shared XngineSaveGame metadata.
+// The game pointer is accepted but not currently used by this constructor.
+
 class BattleSpireSaveGame : public XngineSaveGame
 {
 public:

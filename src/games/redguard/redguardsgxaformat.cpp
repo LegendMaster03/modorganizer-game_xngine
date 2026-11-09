@@ -180,6 +180,8 @@ bool RedguardsGxaFormat::loadFile(const QString& filePath, Document& outDocument
   return parseBytes(bytes, outDocument, errorMessage);
 }
 
+// BMHD, BPAL, and BBMP must precede the END marker. A structurally
+// recognized image subtype can still retain encoded, undecoded pixel data.
 bool RedguardsGxaFormat::parseBytes(const QByteArray& bytes, Document& outDocument,
                                     QString* errorMessage)
 {
@@ -243,6 +245,8 @@ bool RedguardsGxaFormat::parseBytes(const QByteArray& bytes, Document& outDocume
       const qint16 subtype =
           firstImage.unknownFields.size() >= 3 ? firstImage.unknownFields[2] : -1;
 
+      // Type 0 carries contiguous raw indexed pixels with declared sizes;
+      // each image's span is verified against the BBMP payload boundary.
       if (subtype == 0) {
         qsizetype imageCursor = 0;
         for (quint16 i = 0; i < outDocument.bmhd.imageCount; ++i) {
@@ -273,6 +277,8 @@ bool RedguardsGxaFormat::parseBytes(const QByteArray& bytes, Document& outDocume
               QString("BBMP block has %1 trailing bytes beyond parsed image data")
                   .arg(payload.size() - imageCursor);
         }
+      // Type 1 discovers plausible embedded image headers by scanning.
+      // Require the discovered count to match BMHD to limit false matches.
       } else if (subtype == 1) {
         QVector<qsizetype> imageOffsets;
         imageOffsets.reserve(outDocument.bmhd.imageCount);
@@ -311,6 +317,8 @@ bool RedguardsGxaFormat::parseBytes(const QByteArray& bytes, Document& outDocume
           image.imageData = payload.mid(dataStart, dataEnd - dataStart);
           outDocument.images.push_back(image);
         }
+      // The currently recognized type 2 layout supports only one image.
+      // Preserve its encoded data rather than guessing a decoder.
       } else if (subtype == 2) {
         if (outDocument.bmhd.imageCount != 1) {
           return setError(errorMessage,

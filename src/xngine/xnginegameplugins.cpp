@@ -20,6 +20,8 @@ using MOBase::IPluginList;
 using MOBase::reportError;
 using MOBase::SafeWriteFile;
 
+// Deliberately inert MO2 plugin-list integration. File override and mod
+// priority are separate from these ESP/ESM-style list operations.
 XngineGamePlugins::XngineGamePlugins(IOrganizer* organizer) : m_Organizer(organizer)
 {}
 

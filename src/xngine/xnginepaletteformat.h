@@ -7,6 +7,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Interprets fixed-size RGB palette layouts. Six-bit vs eight-bit color
+// scaling is inferred from the entire byte range, not each pixel channel.
 class XnginePaletteFormat
 {
 public:
@@ -17,6 +19,8 @@ public:
     HeaderedRgb256
   };
 
+  // Trailing-data compatibility can select the final 768 bytes of a
+  // larger raw palette file; it is not a lossless passthrough of prefixes.
   struct Traits
   {
     Variant variant = Variant::Auto;
@@ -43,6 +47,7 @@ public:
     Variant variant = Variant::Auto;
     Palette palette;
     Header headered;
+    // Records when extra input bytes were discarded to parse a raw palette.
     bool usedTrailingPaletteData = false;
     QString warning;
   };

@@ -6,6 +6,8 @@
 
 namespace Daggerfall
 {
+// Daggerfall's native angle representation spans 2048 units per circle;
+// keep conversion at the boundary instead of treating it as degrees.
 namespace Angle
 {
 constexpr double Pi = 3.14159265358979323846;

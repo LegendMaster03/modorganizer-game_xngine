@@ -11,6 +11,8 @@ QByteArray RedguardsUtils::readBytes(QIODevice* input, int numBytes)
   return input->read(numBytes);
 }
 
+// A null stream or short read returns zero, indistinguishable from a
+// real encoded zero. Callers must separately check stream integrity.
 uint8_t RedguardsUtils::readUnsignedByte(QIODevice* input)
 {
   if (!input) {
@@ -71,6 +73,9 @@ int32_t RedguardsUtils::byteArrayToInt(const QByteArray& array, bool littleEndia
   return byteRangeToInt(array, 0, array.size(), littleEndian);
 }
 
+// Reads available bytes without requiring the requested range's full
+// length. It also does not reject negative start offsets: callers must
+// validate offsets before using this helper on untrusted binary data.
 int32_t RedguardsUtils::byteRangeToInt(const QByteArray& array, int start, int length,
                                        bool littleEndian)
 {
@@ -123,6 +128,8 @@ QString RedguardsUtils::validFilename(const QString& str)
   return result;
 }
 
+// Narrow Latin-1 compatibility substitution used before writing text;
+// this does not preserve arbitrary Unicode outside the target encoding.
 QString RedguardsUtils::fixUnsupportedCharacters(const QString& str)
 {
   QString result = str;

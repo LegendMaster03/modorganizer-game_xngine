@@ -12,6 +12,8 @@ namespace Ui
 class XngineSaveGameInfoWidget;
 }
 
+// MO2 save-details presentation. setSave() rebuilds display labels and
+// optional game-specific detail widgets for each selected save.
 class XngineSaveGameInfoWidget : public MOBase::ISaveGameInfoWidget
 {
   Q_OBJECT

@@ -150,6 +150,8 @@ bool RedguardsFntFormat::loadFile(const QString& filePath, Document& outDocument
   return parseBytes(bytes, outDocument, errorMessage);
 }
 
+// FNHD declares glyph counts; FBMP carries bounded indexed glyphs.
+// Palette plus END are required, while unknown RDAT payloads are kept raw.
 bool RedguardsFntFormat::parseBytes(const QByteArray& bytes, Document& outDocument,
                                     QString* errorMessage)
 {
@@ -246,6 +248,8 @@ bool RedguardsFntFormat::parseBytes(const QByteArray& bytes, Document& outDocume
       }
 
       sawFbmp = true;
+    // Preserve the complete RDAT block even if its length differs from
+    // the 173-byte layout whose fields are currently understood.
     } else if (chunk.tag == "RDAT") {
       outDocument.hasRdat = true;
       outDocument.rdat.rawBytes = payload;
@@ -291,6 +295,8 @@ bool RedguardsFntFormat::parseBytes(const QByteArray& bytes, Document& outDocume
   return true;
 }
 
+// Convert an already parsed indexed glyph using its recorded dimensions
+// and palette; this is separate from validating the FNT chunk structure.
 bool RedguardsFntFormat::decodeGlyphImage(
     const Glyph& glyph, const XnginePaletteFormat::Palette& palette, QImage& outImage,
     QString* errorMessage)

@@ -36,6 +36,8 @@ XngineModDataContent::getAllContents() const
   return contents;
 }
 
+// MO2 content labels, not installation eligibility. This base scan only
+// checks immediate children; game-specific classifiers may recurse.
 std::vector<int> XngineModDataContent::getContentsFor(
     std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {

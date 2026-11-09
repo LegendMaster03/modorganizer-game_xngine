@@ -3,6 +3,8 @@
 
 #include <QString>
 
+// A decoded instruction keeps both byte address and indentation; build()
+// emits readable source text rather than replaying raw instruction bytes.
 class RedguardsScriptInstruction
 {
 public:

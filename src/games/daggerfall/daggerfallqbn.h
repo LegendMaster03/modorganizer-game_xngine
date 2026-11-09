@@ -8,6 +8,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Parses fixed-size sections from a partially understood quest file.
+// Unrecognized sections and the complete raw file remain available.
 class DaggerfallQbn
 {
 public:
@@ -103,6 +105,8 @@ public:
     quint32 recordPtr = 0;
   };
 
+  // Boundaries are derived from sorted valid offsets in the header,
+  // not from the declared record count of each section.
   struct SectionRange
   {
     int index = -1;
@@ -126,6 +130,8 @@ public:
     QVector<StateRecord> states;
     QVector<TextVariableRecord> textVariables;
 
+    // Sections 1, 2, and 5 are retained verbatim: their internal fields
+    // have not been assigned confirmed meanings.
     QByteArray section1Raw;
     QByteArray section2Raw;
     QByteArray section5Raw;

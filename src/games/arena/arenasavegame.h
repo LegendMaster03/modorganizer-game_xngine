@@ -12,6 +12,9 @@
 
 class GameArena;
 
+// Combines Arena's SAVEENGN slot payload with companion LOG/SPELLS/NAMES
+// data. Filename-derived slot identity is distinct from parsed character
+// metadata and from heuristic quest-flag interpretation.
 class ArenaSaveGame : public XngineSaveGame
 {
 public:

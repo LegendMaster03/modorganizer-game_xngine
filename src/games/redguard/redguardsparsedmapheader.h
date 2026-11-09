@@ -5,6 +5,8 @@
 #include <QString>
 #include <QList>
 
+// Intermediate script-compiler output for one RAHD header. Offsets and
+// bytecode are finalized after labels and script blocks are emitted.
 class RedguardsParsedMapHeader
 {
 public:
@@ -20,6 +22,8 @@ public:
 
   const QList<QString>& strings() const { return mStrings; }
 
+  // Deduplicate strings within one compiled header so repeated literals
+  // refer to the same local string-table index.
   int addString(const QString& str)
   {
     int idx = mStrings.indexOf(str);

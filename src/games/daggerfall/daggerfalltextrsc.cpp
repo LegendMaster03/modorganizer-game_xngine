@@ -10,6 +10,8 @@ using Daggerfall::FormatUtil::setError;
 
 }  // namespace
 
+// Project shared TEXT.RSC decoding into the game-specific record model;
+// preserve decoded variables and the raw subrecord bytes.
 bool DaggerfallTextRsc::parseTextRecordBytes(const QByteArray& data, int index,
                                              TextRecord& outRecord,
                                              QString* errorMessage)
@@ -47,6 +49,8 @@ QString DaggerfallTextRsc::formatRecordLabel(quint16 textRecordId,
   return QString("Record %1 (%2)").arg(textRecordId).arg(categoryLabel.trimmed());
 }
 
+// Store each decoded record by scan position and by numeric text ID.
+// Repeated IDs overwrite the ID-keyed entry but remain in the index map.
 bool DaggerfallTextRsc::loadTextRsc(const QString& filePath, Database& outDb,
                                     QString* errorMessage)
 {
@@ -82,6 +86,8 @@ bool DaggerfallTextRsc::loadTextRsc(const QString& filePath, Database& outDb,
       tr.subrecords.push_back({sub.raw, sub.text, sub.variables});
     }
     outDb.records.insert(i, tr);
+    // A duplicate identifier replaces the previous ID lookup, while
+    // outDb.records still retains both physical decoded positions.
     outDb.recordsById.insert(tr.textRecordId, tr);
   }
 

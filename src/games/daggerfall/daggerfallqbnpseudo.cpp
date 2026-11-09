@@ -12,6 +12,8 @@ using Daggerfall::FormatUtil::setError;
 
 }  // namespace
 
+// Known opcode names and argument ranges are descriptive metadata, not
+// proof that every opcode's runtime semantics have been reconstructed.
 QHash<quint16, DaggerfallQbnPseudo::OpcodeSpec> DaggerfallQbnPseudo::opcodeSpecs()
 {
   using Spec = OpcodeSpec;
@@ -109,6 +111,9 @@ QString DaggerfallQbnPseudo::opcodeName(quint16 opCode)
       .arg(it->name);
 }
 
+// Each instruction has a fixed-size record with bounded subrecords.
+// Unknown opcodes and unusual argument counts warn without invalidating
+// otherwise readable instruction data.
 bool DaggerfallQbnPseudo::parseRecordBytes(const QByteArray& bytes, Record& outRecord,
                                            QString* errorMessage)
 {
@@ -164,6 +169,8 @@ bool DaggerfallQbnPseudo::parseRecordBytes(const QByteArray& bytes, Record& outR
   return true;
 }
 
+// Parse complete fixed-size records; unmatched trailing bytes are noted
+// instead of interpreting incomplete bytes as an additional instruction.
 bool DaggerfallQbnPseudo::parseSectionBytes(const QByteArray& bytes, Section& outSection,
                                             QString* errorMessage)
 {
