@@ -1,3 +1,4 @@
+# Install current development uibase into an isolated prefix used by XnGine.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$SourcePath,
@@ -8,6 +9,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# PowerShell's error preference does not catch nonzero native exit codes.
 function Invoke-Native {
     param(
         [Parameter(Mandatory = $true)][string]$Command,
@@ -57,11 +59,13 @@ if (-not (Test-Path (Join-Path $CmakeCommonPath "mo2-cmake-config.cmake"))) {
     throw "cmake_common does not expose mo2-cmake-config.cmake at '$CmakeCommonPath'."
 }
 
+# Remove old SDK contents rather than mixing headers from different revisions.
 if (Test-Path $InstallPath) {
     Remove-Item -Recurse -Force $InstallPath
 }
 New-Item -ItemType Directory -Force -Path $InstallPath | Out-Null
 
+# Expose Qt, MO2's shared CMake config, and the uibase install packages.
 $prefixPath = @(
     $qtPrefix,
     $CmakeCommonPath,

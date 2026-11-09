@@ -1,3 +1,4 @@
+# Build four game plugins against a caller-selected retail or development SDK.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][ValidateSet("retail", "dev")][string]$Target,
@@ -39,6 +40,7 @@ if (-not (Test-Path $vcpkgToolchain)) {
     throw "vcpkg CMake toolchain was not found at $vcpkgToolchain"
 }
 
+# Released and locally installed uibase headers can have different roots.
 $publicHeader = Get-ChildItem $UibasePath -Recurse -Filter iplugingame.h | Select-Object -First 1
 if (-not $publicHeader) {
     throw "Could not locate iplugingame.h beneath uibase path '$UibasePath'."
@@ -52,6 +54,7 @@ else {
     $uibaseRootInclude = $uibaseInclude
 }
 
+# Some SDK layouts place game_features outside the detected header root.
 $gameFeaturesInclude = Join-Path $uibaseInclude "game_features"
 if (-not (Test-Path $gameFeaturesInclude)) {
     $gameFeatureHeader = Get-ChildItem $UibasePath -Recurse -Filter dataarchives.h | Where-Object {
@@ -71,6 +74,7 @@ $buildPath = Join-Path $repoRoot $BuildDir
 $artifactPath = Join-Path $repoRoot $ArtifactDir
 $vcpkgInstalledPath = Join-Path $repoRoot "vcpkg_installed"
 
+# Prevent stale CMake settings or DLLs from leaking across MO2 targets.
 if (Test-Path $buildPath) {
     Remove-Item -Recurse -Force $buildPath
 }
@@ -98,6 +102,7 @@ $configureArgs = @(
 
 Invoke-Native -Command "cmake" -Arguments $configureArgs
 
+# Archive handler integration depends on the SDK's detected CMake capability.
 $cachePath = Join-Path $buildPath "CMakeCache.txt"
 $archiveHandlerEnabled = $false
 if (Test-Path $cachePath) {
@@ -116,6 +121,7 @@ Write-Host "MO2 GameArchiveHandler capability detected: $archiveHandlerEnabled"
 Invoke-Native -Command "cmake" -Arguments @("--build", $buildPath, "--config", "Release", "--parallel")
 
 $pluginOutput = Join-Path $buildPath "bin/Release/plugins"
+# A successful CMake exit is insufficient if a game plugin DLL is missing.
 $expectedPlugins = @(
     "game_arena.dll",
     "game_battlespire.dll",

@@ -15,6 +15,10 @@ The workflow also runs weekly from the default branch. This is intentional: an u
 
 You should not need to update XnGine merely because the current MO2 retail or development version changes. If MO2 changes its release layout or build contract, the workflow is designed to fail explicitly instead of silently building against a guessed dependency version.
 
+### Dependency provenance
+
+The artifact's `build-info.txt` records the upstream refs and SHAs resolved at the start of each build. Development source checkouts currently use branch refs rather than the resolved SHAs. If an upstream branch advances between resolution and checkout, the checked-out sources may differ from the recorded revision. Fully reproducible checkouts would need to use the resolved SHAs.
+
 ### CI build shards
 
 Retail and dev are separate jobs and run concurrently. This is the first level of sharding because they use different dependency sets.

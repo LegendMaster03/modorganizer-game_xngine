@@ -1,3 +1,4 @@
+# Resolve MO2 and matching Qt versions from upstream, never from guessed defaults.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
@@ -20,6 +21,7 @@ function Get-GitHubJson {
     Invoke-RestMethod -Uri $Uri -Headers $headers
 }
 
+# Capture resolved commits for provenance; checkout currently uses branch refs.
 function Get-GitHubCommitSha {
     param(
         [Parameter(Mandatory = $true)][string]$Repository,
@@ -42,6 +44,7 @@ function Get-MobIni {
     }
 }
 
+# Read compiler and Qt contracts from the selected MO2 mob metadata.
 function Get-MobVersionValue {
     param(
         [Parameter(Mandatory = $true)][string]$Content,
@@ -55,6 +58,7 @@ function Get-MobVersionValue {
     $match.Groups[1].Value.Trim()
 }
 
+# Use the latest release SDK for retail; follow the three master refs for dev.
 if ($Target -eq "retail") {
     $release = Get-GitHubJson "https://api.github.com/repos/ModOrganizer2/modorganizer/releases/latest"
     $mo2Ref = [string]$release.tag_name
@@ -101,6 +105,7 @@ switch ($qtVs) {
 $mo2Sha = Get-GitHubCommitSha -Repository "ModOrganizer2/modorganizer" -Ref $mo2Ref
 $uibaseSha = Get-GitHubCommitSha -Repository "ModOrganizer2/modorganizer-uibase" -Ref $uibaseRef
 $mobSha = Get-GitHubCommitSha -Repository "ModOrganizer2/mob" -Ref $mobRef
+# Shared CMake configuration is another independent dev cache dependency.
 $cmakeCommonSha = Get-GitHubCommitSha -Repository "ModOrganizer2/cmake_common" -Ref "master"
 
 $outputs = [ordered]@{
