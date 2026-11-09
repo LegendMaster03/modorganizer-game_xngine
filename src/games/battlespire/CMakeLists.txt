@@ -11,16 +11,17 @@ target_sources(game_battlespire PRIVATE
   battlespiresavegame.cpp
   battlespirevariablehash.h
   battlespirevariablehash.cpp
-  # Native Battlespire chunked level and image readers; these do not depend
-  # on the speculative Daggerfall compatibility adapters below.
+  # Experimental readers for Battlespire level and image resources. Their
+  # implemented layouts are hypotheses pending validation with original assets;
+  # they are independent of the Daggerfall-derived compatibility adapters below.
   battlespirebs6.h
   battlespirebs6.cpp
   battlespirebsi.h
   battlespirebsi.cpp
 
-  # Speculative Daggerfall-derived compatibility adapters. No confirmed Battlespire
-  # TEXT.RSC/WATER.TBL resources or production callers are known; verified water data
-  # is represented by BS6 WATR chunks. Keep these isolated until fixtures prove use.
+  # Daggerfall-derived compatibility hypotheses, not confirmed Battlespire formats.
+  # The research branch also experiments with BS6 WATR interpretation, but neither
+  # that parser nor these adapters establish original-game behavior without fixtures.
   battlespiretextrsc.h
   battlespiretextrsc.cpp
   battlespirewatertbl.h

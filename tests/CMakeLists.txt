@@ -1,5 +1,6 @@
-# Standalone CTest executables exercise binary readers with synthetic fixtures.
-# They do not need an installed game, but are not substitutes for real-game validation.
+# Standalone CTest executables exercise candidate binary interpretations using
+# synthetic fixtures. They check the implementation against assumed layouts, not
+# whether those assumptions match original-game assets or runtime behavior.
 find_package(Qt6 COMPONENTS Core REQUIRED)
 
 add_executable(xngine_format_tests

@@ -9,9 +9,10 @@
 
 #include <utility>
 
-// Read Battlespire BSI images and preserve their unfamiliar chunks/fields.
-// Chunk lengths are big-endian; pixel/header values have separate encodings.
-// A successful parse does not settle every palette-index interpretation.
+// Experimental BSI decoder based on current format research. The implementation
+// models big-endian chunk lengths and separate pixel/header encodings, but its
+// agreement with synthetic fixtures is not proof that it handles original assets.
+// Keep unknown fields and palette semantics unresolved where evidence is lacking.
 class BattlespireBsi
 {
 public:

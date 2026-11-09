@@ -9,9 +9,10 @@
 
 #include <utility>
 
-// Read Battlespire BS6 tagged level data without discarding unfamiliar chunks.
-// Known tags receive typed views; raw payloads and nonfatal diagnostics remain
-// available while the original format is still being investigated.
+// Experimental BS6 parser implementing current research hypotheses about
+// tagged level data. Interpreted tags receive typed views, but neither the
+// layout nor its inferred semantics have been fully validated against original
+// game assets. Preserve unfamiliar raw chunks for later comparison.
 class BattlespireBs6
 {
 public:

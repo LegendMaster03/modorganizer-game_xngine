@@ -23,9 +23,9 @@ public:
     BattlespireLzss
   };
 
-  // Archive descriptors differ between the Daggerfall and Battlespire
-  // variants. Auto uses Battlespire only for the Battlespire LZSS trait;
-  // readers should set an explicit layout when that heuristic is unsuitable.
+  // Model distinct Daggerfall and candidate Battlespire descriptor layouts.
+  // Auto selects the Battlespire layout for Battlespire LZSS as a compatibility
+  // heuristic, not as independent proof that every archive shares that layout.
   enum class DescriptorLayout
   {
     Auto,

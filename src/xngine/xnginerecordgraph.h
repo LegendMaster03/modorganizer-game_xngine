@@ -6,9 +6,9 @@
 #include <QVector>
 #include <QtGlobal>
 
-// Track record IDs and their parent links independently of a game-specific
-// binary parser. Callers can diagnose broken chains without assuming they
-// represent valid ownership or a fully reconstructed game object graph.
+// Track candidate save record IDs and parent links independently of a parser.
+// Graph traversal can be tested directly; whether extracted parent fields
+// correspond to real Battlespire ownership remains a separate research claim.
 class XngineRecordGraph
 {
 public:

@@ -5,8 +5,9 @@
 
 #include <limits>
 
-// Shared offsets for the observed SAVETREE and SAVEVARS representations.
-// They describe byte positions, not a complete specification of either file.
+// Research-derived candidate offsets for SAVETREE and SAVEVARS. Their arithmetic
+// and consistency checks are testable without proving the underlying file-layout
+// hypothesis against original game saves. Do not treat this as a full format spec.
 namespace BattlespireSaveFormat {
 
 inline constexpr quint8 kRecordTypeItem = 2;

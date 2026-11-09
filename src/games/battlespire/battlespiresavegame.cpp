@@ -444,8 +444,9 @@ bool BattlespireSaveGame::parseSaveName()
 // SAVETREE contains a 4-byte header followed by length-prefixed records;
 // their stored length excludes the 4-byte length field. Keep parsing within
 // each record's boundary rather than trusting offsets in malformed saves.
-// Build a record-ID graph while scanning SAVETREE. Ownership and player
-// recovery checks are diagnostics, not proof that a file was externally edited.
+// Build a candidate record-ID graph from the current SAVETREE interpretation.
+// Its parent/ownership meaning needs comparison with original-game saves;
+// recovery diagnostics do not prove external modification.
 bool BattlespireSaveGame::parseSaveTree()
 {
   using namespace BattlespireSaveFormat;
