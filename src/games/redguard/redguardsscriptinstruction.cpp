@@ -7,6 +7,8 @@ RedguardsScriptInstruction::RedguardsScriptInstruction(int address, int indentLe
 {
 }
 
+// Reconstruct braces when instruction indentation changes. Labels use
+// original byte addresses so readable script jumps retain their targets.
 void RedguardsScriptInstruction::build(QString& output, int previousIndentLevel,
                                        bool addLabel) const
 {
@@ -38,6 +40,7 @@ void RedguardsScriptInstruction::build(QString& output, int previousIndentLevel,
   output.append("\n");
 }
 
+// The display label is derived from a byte address, not a source-line ID.
 QString RedguardsScriptInstruction::makeLabel(int address)
 {
   return QString("#%1").arg(address, 2, 16, QLatin1Char('0')).toUpper();

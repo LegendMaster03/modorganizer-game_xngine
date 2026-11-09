@@ -8,6 +8,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Interprets RMB/RDB/RDI payloads inside the outer BLOCKS.BSA archive.
+// Partially known sections retain raw bytes for analysis.
 class DaggerfallBlocksBsa
 {
 public:
@@ -259,6 +261,8 @@ public:
 
   struct RdbRecord
   {
+    // Link resolution is explicit: actionDecoded and targetExists
+    // distinguish recorded offsets from verified object relationships.
     struct ActionLink
     {
       qint32 sourceObjectOffset = -1;
@@ -309,6 +313,7 @@ public:
     RdbRecord rdb;
     QByteArray rdi;  // always 512 bytes
     RdiStats rdiStats;
+    // Basic record-name presence only; not a full binary integrity check.
     bool isValid() const { return !name.isEmpty(); }
   };
 

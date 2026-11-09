@@ -11,6 +11,8 @@
 // resource set uses TXT.BSA; no real Battlespire TEXT.RSC file or production caller
 // is currently established. Keep this isolated for compatibility/research and do not
 // treat it as an authoritative Battlespire text path without fixture evidence.
+// Within this research adapter, text record headers retain archive index and
+// record ID separately; uninterpreted subrecord bytes remain accessible.
 class BattlespireTextRsc
 {
 public:

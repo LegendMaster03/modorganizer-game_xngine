@@ -3,6 +3,8 @@
 
 #include <QString>
 
+// Parsed SOUP function signature used for script ID/parameter decoding;
+// function declarations are metadata, not executable implementations.
 class RedguardsSoupFunction
 {
 public:

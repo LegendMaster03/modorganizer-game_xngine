@@ -21,6 +21,8 @@ using namespace MOBase;
 
 namespace
 {
+// Generated output is scoped by the MO2 profile name so profiles do not
+// intentionally share the same temporary mod directory.
 constexpr const char* kPatchTempModPrefix = "__redguard_patch_output_";
 constexpr const char* kTempModDescription = "Temporary patched mod output";
 constexpr const char* kGlobalXdeltaPathKey = "xngine/global_xdelta_exe_path";
@@ -53,6 +55,9 @@ QStringList findExistingRedguardArtRoots(const QString& gameDir)
   return roots;
 }
 
+// Each source folder is copied to every art root detected in the installed
+// game. This accommodates different Redguard renderer layouts, but colliding
+// generated filenames are overwritten by the later copy.
 bool stageDirectoryVariants(const QString& modPath, const QString& tempModPath,
                             const QStringList& sourceDirs, const QStringList& destDirs,
                             const QString& label, const QString& modName)
@@ -84,6 +89,8 @@ bool stageDirectoryVariants(const QString& modPath, const QString& tempModPath,
 }
 }
 
+// The most recent nonempty configured xdelta path is shared as a fallback
+// when the current plugin's path setting is blank.
 QString readRedguardGlobalXdeltaPath()
 {
   QSettings s;
@@ -142,6 +149,9 @@ bool canApplyRedguardExePatchMods(IOrganizer* organizer,
   return false;
 }
 
+// Build one generated MO2 mod from the active eligible patch mods, ordered
+// by profile priority. A failure can leave partial output; this is not an
+// all-or-nothing transaction.
 bool applyRedguardPatchMods(IOrganizer* organizer,
                             const QString& pluginName,
                             const QString& profilePath,
@@ -201,6 +211,8 @@ bool applyRedguardPatchMods(IOrganizer* organizer,
                                        allowExeMods);
 }
 
+// Preserve MO2's input priority order; only active mods with a patch type
+// enabled by the relevant flag participate. A mixed-format mod appears once.
 RedguardsPatchScanResult scanRedguardPatchMods(IModList* modList,
                                                const QStringList& allMods,
                                                const QString& modsPath,
@@ -253,11 +265,14 @@ RedguardsPatchScanResult scanRedguardPatchMods(IModList* modList,
   return result;
 }
 
+// Recreate and activate the generated mod after the final contributing
+// patch priority. This is not the source mod and should not be durable state.
 bool prepareRedguardTempPatchMod(IOrganizer* organizer, IModList* modList,
                                  const QString& tempModName,
                                  const QString& tempModPath,
                                  int lastPatchPriority)
 {
+  // Cleanup failure is logged but not fatal here; stale output may survive.
   if (!removeDirRecursive(tempModPath)) {
     qWarning().noquote() << "[GameRedguard] Failed to clean existing temp mod:" << tempModPath;
   }
@@ -307,6 +322,8 @@ bool prepareRedguardTempPatchMod(IOrganizer* organizer, IModList* modList,
     qWarning().noquote() << "[GameRedguard] Temp mod not found in mod list - cannot activate";
   }
 
+  // Registered once per process, not once per profile. The callback captures
+  // this first temp path/name, so profile switching does not rebind cleanup.
   static bool cleanupRegistered = false;
   if (!cleanupRegistered) {
     cleanupRegistered = true;
@@ -322,6 +339,9 @@ bool prepareRedguardTempPatchMod(IOrganizer* organizer, IModList* modList,
   return true;
 }
 
+// Apply the selected mods in profile order. INI/RTX and staged file changes
+// accumulate into the output directory; map edits are collected and emitted
+// once at the end. Failed steps do not roll back earlier generated files.
 bool applyRedguardPatchModsInOrder(IOrganizer* organizer,
                                    const QString& pluginName,
                                    const QStringList& patchModsInOrder,
@@ -447,6 +467,8 @@ bool applyRedguardPatchModsInOrder(IOrganizer* organizer,
     }
   }
 
+  // Apply the combined map-change state after processing all contributing
+  // mods, rather than rewriting map data independently for each mod.
   if (hasMapChanges) {
     if (!applyMapChanges(combinedMapChanges, tempModPath, gameDir)) {
       success = false;

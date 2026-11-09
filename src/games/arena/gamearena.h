@@ -13,6 +13,8 @@
 
 #include <memory>
 
+// Arena MO2 entrypoint: overrides the shared save layout, game discovery,
+// and runtime executable-patch settings for its particular installation.
 class GameArena : public GameXngine
 {
   Q_OBJECT
@@ -71,6 +73,8 @@ protected:
   virtual QVector<XngineBSAFormat::FileSpec> bsaFileSpecs() const override;
 
 private:
+  // Generated executable output has its own cleanup lifecycle; the
+  // registration flag keeps this instance from adding duplicate callbacks.
   bool applyExePatchMods();
   void ensureExePatchCleanupHook();
   void cleanupExePatchOutputMod() const;

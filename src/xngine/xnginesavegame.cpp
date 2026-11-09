@@ -23,6 +23,8 @@
 
 #define CHUNK 16384
 
+// A save may be a directory (classic slot) or one file. If the player
+// name is unavailable, the display name comes from the containing slot.
 XngineSaveGame::XngineSaveGame(QString const& file, GameXngine const* game,
                                bool const lightEnabled, bool const mediumEnabled)
     : m_FileName(file), m_CreationTime(QFileInfo(file).lastModified()), m_Game(game),
@@ -103,6 +105,8 @@ QString XngineSaveGame::getSaveGroupIdentifier() const
   return m_PCName;
 }
 
+// Directory-based slots expose their immediate files. File-based saves
+// include a companion only when the ScriptExtender feature is present.
 QStringList XngineSaveGame::allFiles() const
 {
   QFileInfo saveInfo(m_FileName);
@@ -359,6 +363,8 @@ void XngineSaveGame::FileWrapper::closeCompressedData()
   }
 }
 
+// Generic inherited reader supports raw, zlib-chunked, and LZ4 buffers.
+// Its presence does not imply XnGine game saves use every compression mode.
 bool XngineSaveGame::FileWrapper::openCompressedData(int bytesToIgnore)
 {
   if (m_CompressionType == 0) {
@@ -375,6 +381,8 @@ bool XngineSaveGame::FileWrapper::openCompressedData(int bytesToIgnore)
       skipQDataStream(*m_Data, bytesToIgnore);
     return result;
   } else if (m_CompressionType == 2) {
+    // The current LZ4 branch does not check the decompressor return value;
+    // this is a known validation limitation, not an integrity guarantee.
     uint32_t uncompressedSize;
     read(uncompressedSize);
     uint32_t compressedSize;
@@ -399,6 +407,8 @@ bool XngineSaveGame::FileWrapper::openCompressedData(int bytesToIgnore)
   }
 }
 
+// Advance from the compressed bytes consumed by inflate, then align the
+// next on-disk chunk to a 16-byte boundary.
 bool XngineSaveGame::FileWrapper::readNextChunk()
 {
   uint32_t have;
@@ -615,6 +625,8 @@ XngineSaveGame::FileWrapper::readMediumPlugins(int bytesToIgnore, int extraData,
   }
 }
 
+// Legacy generic plugin-list parsing. The XnGine game-plugin adapter
+// itself does not maintain an ESP/ESM-style load-order list.
 QStringList XngineSaveGame::FileWrapper::readPluginData(uint32_t count, int extraData,
                                                           const QStringList corePlugins)
 {

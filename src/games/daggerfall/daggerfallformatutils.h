@@ -7,6 +7,8 @@
 
 namespace Daggerfall
 {
+// Bounded, little-endian reads shared by Daggerfall binary parsers.
+// Callers are responsible for choosing the correct offsets and formats.
 namespace FormatUtil
 {
 bool setError(QString* errorMessage, const QString& text);

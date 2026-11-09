@@ -28,6 +28,8 @@ XngineLocalSavegames::XngineLocalSavegames(const GameXngine* game,
     : m_Game{game}, m_IniFileName(iniFileName)
 {}
 
+// Map MO2's profile save directory onto the selected game's save root
+// only when that root exists. GameXngine owns the per-game save layout.
 MappingType XngineLocalSavegames::mappings(const QDir& profileSaveDir) const
 {
   if (!m_Game) {
@@ -50,6 +52,8 @@ QString XngineLocalSavegames::localSavesDummy() const
   return "__MO_Saves\\";
 }
 
+// XnGine save routing uses filesystem mappings; it does not need an
+// INI local-save toggle in this adapter.
 bool XngineLocalSavegames::prepareProfile(MOBase::IProfile* profile)
 {
   Q_UNUSED(profile);

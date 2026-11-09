@@ -136,6 +136,8 @@ QByteArray decompressBattlespireLzss(const QByteArray& input)
 
 }  // namespace
 
+// The container has a count/type header, record payloads, then fixed-size
+// descriptors at the end. Per-game traits decide any permitted exceptions.
 bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
                                   QString* errorMessage, const Traits& traits)
 {
@@ -161,6 +163,8 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
   }
 
   IndexType type = static_cast<IndexType>(typeRaw);
+  // Certain game variants omit the type tag. Only an unrecognized tag
+  // triggers that compatibility fallback; it is not a full format probe.
   if (type != IndexType::NameRecord && type != IndexType::NumberRecord) {
     if (!traits.allowMissingTypeHeader) {
       return setError(errorMessage,
@@ -264,6 +268,8 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
         return setError(errorMessage,
                         "Compressed records are not supported for this game");
       }
+      // Passthrough preserves encoded bytes. Otherwise the configured
+      // decoder produces unpacked data but the entry retains its flag.
       if (traits.allowCompressedPassthroughRead) {
         entry.data = data;
       } else if (traits.compressionMode == CompressionMode::BattlespireLzss) {
@@ -306,6 +312,9 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
   return true;
 }
 
+// Compressed entries must already contain correctly encoded bytes. The
+// writer permits pass-through when configured; it never compresses data.
+// Output is opened in truncate mode before all entries are validated.
 bool XngineBSAFormat::writeArchive(const QString& filePath, const Archive& archive,
                                    QString* errorMessage, const Traits& traits)
 {
@@ -316,6 +325,8 @@ bool XngineBSAFormat::writeArchive(const QString& filePath, const Archive& archi
   const DescriptorLayout descriptorLayout = resolvedDescriptorLayout(traits);
   const bool battlespireDescriptors = descriptorLayout == DescriptorLayout::Battlespire;
 
+  // SND and SAV variants constrain the index type. Payload interpretation
+  // remains the responsibility of the game-specific consumer.
   const ArchiveVariant variant =
       (traits.variantHint != ArchiveVariant::Standard) ? traits.variantHint : archive.variant;
   if (variant == ArchiveVariant::Snd) {
@@ -439,6 +450,8 @@ XngineBSAFormat::ArchiveVariant XngineBSAFormat::detectArchiveVariant(const QStr
   return ArchiveVariant::Snd;
 }
 
+// Export a reversible *record identity/order* manifest, not a guarantee
+// of compressed-byte round trips. Existing output files may be replaced.
 bool XngineBSAFormat::unpackToDirectory(const QString& filePath,
                                         const QString& outputDirectory,
                                         QString* errorMessage,
@@ -476,6 +489,8 @@ bool XngineBSAFormat::unpackToDirectory(const QString& filePath,
       }
       outName = baseName;
       int suffix = 1;
+      // Native archive entries can collide after filename sanitization or
+      // case folding; unique disk names preserve both through the manifest.
       while (usedNames.contains(outName.toLower())) {
         outName = QString("%1__%2").arg(baseName).arg(suffix++);
       }
@@ -512,6 +527,8 @@ bool XngineBSAFormat::unpackToDirectory(const QString& filePath,
   return true;
 }
 
+// Plain-directory packing has only filenames, not original entry order or
+// compression metadata. NumberRecord filenames must have numeric stems.
 bool XngineBSAFormat::packFromDirectory(const QString& inputDirectory,
                                         const QString& filePath, IndexType type,
                                         QString* errorMessage,
@@ -563,6 +580,9 @@ bool XngineBSAFormat::packFromDirectory(const QString& inputDirectory,
   return writeArchive(filePath, archive, errorMessage, traits);
 }
 
+// Use record metadata in manifest order; ordinal/type columns are not
+// independently checked here. The compressed flag is passed through, and
+// no encoder reconstructs compressed payloads after extraction.
 bool XngineBSAFormat::packFromManifestFile(const QString& inputDirectory,
                                            const QString& manifestFilePath,
                                            const QString& filePath, IndexType type,

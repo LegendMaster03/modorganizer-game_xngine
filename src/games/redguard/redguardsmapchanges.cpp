@@ -55,6 +55,8 @@ void RedguardsMapChanges::addChanges(const QString& mapName,
   }
 }
 
+// At a given source line, literal "null" suppresses the original line.
+// Later entries are ordered insertions and are retained even when empty.
 void RedguardsMapChanges::addChange(const QString& mapName, int pos, const QString& line)
 {
   if (!mLineChanges.contains(mapName)) {
@@ -76,6 +78,8 @@ void RedguardsMapChanges::addChange(const QString& mapName, int pos, const QStri
   }
 }
 
+// Unindented map headers normalize to uppercase names without MAPS/ or
+// .RGM; indented position rows supply deletions or replacement lines.
 bool RedguardsMapChanges::readChanges(const QString& changesFilePath)
 {
   QFile file(changesFilePath);
@@ -126,6 +130,8 @@ bool RedguardsMapChanges::readChanges(const QString& changesFilePath)
   return true;
 }
 
+// Preserve the literal deletion marker and insertion ordering so the
+// staged map writer can apply the same operations again.
 bool RedguardsMapChanges::writeChanges(const QString& filePath) const
 {
   QFile file(filePath);

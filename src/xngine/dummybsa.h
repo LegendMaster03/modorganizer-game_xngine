@@ -26,6 +26,8 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 /**
  * @brief Class for creating a dummy bsa used for archive invalidation
  **/
+// Legacy MO2 generator for a one-entry Bethesda invalidation archive,
+// not an XnGine BSA packer. Retained with its upstream copyright notice.
 class DummyBSA
 {
 

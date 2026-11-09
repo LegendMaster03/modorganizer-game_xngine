@@ -23,6 +23,8 @@ QString XngineScriptExtender::savegameExtension() const
   return {};
 }
 
+// The shared adapter does not discover an XnGine script extender or
+// provide a loader/companion-save suffix for MO2 to use.
 bool XngineScriptExtender::isInstalled() const
 {
   qDebug() << "[XnGine] ScriptExtender: not applicable";

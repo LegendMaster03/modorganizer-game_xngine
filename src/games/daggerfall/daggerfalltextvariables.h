@@ -7,6 +7,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Hash/name catalogs are descriptive reverse lookups, not a unique map
+// from hashes to original tokens; multiple names may share one hash.
 class DaggerfallTextVariables
 {
 public:
@@ -23,6 +25,7 @@ public:
   static quint32 hashVariableToken(const QString& token);  // accepts optional leading '%'
 
   static QVector<Entry> knownEntries();
+  // Return all known distinct candidate names for a hash collision.
   static QStringList namesForHash(quint32 hash);
 
   // Extracts %name style variables from rendered text.

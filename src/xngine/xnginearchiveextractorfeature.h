@@ -5,6 +5,8 @@
 
 class GameXngine;
 
+// Delegates MO2 archive requests to GameXngine's per-game BSA traits and
+// filename specs. canCreateArchive is not proof the index type is known.
 class XngineArchiveExtractorFeature : public XngineArchiveExtractor
 {
 public:

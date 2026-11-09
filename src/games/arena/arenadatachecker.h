@@ -13,6 +13,8 @@
 
 class GameArena;
 
+// Recognizes direct game files or a nested Steam/GOG/UESP wrapper. The
+// FIXABLE result means a suitable nested install tree can be selected.
 class ArenaModDataChecker : public XngineModDataChecker
 {
 public:
@@ -310,6 +312,8 @@ private:
     return nullptr;
   }
 
+  // Use the detected launcher layout to prefer a distribution variant;
+  // this is ordering of candidates, not content verification.
   QStringList preferredVariantOrder() const
   {
     const auto* g = game();

@@ -8,6 +8,8 @@ namespace {
 
 using Daggerfall::FormatUtil::setError;
 
+// ARCH3D includes records with compressed flags that are not decoded as
+// regular meshes. Keep such payloads available to the Daggerfall layer.
 XngineBSAFormat::Traits arch3dTraits()
 {
   XngineBSAFormat::Traits traits;
@@ -69,6 +71,8 @@ bool DaggerfallArch3dBsa::loadRecordBytes(const QString& arch3dBsaPath, quint16 
   return true;
 }
 
+// A leading four-space version field is a heuristic for special records,
+// not a complete classification of every non-mesh ARCH3D payload.
 bool DaggerfallArch3dBsa::looksLikeBlankVersionRecord(const QByteArray& recordData)
 {
   return recordData.size() >= 4 && recordData.startsWith("    ");
@@ -84,6 +88,8 @@ bool DaggerfallArch3dBsa::loadMeshRecord(const QString& arch3dBsaPath, quint16 r
   return loadMeshRecord(recordData, outMesh, errorMessage);
 }
 
+// Mesh interpretation is delegated to the shared XnGine 3D parser;
+// callers must distinguish special/raw records before requesting a mesh.
 bool DaggerfallArch3dBsa::loadMeshRecord(const QByteArray& recordData, MeshRecord& outMesh,
                                          QString* errorMessage)
 {

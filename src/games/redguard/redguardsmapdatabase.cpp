@@ -14,6 +14,8 @@
 
 namespace
 {
+// Override a limited set of catalog item labels where the source data's
+// names need a stable display interpretation; other IDs use parsed data.
 QString redguardItemNameOverride(int index)
 {
   constexpr std::array<const char*, 87> overrides = [] {
@@ -92,6 +94,8 @@ RedguardsMapFile* RedguardsMapDatabase::mapFileFromId(int id) const
   return mMapIds.value(id, nullptr);
 }
 
+// WORLD.INI supplies map and configuration references used later by the
+// script compiler/decompiler; it is not itself an RGM binary map payload.
 bool RedguardsMapDatabase::readWorldFile(const QString& worldFilePath)
 {
   QFile file(worldFilePath);
@@ -143,6 +147,8 @@ bool RedguardsMapDatabase::readWorldFile(const QString& worldFilePath)
   return true;
 }
 
+// SOUP function/flag catalogs establish the numeric IDs used when writing
+// and reading Redguard script instructions.
 bool RedguardsMapDatabase::readSoupFile(const QString& soupFilePath)
 {
   QFile file(soupFilePath);

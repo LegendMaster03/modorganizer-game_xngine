@@ -7,6 +7,8 @@
 
 class GameXngine;
 
+// Shared MO2 archive-list editing adapter. Game-specific subclasses supply
+// the final persistence destination through writeArchiveList().
 class XngineDataArchives : public MOBase::DataArchives
 {
 

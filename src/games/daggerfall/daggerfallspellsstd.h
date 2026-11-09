@@ -4,6 +4,9 @@
 #include <QString>
 #include <QVector>
 
+// Catalog names, effect identifiers, and annotation flags. Duplicate
+// standard indices are retained instead of forcing a one-to-one mapping;
+// this reference table does not execute spell mechanics.
 class DaggerfallSpellsStd
 {
 public:

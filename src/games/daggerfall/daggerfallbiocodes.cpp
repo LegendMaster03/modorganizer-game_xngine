@@ -4,6 +4,8 @@
 
 namespace {
 
+// The reference catalog may contain repeated or malformed IDs. Keep the
+// first nonempty name per positive numeric ID and ignore invalid rows.
 QHash<int, QString> parseIdNameTable(const QString& raw)
 {
   QHash<int, QString> out;
@@ -97,6 +99,8 @@ QString DaggerfallBioCodes::demographicName(int index)
   return demographicNames().value(index);
 }
 
+// Partial human-readable lookup catalog for observed faction IDs.
+// An unknown code should remain unresolved, not be assigned a nearby name.
 QHash<int, QString> DaggerfallBioCodes::knownFactionNames()
 {
   static const QString raw = R"(1 Clavicus Vile

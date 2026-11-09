@@ -2,6 +2,8 @@
 
 #include <xnginetblformat.h>
 
+// Use the exact 256-byte water lookup layout. Shared TBL parsing does
+// not infer the meaning of individual byte values.
 bool DaggerfallWaterTbl::load(const QString& filePath, Data& outData,
                               QString* errorMessage)
 {

@@ -7,6 +7,9 @@
 
 class GameBattlespire;
 
+// Adds Battlespire archive, patch, and launch/config labels to the shared
+// XnGine content categories. Classification is not payload validation.
+
 class BattlespireModDataContent : public XngineModDataContent
 {
 public:

@@ -7,6 +7,8 @@
 #include <QStringList>
 #include <QVector>
 
+// Adds Daggerfall variable extraction and display-category labels to
+// shared TEXT.RSC records without changing their underlying raw bytes.
 class DaggerfallTextRsc
 {
 public:
@@ -41,6 +43,8 @@ public:
     int textRecordCount = 0;
     QVector<TextRecordHeader> headers;
     QHash<int, TextRecord> records;
+    // Duplicate IDs resolve to the last decoded record here; use the
+    // index-keyed records map to inspect all decoded entries.
     QHash<quint16, TextRecord> recordsById;
     QString warning;
   };

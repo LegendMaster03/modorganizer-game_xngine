@@ -439,6 +439,9 @@ bool BattlespireSaveGame::parseSaveName()
   return false;
 }
 
+// SAVETREE contains a 4-byte header followed by length-prefixed records;
+// their stored length excludes the 4-byte length field. Keep parsing within
+// each record's boundary rather than trusting offsets in malformed saves.
 bool BattlespireSaveGame::parseSaveTree()
 {
   using namespace BattlespireSaveFormat;
@@ -580,6 +583,8 @@ bool BattlespireSaveGame::parseSaveTree()
       }
     }
 
+    // Preserve both player-identification signals: record type and known record ID.
+    // Observed save variants do not necessarily agree on both.
     const PlayerRecordMatch playerMatch =
         classifyPlayerRecord(recordType, hasRecordId, recordId);
     m_PlayerRecordByTypeFound = m_PlayerRecordByTypeFound || playerMatch.byType;
@@ -606,6 +611,8 @@ bool BattlespireSaveGame::parseSaveTree()
       }
     }
 
+    // Count only item records owned by the player. Preserve the wide total
+    // for diagnostics before clamping the displayed gold count to uint32.
     if (recordType == kRecordTypeItem) {
       quint16 itemId = 0;
       quint32 quantity = 0;
@@ -858,6 +865,8 @@ bool BattlespireSaveGame::parsePlayerBlockFromSaveVars(const QByteArray& data)
   return true;
 }
 
+// Developer validation reports missing payloads and suspicious data, not a
+// definitive determination that a save was edited or is unusable.
 void BattlespireSaveGame::evaluateDeveloperValidation()
 {
   if (!m_HasSaveTree) {

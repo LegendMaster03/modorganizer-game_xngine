@@ -6,6 +6,8 @@
 #include <QByteArray>
 #include <QString>
 
+// Redguard-specific version gating around the shared XnGine 3D parser.
+// This wrapper checks accepted record variants before interpreting meshes.
 class Redguards3d
 {
 public:

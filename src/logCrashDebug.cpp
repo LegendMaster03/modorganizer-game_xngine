@@ -1,7 +1,6 @@
-// Crash debug log for Redguard MO2 plugin
-// This file is written in the same style as the user's example crash log.
-// All major function entries, variable values, and error-prone operations are logged step-by-step.
-// Usage: Call logCrashDebug() at every critical step, especially in try/catch blocks and before/after file operations.
+// Redguard MO2 diagnostic logger: append a timestamped message to a text file.
+// The output path is currently a fixed development-machine path. A directory
+// creation or file-open failure silently skips logging without affecting callers.
 
 #include "RGMODFrameworkWrapper.h"
 #include <QDir>

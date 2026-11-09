@@ -7,6 +7,8 @@
 
 #include <xngine3dformat.h>
 
+// Daggerfall ARCH3D uses numeric archive record IDs and shared 3D mesh
+// parsing. Blank-version records are distinguished from parsed geometry.
 class DaggerfallArch3dBsa
 {
 public:

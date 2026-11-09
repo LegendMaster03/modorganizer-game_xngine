@@ -61,6 +61,9 @@ bool isLegacy3dcVersion(Redguards3d::VersionTag versionTag)
   }
 }
 
+// Some legacy 3DC headers identify a vertex-data offset inconsistent
+// with face data. Derive an alternate offset from bounded face records
+// and the frame header only when those sections are internally plausible.
 bool computeLegacy3dcPointListOffset(const QByteArray& data,
                                      const Redguards3d::Header& header,
                                      qint32& outOffset)
@@ -144,6 +147,8 @@ bool Redguards3d::parseHeader(const QByteArray& data, Header& outHeader,
   return true;
 }
 
+// Raw-buffer parsing delegates to the shared 3D reader; the filename-
+// specific 3DC compatibility fallback below is not used by this method.
 bool Redguards3d::parseRecord(const QByteArray& data, MeshRecord& outMesh,
                               QString* errorMessage)
 {
@@ -172,6 +177,8 @@ bool Redguards3d::loadHeader(const QString& filePath, Header& outHeader,
   return parseHeader(data, outHeader, errorMessage);
 }
 
+// The optional legacy 3DC correction patches only an in-memory copy of
+// the header. If that parse fails, retry the original unmodified data.
 bool Redguards3d::load(const QString& filePath, MeshRecord& outMesh,
                        QString* errorMessage)
 {

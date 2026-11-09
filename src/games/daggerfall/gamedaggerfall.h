@@ -11,6 +11,8 @@
 #include <windows.h>
 #include <memory>
 
+// Daggerfall MO2 extension: classic saves, archives, and independent
+// compatibility/payload settings live behind the shared game contracts.
 class GameDaggerfall : public GameXngine
 {
   Q_OBJECT
@@ -74,6 +76,8 @@ protected:
   virtual QVector<XngineBSAFormat::FileSpec> bsaFileSpecs() const override;
 
 private:
+// Runtime executable patching is optional at compile time. The presence
+// of settings/patch types does not itself prove this feature is enabled.
 #if defined(XNGINE_DAGGERFALL_EXE_PATCHING)
   bool applyExePatchMods();
   void ensureExePatchCleanupHook();

@@ -1,5 +1,7 @@
 #include "daggerfalltextrscindices.h"
 
+// The category intervals are descriptive display labels for known text
+// record ranges, not a schema that validates every TEXT.RSC record ID.
 QVector<DaggerfallTextRscIndices::Range> DaggerfallTextRscIndices::knownRanges()
 {
   return {
@@ -17,6 +19,8 @@ QVector<DaggerfallTextRscIndices::Range> DaggerfallTextRscIndices::knownRanges()
   };
 }
 
+// Unknown IDs deliberately have no category label; they are still
+// legitimate candidates for raw TEXT.RSC record inspection.
 QString DaggerfallTextRscIndices::labelForRecordId(quint16 id)
 {
   const QVector<Range> ranges = knownRanges();

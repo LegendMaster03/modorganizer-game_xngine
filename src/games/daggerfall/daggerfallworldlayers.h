@@ -7,6 +7,8 @@
 
 #include <QString>
 
+// Joins three separately parsed world datasets by coordinate. Grid
+// dimension disagreement is reported, not automatically reconciled.
 class DaggerfallWorldLayers
 {
 public:
@@ -38,6 +40,8 @@ public:
   static bool loadFromArena2(const QString& arena2Path, Data& outData,
                              QString* errorMessage = nullptr);
 
+  // WOODS coordinates determine validity. Climate/politic details may
+  // remain unknown even when a WOODS pixel exists.
   static PixelInfo pixelInfoAt(const Data& data, int x, int y);
 };
 

@@ -5,6 +5,8 @@
 #include <QString>
 #include <QVector>
 
+// Row-compressed political-map raster. Decoded values are palette/map
+// codes; regionFromValue applies only the documented subset of mappings.
 class DaggerfallPoliticPak
 {
 public:

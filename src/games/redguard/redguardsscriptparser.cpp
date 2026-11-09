@@ -64,6 +64,8 @@ void RedguardsScriptParser::initReverseMaps()
   }
 }
 
+// Normalize source lines and substitute known map/item symbolic IDs before
+// byte generation. Unknown angle-bracket tokens remain unchanged.
 void RedguardsScriptParser::preParse(const QString& script)
 {
   QStringList lines = script.split('\n', Qt::KeepEmptyParts);
@@ -218,6 +220,8 @@ QList<RedguardsParsedMapHeader> RedguardsScriptParser::parse()
 
         parseBlock();
 
+        // Resolve forward label references only after the block's byte
+        // positions are known. Earlier placeholder references are patched.
         for (auto it = mLabels.begin(); it != mLabels.end(); ++it) {
           const QList<int>& positions = it.value();
           QByteArray bytes = RedguardsUtils::shortToByteArray(static_cast<int16_t>(positions.first()), true);
@@ -247,6 +251,8 @@ QList<RedguardsParsedMapHeader> RedguardsScriptParser::parse()
   return mParsedHeaders;
 }
 
+// Consume one structured script block into the current byte stream;
+// nested control flow is delegated back through parseValue.
 void RedguardsScriptParser::parseBlock()
 {
   if (mLineIndex < mLines.size()) {
@@ -394,6 +400,8 @@ void RedguardsScriptParser::parseValue(const QString& value, ValueMode mode)
   }
 }
 
+// Look up numeric function IDs from the loaded SOUP catalog. Unknown names
+// currently fall back to ID zero, so catalog correctness matters here.
 void RedguardsScriptParser::parseTask(const QString& line, bool writeBytes)
 {
   const int openParen = line.indexOf('(');
@@ -435,6 +443,8 @@ void RedguardsScriptParser::parseTask(const QString& line, bool writeBytes)
   mCurrentTask.clear();
 }
 
+// Emit a placeholder end position before the nested block, then rewrite
+// it once the compiled block has established the final byte offset.
 void RedguardsScriptParser::parseIf(const QStringList& lineSplit)
 {
   int conjunction;

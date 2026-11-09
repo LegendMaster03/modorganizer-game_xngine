@@ -9,6 +9,8 @@
 // data carries water information in BS6 WATR chunks, now handled by BattlespireBs6;
 // no real Battlespire WATER.TBL resource or production caller is currently established.
 // Retain this adapter for compatibility/research only until original-game evidence exists.
+// This compatibility adapter uses the shared TBL helper to read and write
+// fixed 256-byte tables without decoding the individual byte meanings.
 class BattlespireWaterTbl
 {
 public:

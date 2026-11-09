@@ -8,8 +8,9 @@
 
 /**
  * Stores script line changes for map files under their map name and position.
- * Deletions are represented by a null string at position [0].
- * Insertions are the other elements, guaranteed to not be null.
+ * Deletions are represented by the literal string "null" as the first
+ * element of a position's change list. Other entries are insertions,
+ * including empty strings; a null QString is not the deletion marker.
  */
 class RedguardsMapChanges
 {

@@ -14,6 +14,8 @@ constexpr int kRowWidth = 1001;
 
 }  // namespace
 
+// POLITIC.PAK stores 500 compressed 1,001-byte rows. Sort row offsets
+// to find the physical compressed span without assuming logical row order.
 bool DaggerfallPoliticPak::load(const QString& filePath, Data& outData, QString* errorMessage)
 {
   outData = {};
@@ -73,6 +75,8 @@ bool DaggerfallPoliticPak::load(const QString& filePath, Data& outData, QString*
                                               QString("POLITIC.PAK row %1: %2").arg(row).arg(pakError));
     }
 
+    // Normalize malformed rows to the expected grid width; use 64 for
+    // missing pixels and preserve the original-size discrepancy as a warning.
     if (unpacked.size() != kRowWidth) {
       Daggerfall::FormatUtil::appendWarning(
           outData.warning, QString("row %1 decompresses to %2 bytes (expected %3)")
@@ -103,6 +107,8 @@ int DaggerfallPoliticPak::valueAt(const Data& data, int x, int y)
   return static_cast<quint8>(row.at(x));
 }
 
+// 64 identifies water; 128..233 map to numbered regions. Return a
+// distinct unknown sentinel for values outside those observed ranges.
 int DaggerfallPoliticPak::regionFromValue(int value)
 {
   if (value == 64) {

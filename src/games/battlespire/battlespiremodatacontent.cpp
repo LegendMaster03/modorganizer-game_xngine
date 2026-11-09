@@ -4,6 +4,8 @@
 
 #include <algorithm>
 
+// This UI-only categorization is separate from the install policy and
+// from validating executable patch or archive payloads.
 std::vector<int> BattlespireModDataContent::getContentsFor(
     std::shared_ptr<const MOBase::IFileTree> fileTree) const
 {

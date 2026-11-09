@@ -30,6 +30,8 @@ bool removeDirRecursive(const QString& path)
   return dir.removeRecursively();
 }
 
+// Merge source files into an existing generated output directory. Existing
+// destination files are replaced; an unsuccessful copy has no rollback.
 bool copyDirectoryContents(const QString& sourceDir, const QString& destDir)
 {
   QDir src(sourceDir);
@@ -64,6 +66,8 @@ bool copyDirectoryContents(const QString& sourceDir, const QString& destDir)
   return true;
 }
 
+// Prefer a previously generated output file before the installed game's
+// original. Later patches can therefore build on an earlier patch result.
 bool resolveBaseFilePath(const QString& tempModPath, const QString& gameDir,
                          const QString& fileName, QString& basePath,
                          QString& relativeSubdir)
@@ -166,6 +170,8 @@ QString resolveConfiguredItemIniFilename(const QString& tempModPath, const QStri
                                          QStringLiteral("ITEM.INI"));
 }
 
+// The changes format uses unindented filenames and indented section/entry
+// lines; indentation is semantic, not just cosmetic whitespace.
 QMap<QString, QMap<QString, QMap<QString, QString>>>
 parseIniChanges(const QString& changesFilePath)
 {

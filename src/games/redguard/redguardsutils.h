@@ -29,6 +29,8 @@ public:
   static void writeLittleEndianInt(QIODevice* output, int32_t value);
   static void writeString(QIODevice* output, const QString& str);
 
+  // Callers must supply the correct endianness for each on-disk field.
+  // These helpers perform conversion, not bounds validation for a file.
   // Byte array conversions
   static int32_t byteArrayToInt(const QByteArray& array, bool littleEndian = true);
   static int32_t byteRangeToInt(const QByteArray& array, int start, int length,

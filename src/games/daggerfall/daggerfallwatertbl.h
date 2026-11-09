@@ -5,6 +5,9 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Reads and writes Daggerfall's fixed 256-byte water lookup table using
+// the shared TBL format helper without interpreting its individual values.
+
 class DaggerfallWaterTbl
 {
 public:

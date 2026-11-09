@@ -11,6 +11,9 @@ namespace MOBase
 class IPluginGame;
 }
 
+// Classic Bethesda-style INI/dummy-BSA invalidation adapter. A derived
+// game must supply the archive name/version and register this feature;
+// this base class alone does not establish that any XnGine title uses it.
 class XngineBSAInvalidation : public MOBase::BSAInvalidation
 {
 public:

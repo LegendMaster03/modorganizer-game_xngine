@@ -7,6 +7,8 @@
 
 class XngineWldFormat;
 
+// Redguard-specific view of the shared WLD parser. Four 128x128 sections
+// can be combined into a 256x256 plane; unknown fields remain available.
 class RedguardsWld
 {
 public:

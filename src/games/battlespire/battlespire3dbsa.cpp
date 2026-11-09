@@ -95,6 +95,8 @@ qsizetype computeFaceSectionEnd(const QByteArray& data, const Xngine3dFormat::He
   return pos;
 }
 
+// The v2.7 compatibility path is attempted only when 10-byte face headers
+// reach the declared normals offset but 8-byte headers do not.
 bool readNativeFaceHeaders(const QByteArray& data, const Xngine3dFormat::Header& header,
                            QVector<Battlespire3dBsa::NativeFaceHeader>& outHeaders,
                            QString* errorMessage)
@@ -130,6 +132,8 @@ bool readNativeFaceHeaders(const QByteArray& data, const Xngine3dFormat::Header&
   return true;
 }
 
+// Convert the native ten-byte face headers to the eight-byte layout expected by
+// the shared parser, adjusting subsequent section offsets in a copy.
 QByteArray normalizeNativeTenByteFaces(const QByteArray& data,
                                        const Xngine3dFormat::Header& header,
                                        QString* errorMessage)
@@ -204,6 +208,8 @@ QByteArray normalizeNativeTenByteFaces(const QByteArray& data,
   return out;
 }
 
+// Prefer unchanged v2.x parsing. Only when the v2.7 extended layout is
+// plausible do we try two normalizations; a warning records the workaround.
 bool parseBattlespireMeshData(const QByteArray& data,
                               Battlespire3dBsa::NativeMeshRecord& outMesh,
                               QString* errorMessage)

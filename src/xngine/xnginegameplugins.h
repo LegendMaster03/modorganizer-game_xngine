@@ -6,6 +6,8 @@
 #include <gameplugins.h>
 #include <imoinfo.h>
 
+// Classic XnGine integrations do not manage an ESP/ESM-style plugin file
+// load order through this required MO2 feature interface.
 class XngineGamePlugins : public MOBase::GamePlugins
 {
 public:

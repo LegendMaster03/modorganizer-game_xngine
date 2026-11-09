@@ -10,6 +10,9 @@
 
 #include <xngine3dformat.h>
 
+// Battlespire archive mesh wrapper around shared Xngine3dFormat. Some
+// v2.7 records require a heuristic face-header normalization; success
+// does not prove every original field was reconstructed losslessly.
 class Battlespire3dBsa
 {
 public:

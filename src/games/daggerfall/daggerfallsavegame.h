@@ -18,6 +18,8 @@ class GameDaggerfall;
  * Daggerfall-specific save game handler.
  * Daggerfall saves are numbered SAVE0 through SAVE5 (6 save slots)
  */
+// Directory-based save reader. The parsed summaries include both
+// structural observations and heuristic interpretations of legacy data.
 class DaggerfallsSaveGame : public XngineSaveGame
 {
 public:
@@ -37,6 +39,8 @@ private:
     qsizetype payloadLength = 0;
   };
 
+  // Track malformed or adjusted record boundaries separately from the
+  // count of records that could still be decoded for diagnostics.
   struct RecordParseStats
   {
     int zeroLengthSeparators = 0;
@@ -80,6 +84,8 @@ private:
                                                      qsizetype startOffset,
                                                      qsizetype* endOffset,
                                                      RecordParseStats* stats);
+  // The stream start is inferred from plausible bounded candidates,
+  // not assumed to be a universal fixed SAVETREE.DAT offset.
   static std::vector<ParsedRecord> findBestRecordStream(const QByteArray& data,
                                                         qsizetype* startOffset,
                                                         qsizetype* endOffset,
@@ -136,6 +142,8 @@ private:
   QMap<quint8, int> m_SaveTreeRecordTypeCounts;
   RecordParseStats m_RecordParseStats;
   int m_SaveTreeRootRecordCount = 0;
+  // Parent references are resolved after record discovery. A missing
+  // parent is not automatically proof that the save is unusable.
   int m_SaveTreeOrphanRecordCount = 0;
   int m_SaveTreeParentTypeMismatchCount = 0;
 

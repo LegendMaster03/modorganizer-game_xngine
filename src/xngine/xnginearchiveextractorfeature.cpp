@@ -23,6 +23,8 @@ XngineArchiveExtractorFeature::XngineArchiveExtractorFeature(const GameXngine* g
   : m_Game(game)
 {}
 
+// File-extension filters help MO2 present likely archives. They are not
+// the same as verifying a file's actual BSA structure.
 QStringList XngineArchiveExtractorFeature::supportedArchiveNameFilters() const
 {
   QStringList filters;
@@ -43,6 +45,8 @@ QStringList XngineArchiveExtractorFeature::supportedArchiveNameFilters() const
   return filters;
 }
 
+// Recognition is based on parsing, not only the table of known basenames.
+// A known file also receives its game-declared archive variant hint.
 bool XngineArchiveExtractorFeature::supportsArchive(const QString& archivePath) const
 {
   if (!m_Game) {
@@ -69,6 +73,8 @@ bool XngineArchiveExtractorFeature::supportsArchive(const QString& archivePath) 
                                       m_Game->bsaTraits());
 }
 
+// Forward to the game-specific archive wrapper; progress callbacks are not
+// yet reported by this implementation.
 bool XngineArchiveExtractorFeature::extractArchive(const QString& archivePath,
                                                    const QString& outputDirectory,
                                                    const ProgressCallback& progress,
@@ -90,6 +96,8 @@ bool XngineArchiveExtractorFeature::extractArchive(const QString& archivePath,
   return m_Game->unpackXngineBsaArchive(archivePath, outputDirectory, errorMessage);
 }
 
+// This checks known filenames, not whether the spec has a known index type.
+// packKnownXngineBsaArchive performs that stricter check when invoked.
 bool XngineArchiveExtractorFeature::canCreateArchive(const QString& archivePath) const
 {
   return m_Game != nullptr &&

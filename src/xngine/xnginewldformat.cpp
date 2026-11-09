@@ -78,6 +78,8 @@ void appendBig(QByteArray& out, T value)
   out.append(reinterpret_cast<const char*>(&tmp), static_cast<qsizetype>(sizeof(T)));
 }
 
+// Infer the layout from size and header plausibility, not the filename.
+// Redguard's four-section map and Daggerfall's woods table are distinct.
 XngineWldFormat::Variant detectVariant(const QByteArray& bytes)
 {
   if (bytes.size() == kRgTotalBytes) {
@@ -99,6 +101,8 @@ XngineWldFormat::Variant detectVariant(const QByteArray& bytes)
   return XngineWldFormat::Variant::Auto;
 }
 
+// Preserve unusual woods metadata as warnings when possible; parsing a
+// plausible header does not establish that all declared dimensions agree.
 bool readDaggerfallWoods(const QByteArray& bytes, XngineWldFormat::Document& outDocument,
                          QString* errorMessage, bool strictValidation)
 {
@@ -328,6 +332,8 @@ bool writeDaggerfallWoods(const QString& filePath, const XngineWldFormat::Docume
   return true;
 }
 
+// Four big-endian section headers each precede four 128x128 byte planes.
+// Extra trailing bytes are reported, while undersized files are rejected.
 bool readRedguardWld(const QByteArray& bytes, XngineWldFormat::Document& outDocument,
                      QString* errorMessage, bool strictValidation)
 {
@@ -452,6 +458,8 @@ bool writeRedguardWld(const QString& filePath, const XngineWldFormat::Document& 
 
 }  // namespace
 
+// The caller may force a format through Traits rather than trusting the
+// heuristic variant detector for ambiguous files.
 bool XngineWldFormat::readFile(const QString& filePath, Document& outDocument,
                                QString* errorMessage, const Traits& traits)
 {

@@ -14,6 +14,8 @@ constexpr int kRowWidth = 1001;
 
 }  // namespace
 
+// CLIMATE.PAK holds 500 compressed rows of 1,001 values. Each row offset
+// is relative to the table's end; the next larger offset bounds its run.
 bool DaggerfallClimatePak::load(const QString& filePath, Data& outData, QString* errorMessage)
 {
   outData = {};
@@ -73,6 +75,8 @@ bool DaggerfallClimatePak::load(const QString& filePath, Data& outData, QString*
                                               QString("CLIMATE.PAK row %1: %2").arg(row).arg(pakError));
     }
 
+    // Retain a fixed-size decoded grid even for malformed row lengths;
+    // report the discrepancy and pad with the existing value 223.
     if (unpacked.size() != kRowWidth) {
       Daggerfall::FormatUtil::appendWarning(
           outData.warning, QString("row %1 decompresses to %2 bytes (expected %3)")
@@ -103,6 +107,8 @@ int DaggerfallClimatePak::valueAt(const Data& data, int x, int y)
   return static_cast<quint8>(row.at(x));
 }
 
+// Known climate codes map to texture identifiers; unrecognized values
+// retain their raw code with empty texture lookup fields.
 DaggerfallClimatePak::TextureMapping DaggerfallClimatePak::mappingForValue(int value)
 {
   switch (value) {

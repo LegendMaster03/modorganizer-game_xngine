@@ -260,6 +260,8 @@ bool DaggerfallFallExeHacks::findPatchSetById(const QVector<PatchSet>& sets, con
   return false;
 }
 
+// The optional expected-byte check is the only source-content precondition
+// here; validating JSON structure does not prove a version match.
 bool DaggerfallFallExeHacks::verifyPatchSet(const QByteArray& exeData, const PatchSet& set,
                                             QString* errorMessage)
 {
@@ -293,6 +295,8 @@ bool DaggerfallFallExeHacks::verifyPatchSet(const QByteArray& exeData, const Pat
   return true;
 }
 
+// Verify every edit against the unchanged input for this set, then apply
+// replacements. The caller is responsible for any wider rollback policy.
 bool DaggerfallFallExeHacks::applyPatchSet(QByteArray& exeData, const PatchSet& set,
                                            QString* errorMessage)
 {

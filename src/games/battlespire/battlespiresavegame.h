@@ -8,6 +8,9 @@
 
 class GameBattlespire;
 
+// A Battlespire slot may contain multiple separate payload files. Developer
+// validation flags record missing/suspicious data rather than proving that
+// a save is corrupted or externally modified.
 class BattlespireSaveGame : public XngineSaveGame
 {
 public:

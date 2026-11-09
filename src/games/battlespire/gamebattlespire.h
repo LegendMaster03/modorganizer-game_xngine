@@ -8,6 +8,8 @@
 #include <QString>
 #include <QDir>
 
+// Battlespire-specific save discovery, archive traits, and executable
+// patch staging extend the common XnGine MO2 integration.
 class GameBattlespire : public GameXngine
 {
   Q_OBJECT
@@ -75,6 +77,8 @@ private:
   void ensureExePatchCleanupHook();
   void cleanupExePatchOutputMod() const;
   bool m_ExePatchCleanupHookRegistered = false;
+  // Cache last reported patch/tool status to avoid repeating identical
+  // diagnostics during successive launch preparations.
   mutable QString m_LastXdeltaToolStatus;
   mutable QString m_LastExePatchUiStatus;
   QString findInRegistry(HKEY baseKey, LPCWSTR path, LPCWSTR value) const;

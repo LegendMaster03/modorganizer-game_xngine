@@ -5,6 +5,8 @@
 #include <QVector>
 #include <QtGlobal>
 
+// Lookup labels for known TEXT.RSC ID ranges. A range match is a
+// reference category, not validation of an individual record's payload.
 class DaggerfallTextRscIndices
 {
 public:
