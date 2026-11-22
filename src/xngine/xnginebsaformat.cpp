@@ -122,8 +122,8 @@ QByteArray decompressBattlespireLzss(const QByteArray& input)
 
 }  // namespace
 
-// The container has a count/type header, record payloads, then fixed-size
-// descriptors at the end. Per-game traits decide any permitted exceptions.
+// The common implementation model contains a count/type header, payload
+// records, and end-positioned descriptors. Per-game traits govern exceptions.
 bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
                                   QString* errorMessage, const Traits& traits)
 {
@@ -245,8 +245,8 @@ bool XngineBSAFormat::readArchive(const QString& filePath, Archive& outArchive,
         return setError(errorMessage,
                         "Compressed records are not supported for this game");
       }
-      // Passthrough preserves encoded bytes. Otherwise the configured
-      // decoder produces unpacked data but the entry retains its flag.
+      // Passthrough retains encoded record bytes. Otherwise the configured
+      // decoder produces unpacked data while the entry retains its compressed flag.
       if (traits.allowCompressedPassthroughRead) {
         entry.data = data;
       } else if (traits.compressionMode == CompressionMode::BattlespireLzss) {

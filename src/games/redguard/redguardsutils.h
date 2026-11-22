@@ -8,8 +8,8 @@
 #include <cstdint>
 
 /**
- * Utility functions for binary file I/O and encoding (Redguard game files).
- * Matches the Java Utils class from the Redguard Mod Manager.
+ * Utility functions for binary file I/O and compatibility text handling.
+ * Format-specific encodings remain the responsibility of each format reader/writer.
  */
 class RedguardsUtils
 {

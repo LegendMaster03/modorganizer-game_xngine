@@ -180,7 +180,7 @@ QString ArenaSaveGame::getGameDetails() const
       lines << QString("Detail Raw: 0x%1").arg(m_DetailRaw, 8, 16, QChar('0'));
     }
 
-    // Quick integrity snapshot for canonical Arena save bundle companions.
+    // Quick structural snapshot of observed Arena save-bundle companions.
     const QStringList companions = {"AUTOMAP", "IN", "LOG", "SAVEGAME",
                                     "SPELLS", "STATES", "WILDPAL"};
     const QSet<QString> optionalCompanions = {"IN", "WILDPAL"};

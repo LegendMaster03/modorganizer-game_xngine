@@ -18,7 +18,8 @@ struct RedguardsRtxEntry
   bool doubleSize = false;
 
   /**
-   * Calculate the total length of this entry in the RTX file.
+   * Calculate the entry payload length. Subtitle and label byte lengths,
+   * rather than decoded character counts, must be used for binary framing.
    */
   int length() const
   {
@@ -36,7 +37,6 @@ struct RedguardsRtxEntry
  * SYSTEM.INI `rtx_filename`.
  * Handles reading, modifying, and writing subtitle/audio data.
  * File format: entries with label, subtitle, optional audio, then reverse index.
- * Based on the Java RtxDatabase implementation from Redguard Mod Manager.
  */
 class RedguardsRtxDatabase
 {

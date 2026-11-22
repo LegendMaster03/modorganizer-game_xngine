@@ -37,7 +37,7 @@ int32_t RedguardsUtils::readLittleEndianInt(QIODevice* input)
 QString RedguardsUtils::readString(QIODevice* input, int n)
 {
   QByteArray bytes = readBytes(input, n);
-  // Use Latin1 encoding (matches Java implementation)
+  // Redguard text fields use Latin-1 encoding.
   return QString::fromLatin1(bytes);
 }
 
@@ -151,3 +151,5 @@ QString RedguardsUtils::readString(const QByteArray& array, int offset, int leng
   // Use Latin1 encoding
   return QString::fromLatin1(bytes);
 }
+
+// Compatibility implementation uses Latin-1; format-specific readers may use another encoding.

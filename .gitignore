@@ -68,9 +68,6 @@ config/local.env.json
 tools/local_backup/
 *.local.bat
 *.local.ps1
-src/games/battlespire/LEVELS_FORMAT.md
-src/games/battlespire/LEVELS.TXT
-*.md
 
 # Temporary extractor tooling and outputs
 src/temp_bsa_extract/

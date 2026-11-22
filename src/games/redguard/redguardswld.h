@@ -20,10 +20,10 @@ public:
     struct Section
     {
       QVector<quint16> headerWords;
-      QVector<quint8> map1;  // height/flags
-      QVector<quint8> map2;  // unknown (usually zero)
-      QVector<quint8> map3;  // texture index + rotation
-      QVector<quint8> map4;  // unknown (usually zero)
+      QVector<quint8> map1;  // implementation-observed height/flags plane
+      QVector<quint8> map2;  // uninterpreted plane (often zero)
+      QVector<quint8> map3;  // implementation-observed texture/rotation plane
+      QVector<quint8> map4;  // uninterpreted plane (often zero)
     };
 
     QVector<Section> sections;

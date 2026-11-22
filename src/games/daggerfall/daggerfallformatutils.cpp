@@ -36,8 +36,8 @@ bool readU8(const QByteArray& data, qsizetype off, quint8& value)
   return true;
 }
 
-// All binary reads validate the requested byte span before conversion;
-// a failed read does not silently advance a shared cursor.
+// Shared bounded little-endian helpers validate their requested byte span
+// before conversion; format-specific parsers may still apply heuristic semantics.
 bool readLE16(const QByteArray& data, qsizetype off, qint16& value)
 {
   if (off < 0 || off + 2 > data.size()) {

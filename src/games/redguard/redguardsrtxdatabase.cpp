@@ -38,8 +38,8 @@ bool RedguardsRtxDatabase::readFile(const QString& filePath)
       break;
     }
 
-    // Read total length (4 bytes, BIG ENDIAN) - not needed, but must read to advance
-    // position
+    // Read the entry TotalLength field (big-endian). The reader advances past
+    // it but does not currently use it to independently validate record bounds.
     QByteArray totalLengthBytes(4, 0);
     if (file.read(totalLengthBytes.data(), 4) != 4) {
       break;
@@ -64,9 +64,8 @@ bool RedguardsRtxDatabase::readFile(const QString& filePath)
       subtitleLength |= ((unsigned char)subtitleLenBytes[i] << (8 * i));
     }
 
-    // Sanity check on subtitle length
+    // Parser safety limit; the 100 MB cap is implementation-defined.
     if (subtitleLength < 0 || subtitleLength > 1000000) {
-      // Invalid length, skip this entry
       break;
     }
 
@@ -178,7 +177,7 @@ bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
     }
     const RedguardsRtxEntry& entry = mEntries[label];
 
-    // Write label (ALWAYS exactly 4 bytes, padded with nulls)
+    // Write label (a four-byte field; this writer null-pads short labels)
     QByteArray labelBytes(4, 0);
     QByteArray labelStr = entry.label.toLatin1();
     int copyLen = qMin(4, labelStr.length());
@@ -193,9 +192,8 @@ bool RedguardsRtxDatabase::writeFile(const QString& filePath) const
     output.append(QByteArray(4, 0));
     totalBytes += 4;
 
-    // Save position for reverse index.
-    // The Java/reference implementation stores the offset immediately after
-    // the label+length header, not the entry start.
+    // Save the reverse-index offset immediately after the label+length
+    // header, rather than at the entry payload start.
     entryPositions.append(totalBytes);
 
     // Write hasAudio flag (2 bytes)
@@ -415,13 +413,13 @@ QString RedguardsRtxDatabase::readString(const QByteArray& data, int offset,
   if (offset + length > data.size()) {
     return "";
   }
-  // Use Latin1 encoding per Java implementation
+  // RTX text fields use Latin-1 encoding.
   return QString::fromLatin1(data.mid(offset, length));
 }
 
 QByteArray RedguardsRtxDatabase::writeString(const QString& str)
 {
-  // Use Latin1 encoding per Java implementation
+  // Compatibility encoder; the RTX spec records IBM437 in the Java toolchain.
   QByteArray bytes = str.toLatin1();
   // Ensure exact length, pad with spaces if needed
   if (bytes.length() < str.length()) {

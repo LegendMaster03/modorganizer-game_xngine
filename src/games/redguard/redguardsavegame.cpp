@@ -1174,17 +1174,17 @@ QString formatChunkTable(const QList<SaveChunkRow>& rows)
 
 qsizetype findThumbnailSignature(const QByteArray& bytes)
 {
-  constexpr qsizetype kCanonicalOffset = 0x118;
-  constexpr qsizetype kHeaderBytes     = 8;
+  constexpr qsizetype kObservedThumbnailOffset = 0x118;
+  constexpr qsizetype kHeaderBytes = 8;
 
-  if (bytes.size() >= kCanonicalOffset + kHeaderBytes &&
-      bytes.mid(kCanonicalOffset, 4) == "THMB") {
-    const quint32 canonicalPayloadLen = qFromBigEndian<quint32>(
-        reinterpret_cast<const uchar*>(bytes.constData() + kCanonicalOffset + 4));
-    const qsizetype canonicalPayloadOff = kCanonicalOffset + kHeaderBytes;
-    if (canonicalPayloadLen > 0 &&
-        canonicalPayloadOff + static_cast<qsizetype>(canonicalPayloadLen) <= bytes.size()) {
-      return kCanonicalOffset;
+  if (bytes.size() >= kObservedThumbnailOffset + kHeaderBytes &&
+      bytes.mid(kObservedThumbnailOffset, 4) == "THMB") {
+    const quint32 observedPayloadLen = qFromBigEndian<quint32>(
+        reinterpret_cast<const uchar*>(bytes.constData() + kObservedThumbnailOffset + 4));
+    const qsizetype observedPayloadOff = kObservedThumbnailOffset + kHeaderBytes;
+    if (observedPayloadLen > 0 &&
+        observedPayloadOff + static_cast<qsizetype>(observedPayloadLen) <= bytes.size()) {
+      return kObservedThumbnailOffset;
     }
   }
 
@@ -1828,7 +1828,7 @@ bool RedguardsSaveGame::parseSaveHeader()
   m_SaveTitle = readFixedCString(bytes, 0x14, 128);
   m_HasThumbnail = (bytes.indexOf("THMB") >= 0);
 
-  // Redguard has a fixed protagonist.
+  // The current save parser uses the fixed game protagonist name, Cyrus.
   m_PCName = QStringLiteral("Cyrus");
 
   parseStructuredMetadata(bytes);
@@ -1845,10 +1845,10 @@ void RedguardsSaveGame::parseStructuredMetadata(const QByteArray& bytes)
 {
   constexpr qsizetype kTailScanOffset = 0;
 
-  // In SAVEGAME.SAV, the trailing bounded-valid SVIT chunk is a fixed-stride item table:
+  // In SAVEGAME.SAV, the trailing bounded-valid SVIT chunk currently models a fixed-stride item table:
   // item ID n lives at base (n * 0x16), and current_count[n] is LE u32 at base + 0x0A.
-  // This layout is confirmed for the 0x768-byte SAVEGAME.SAV payload. SVIT also appears in
-  // some TSG files, but those variants should not be interpreted with SAVEGAME.SAV semantics.
+  // This layout is medium-confidence and currently confirmed in the 0x768-byte corpus payload.
+  // SVIT also appears in some TSG files, but those variants must not use SAVEGAME.SAV semantics.
   qsizetype svitOffset = -1;
   quint32 svitLen = 0;
   m_Gold = 0;
@@ -1870,8 +1870,9 @@ void RedguardsSaveGame::parseStructuredMetadata(const QByteArray& bytes)
     m_StrengthPotions = readSvitCurrentCount(svit, svitLen, 67);
   }
 
-  // SVMD contains location/state records. We now read these directly by their
-  // fixed retail layout instead of regex-scanning the whole payload for tokens.
+  // SVMD contains location/state records. The current parser models the observed direct
+  // retail layout rather than regex-scanning the whole payload for tokens; active-record
+  // and user-facing location semantics remain partially unproven.
   qsizetype svmdOffset = -1;
   quint32 svmdLen = 0;
   m_SaveSvmdPayload.clear();
@@ -2043,7 +2044,7 @@ std::unique_ptr<XngineSaveGame::DataFields> RedguardsSaveGame::fetchDataFields()
 
   XnginePaletteFormat::Palette activePalette;
   bool hasActivePalette = false;
-  if (m_Game != nullptr) {
+                                                                                                                                 if (m_Game != nullptr) {
     const QHash<QString, XnginePaletteFormat::Palette> palettesByBasename =
         loadCachedMapPalettes(m_Game);
     QSet<QString> paletteCandidates;

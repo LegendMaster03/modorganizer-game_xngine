@@ -61,9 +61,9 @@ bool isLegacy3dcVersion(Redguards3d::VersionTag versionTag)
   }
 }
 
-// Some legacy 3DC headers identify a vertex-data offset inconsistent
-// with face data. Derive an alternate offset from bounded face records
-// and the frame header only when those sections are internally plausible.
+// Legacy 3DC headers may identify a vertex offset inconsistent with face data.
+// Only derive an alternate offset as a bounded compatibility heuristic when
+// the face records and frame header are internally plausible.
 bool computeLegacy3dcPointListOffset(const QByteArray& data,
                                      const Redguards3d::Header& header,
                                      qint32& outOffset)

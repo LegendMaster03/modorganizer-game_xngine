@@ -17,7 +17,7 @@ RedguardsMapFile::RedguardsMapFile(RedguardsMapDatabase* mapDatabase, const QStr
 {
 }
 
-// RGM records use four-byte tags and big-endian signed lengths. A malformed
+// RGM records use four-byte tags and big-endian unsigned section lengths. A malformed
 // or short section ends scanning; this reader may still report success with
 // the records it has accumulated, so it is not strict integrity validation.
 bool RedguardsMapFile::readMap(const QString& filePath)

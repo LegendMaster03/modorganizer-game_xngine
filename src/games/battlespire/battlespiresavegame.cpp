@@ -394,8 +394,8 @@ bool BattlespireSaveGame::parseSaveName()
 }
 
 // SAVETREE contains a 4-byte header followed by length-prefixed records;
-// their stored length excludes the 4-byte length field. Keep parsing within
-// each record's boundary rather than trusting offsets in malformed saves.
+// their stored length excludes the following 4-byte length field. Record
+// boundaries are enforced during parsing; malformed-save offsets are not trusted.
 bool BattlespireSaveGame::parseSaveTree()
 {
   QFile saveTreeFile(saveFilePath("SAVETREE.DAT"));

@@ -9,7 +9,8 @@
 #include <QVector>
 
 // Chunked image archive. Type-0 pixels are raw indexed bytes, while
-// encoded type-1/type-2 payloads are retained without a full decoder.
+// Type-1 and type-2 payloads are retained without a fully verified decoder;
+// successful container parsing does not imply successful pixel reconstruction.
 class RedguardsGxaFormat
 {
 public:

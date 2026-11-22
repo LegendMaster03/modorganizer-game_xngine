@@ -332,8 +332,8 @@ bool writeDaggerfallWoods(const QString& filePath, const XngineWldFormat::Docume
   return true;
 }
 
-// Four big-endian section headers each precede four 128x128 byte planes.
-// Extra trailing bytes are reported, while undersized files are rejected.
+// Read four 128x128 Redguard section planes with implementation-observed
+// section headers. Header-field semantics remain partly unresolved.
 bool readRedguardWld(const QByteArray& bytes, XngineWldFormat::Document& outDocument,
                      QString* errorMessage, bool strictValidation)
 {

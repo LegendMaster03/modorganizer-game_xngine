@@ -15,8 +15,9 @@ class GameRedguard;
  * Redguard-specific save game handler.
  * Redguard saves are folders named SAVEGAME.XXX containing SAVEGAME.SAV
  */
-// Redguard's SAVEGAME.XXX slots contain a SAVEGAME.SAV payload and may
-// have auxiliary files. Location candidates are not all confirmed locations.
+// Redguard save slots may contain SAVEGAME.SAV plus auxiliary files. TSG-only
+// and incomplete variants are handled separately; location candidates are evidence,
+// not confirmed user-facing locations.
 class RedguardsSaveGame : public XngineSaveGame
 {
 public:

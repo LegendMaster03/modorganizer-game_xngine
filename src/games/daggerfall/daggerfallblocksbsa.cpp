@@ -253,9 +253,8 @@ bool parseRmbBlockData(const QByteArray& data, qsizetype& cursor,
   return true;
 }
 
-// The 6,776-byte fixed header precedes counted exterior/interior block
-// pairs and model/flat lists. Preserve raw bytes and report uncertain extra
-// content as warnings rather than inventing missing schema fields.
+// Interpret the repository's modeled 6,776-byte RMB header. Preserve raw
+// bytes and report uncertain extra content rather than inventing missing fields.
 bool parseRmb(const QByteArray& data, DaggerfallBlocksBsa::RmbRecord& outRmb, QString* errorMessage)
 {
   outRmb = {};
